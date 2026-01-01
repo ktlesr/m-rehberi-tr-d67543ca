@@ -232,7 +232,7 @@ const AnsweredQuestionsSection = () => {
 
   if (loading) {
     return (
-      <section className="py-16 bg-gray-50" data-answered-section>
+      <section className="py-8 bg-gray-50" data-answered-section>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
@@ -427,7 +427,7 @@ const AnsweredQuestionsSection = () => {
   );
 
   return (
-    <section className="py-16 bg-gray-50" data-answered-section>
+    <section className="py-8 bg-gray-50" data-answered-section>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Desktop/Tablet: Sticky overlay - h-0 ile başlığı itmez */}
         <div className="sticky top-24 z-50 h-0 pointer-events-none hidden sm:flex justify-end">
