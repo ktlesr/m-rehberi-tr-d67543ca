@@ -1,22 +1,35 @@
 /**
- * SECURITY NOTE: This component now uses the secure public_qna_view instead of 
+ * SECURITY NOTE: This component now uses the secure public_qna_view instead of
  * direct access to the soru_cevap table. The view excludes ALL personal data
- * (names, emails, phone numbers) to protect customer privacy while still 
+ * (names, emails, phone numbers) to protect customer privacy while still
  * providing public access to approved Q&A content.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Search, MessageCircle, Calendar, MapPin, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, MessageSquare, Plus, Minus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { supabase } from '@/integrations/supabase/client';
-import { Question } from '@/types/qna';
-import { toast } from '@/hooks/use-toast';
-import SoruSorModal from '@/components/SoruSorModal';
-import { adminSettingsService, QnaDisplayMode } from '@/services/adminSettingsService';
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Search,
+  MessageCircle,
+  Calendar,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  Plus,
+  Minus,
+  CircleCheckBig,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { supabase } from "@/integrations/supabase/client";
+import { Question } from "@/types/qna";
+import { toast } from "@/hooks/use-toast";
+import SoruSorModal from "@/components/SoruSorModal";
+import { adminSettingsService, QnaDisplayMode } from "@/services/adminSettingsService";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -25,13 +38,13 @@ const AnsweredQuestionsSection = () => {
   const [allQuestionsForSearch, setAllQuestionsForSearch] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [totalAnsweredCount, setTotalAnsweredCount] = useState(0);
   const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [isSearchMode, setIsSearchMode] = useState(false);
-  const [displayMode, setDisplayMode] = useState<QnaDisplayMode>('card');
+  const [displayMode, setDisplayMode] = useState<QnaDisplayMode>("card");
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
   // Fetch display mode and total count on mount
@@ -67,7 +80,7 @@ const AnsweredQuestionsSection = () => {
       const mode = await adminSettingsService.getQnaDisplayMode();
       setDisplayMode(mode);
     } catch (error) {
-      console.error('Error fetching display mode:', error);
+      console.error("Error fetching display mode:", error);
     }
   };
 
@@ -75,14 +88,14 @@ const AnsweredQuestionsSection = () => {
     try {
       setPageLoading(true);
       const offset = (page - 1) * ITEMS_PER_PAGE;
-      
-      const { data, error } = await supabase.rpc('get_public_qna', { 
+
+      const { data, error } = await supabase.rpc("get_public_qna", {
         limit_count: ITEMS_PER_PAGE,
-        offset_count: offset 
+        offset_count: offset,
       });
 
       if (error) {
-        console.error('Error fetching questions:', error);
+        console.error("Error fetching questions:", error);
         toast({
           title: "Hata",
           description: `Sorular yüklenirken hata oluştu: ${error.message}`,
@@ -94,7 +107,7 @@ const AnsweredQuestionsSection = () => {
       const transformedData = transformQnaData(data);
       setQuestions(transformedData);
     } catch (error: any) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       toast({
         title: "Hata",
         description: `Beklenmeyen hata: ${error.message}`,
@@ -109,83 +122,86 @@ const AnsweredQuestionsSection = () => {
   const fetchAllQuestionsForSearch = async () => {
     try {
       setPageLoading(true);
-      const { data, error } = await supabase.rpc('get_public_qna', { 
+      const { data, error } = await supabase.rpc("get_public_qna", {
         limit_count: 10000,
-        offset_count: 0 
+        offset_count: 0,
       });
 
       if (error) {
-        console.error('Error fetching all questions for search:', error);
+        console.error("Error fetching all questions for search:", error);
         return;
       }
 
       const transformedData = transformQnaData(data);
       setAllQuestionsForSearch(transformedData);
     } catch (error: any) {
-      console.error('Error:', error);
+      console.error("Error:", error);
     } finally {
       setPageLoading(false);
     }
   };
 
   const transformQnaData = (data: any[]): Question[] => {
-    return data?.map(item => ({
-      ...item,
-      full_name: 'Anonim Kullanıcı',
-      email: 'Gizli',
-      phone: null,
-      answered: true,
-      sent_to_user: true,
-      sent_to_ydo: true,
-      answer_status: 'approved' as const,
-      return_status: null,
-      admin_notes: null,
-      answered_by_user_id: null,
-      approved_by_admin_id: null,
-      return_reason: null,
-      admin_sent: null,
-      return_date: null,
-      answered_by_full_name: null
-    })) || [];
+    return (
+      data?.map((item) => ({
+        ...item,
+        full_name: "Anonim Kullanıcı",
+        email: "Gizli",
+        phone: null,
+        answered: true,
+        sent_to_user: true,
+        sent_to_ydo: true,
+        answer_status: "approved" as const,
+        return_status: null,
+        admin_notes: null,
+        answered_by_user_id: null,
+        approved_by_admin_id: null,
+        return_reason: null,
+        admin_sent: null,
+        return_date: null,
+        answered_by_full_name: null,
+      })) || []
+    );
   };
 
   const fetchTotalAnsweredCount = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_public_qna_count');
+      const { data, error } = await supabase.rpc("get_public_qna_count");
       if (error) {
-        console.error('Error fetching count:', error);
+        console.error("Error fetching count:", error);
         return;
       }
       setTotalAnsweredCount(data || 0);
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
     }
   };
 
   // Filter questions in search mode
-  const filteredQuestions = isSearchMode 
-    ? allQuestionsForSearch.filter(question =>
-        question.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        question.answer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        question.province.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredQuestions = isSearchMode
+    ? allQuestionsForSearch.filter(
+        (question) =>
+          question.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          question.answer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          question.province.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     : questions;
 
   // Pagination calculations
-  const totalPages = isSearchMode 
+  const totalPages = isSearchMode
     ? Math.ceil(filteredQuestions.length / ITEMS_PER_PAGE)
     : Math.ceil(totalAnsweredCount / ITEMS_PER_PAGE);
-  
+
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedQuestions = isSearchMode 
+  const paginatedQuestions = isSearchMode
     ? filteredQuestions.slice(startIndex, startIndex + ITEMS_PER_PAGE)
     : questions; // In lazy mode, questions already contains the current page
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("tr-TR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -194,7 +210,7 @@ const AnsweredQuestionsSection = () => {
   };
 
   const toggleAnswerExpansion = (questionId: string) => {
-    setExpandedAnswers(prev => {
+    setExpandedAnswers((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(questionId)) {
         newSet.delete(questionId);
@@ -208,9 +224,9 @@ const AnsweredQuestionsSection = () => {
   const goToPage = (page: number) => {
     setCurrentPage(page);
     // Scroll to top of section
-    const section = document.querySelector('[data-answered-section]');
+    const section = document.querySelector("[data-answered-section]");
     if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -229,12 +245,7 @@ const AnsweredQuestionsSection = () => {
 
   // Render Accordion View
   const renderAccordionView = () => (
-    <Accordion
-      type="multiple"
-      value={openAccordionItems}
-      onValueChange={setOpenAccordionItems}
-      className="space-y-3"
-    >
+    <Accordion type="multiple" value={openAccordionItems} onValueChange={setOpenAccordionItems} className="space-y-3">
       {paginatedQuestions.map((question) => {
         const isOpen = openAccordionItems.includes(question.id);
         return (
@@ -243,7 +254,7 @@ const AnsweredQuestionsSection = () => {
             value={question.id}
             className="bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden"
           >
-            <AccordionTrigger className="px-6 py-4 hover:no-underline group [&[data-state=open]>div>.icon-wrapper>.plus-icon]:rotate-180 [&[data-state=open]>div>.icon-wrapper>.plus-icon]:opacity-0 [&[data-state=open]>div>.icon-wrapper>.minus-icon]:rotate-0 [&[data-state=open]>div>.icon-wrapper>.minus-icon]:opacity-100">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline group [&[data-state=open]]:border-b [&[data-state=open]]:border-primary/30 [&[data-state=open]>div>.icon-wrapper>.plus-icon]:rotate-180 [&[data-state=open]>div>.icon-wrapper>.plus-icon]:opacity-0 [&[data-state=open]>div>.icon-wrapper>.minus-icon]:rotate-0 [&[data-state=open]>div>.icon-wrapper>.minus-icon]:opacity-100">
               <div className="flex items-start gap-4 text-left w-full">
                 <div className="icon-wrapper relative flex-shrink-0 w-6 h-6 mt-0.5">
                   <Plus className="plus-icon absolute inset-0 h-6 w-6 text-primary transition-all duration-300 ease-in-out" />
@@ -253,37 +264,35 @@ const AnsweredQuestionsSection = () => {
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
                     <span className="text-sm font-medium text-primary">{question.province}</span>
-                    <Badge variant="secondary" className="text-xs">Yanıtlandı</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      Yanıtlandı
+                    </Badge>
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
                       {formatDate(question.created_at)}
                     </span>
                   </div>
-                  {!isOpen && (
-                    <p className="text-gray-800 font-medium line-clamp-2">{question.question}</p>
-                  )}
+                  {!isOpen && <p className="text-sm text-foreground font-medium line-clamp-1">{question.question}</p>}
                 </div>
               </div>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6 pt-2">
               {/* Question */}
               <div className="mb-4">
-                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-primary" />
+                <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <MessageCircle className="h-6 w-6 text-primary" />
                   Soru
                 </h4>
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
                   <p className="text-gray-800 leading-relaxed">{question.question}</p>
                 </div>
               </div>
-              
+
               {/* Answer */}
               {question.answer && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                    <div className="h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
-                      <div className="h-2 w-2 bg-white rounded-full"></div>
-                    </div>
+                  <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <CircleCheckBig className="h-6 w-6 text-green-500" />
                     Cevap
                   </h4>
                   <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
@@ -332,7 +341,7 @@ const AnsweredQuestionsSection = () => {
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent className="pt-0">
             <div className="space-y-4">
               {/* Question */}
@@ -379,9 +388,11 @@ const AnsweredQuestionsSection = () => {
                   </h3>
                   <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
                     <div className="relative">
-                      <p className={`text-gray-800 leading-relaxed whitespace-pre-wrap ${
-                        expandedAnswers.has(question.id) ? '' : 'line-clamp-2'
-                      }`}>
+                      <p
+                        className={`text-gray-800 leading-relaxed whitespace-pre-wrap ${
+                          expandedAnswers.has(question.id) ? "" : "line-clamp-2"
+                        }`}
+                      >
                         {question.answer}
                       </p>
                       {question.answer.length > 150 && (
@@ -438,18 +449,7 @@ const AnsweredQuestionsSection = () => {
         </div>
 
         {/* Başlık */}
-        <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-4">
-            Yanıtlanmış
-            <span className="bg-gradient-to-r from-primary to-green-600 bg-clip-text text-transparent">
-              {" "}Sorular
-            </span>
-          </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-0">
-            Daha önce uzmanlarımız tarafından yanıtlanmış soruları inceleyin.
-            Aradığınız bilgiyi burada bulabilirsiniz.
-          </p>
-
+        <div className="mb-6 text-center">
           {/* Search Bar */}
           <div className="max-w-2xl mx-auto mb-8 mt-8">
             <div className="relative">
@@ -464,12 +464,12 @@ const AnsweredQuestionsSection = () => {
             </div>
           </div>
 
-          {/* Results Count */}
+          {/* Results Count 
           <div className="text-center mb-6">
             <Badge variant="outline" className="text-lg px-4 py-2">
               {searchTerm ? `${filteredQuestions.length} sonuç bulundu` : `${totalAnsweredCount} yanıtlanmış soru bulundu`}
             </Badge>
-          </div>
+          </div>*/}
         </div>
 
         {/* Questions List */}
@@ -483,15 +483,19 @@ const AnsweredQuestionsSection = () => {
               <CardContent>
                 <MessageCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {searchTerm ? 'Arama kriterlerinize uygun soru bulunamadı' : 'Henüz yanıtlanmış soru bulunmuyor'}
+                  {searchTerm ? "Arama kriterlerinize uygun soru bulunamadı" : "Henüz yanıtlanmış soru bulunmuyor"}
                 </h3>
                 <p className="text-gray-500">
-                  {searchTerm ? 'Farklı anahtar kelimeler deneyebilirsiniz.' : 'İlk soruları yanıtladığımızda burada görünecekler.'}
+                  {searchTerm
+                    ? "Farklı anahtar kelimeler deneyebilirsiniz."
+                    : "İlk soruları yanıtladığımızda burada görünecekler."}
                 </p>
               </CardContent>
             </Card>
+          ) : displayMode === "accordion" ? (
+            renderAccordionView()
           ) : (
-            displayMode === 'accordion' ? renderAccordionView() : renderCardView()
+            renderCardView()
           )}
         </div>
 
@@ -507,25 +511,27 @@ const AnsweredQuestionsSection = () => {
               <ChevronLeft className="h-4 w-4" />
               Önceki
             </Button>
-            
+
             <div className="flex items-center gap-2">
               {/* Show page numbers */}
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
                 // Show first, last, current, and adjacent pages
-                const showPage = page === 1 || 
-                                 page === totalPages || 
-                                 Math.abs(page - currentPage) <= 1;
-                
+                const showPage = page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
+
                 // Show ellipsis for gaps
                 const showEllipsisBefore = page === currentPage - 2 && currentPage > 3;
                 const showEllipsisAfter = page === currentPage + 2 && currentPage < totalPages - 2;
-                
+
                 if (showEllipsisBefore || showEllipsisAfter) {
-                  return <span key={page} className="text-gray-400 px-2">...</span>;
+                  return (
+                    <span key={page} className="text-gray-400 px-2">
+                      ...
+                    </span>
+                  );
                 }
-                
+
                 if (!showPage) return null;
-                
+
                 return (
                   <Button
                     key={page}
@@ -539,7 +545,7 @@ const AnsweredQuestionsSection = () => {
                 );
               })}
             </div>
-            
+
             <Button
               variant="outline"
               onClick={() => goToPage(currentPage + 1)}
