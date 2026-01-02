@@ -90,7 +90,9 @@ const AdminLogin = () => {
               </div>
             </div>
             <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
-            <p className="text-sm text-center text-gray-600">Admin Panele giriş yapmak için bilgilerinizi giriniz.</p>
+            <p className="text-sm text-center text-gray-600">
+              Yönetici paneline erişim için giriş bilgilerinizi girin.
+            </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
