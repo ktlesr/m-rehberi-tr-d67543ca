@@ -176,6 +176,31 @@ const TermsOfUse = () => {
               </Card>
             );
           })}
+
+          {/* reCAPTCHA Notice */}
+          <Card className="border-muted bg-muted/30">
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground text-center">
+                Bu site reCAPTCHA tarafından korunmaktadır ve Google{' '}
+                <a 
+                  href="https://policies.google.com/privacy" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="underline hover:text-foreground transition-colors"
+                >
+                  Gizlilik Politikası
+                </a>{' '}ile{' '}
+                <a 
+                  href="https://policies.google.com/terms" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="underline hover:text-foreground transition-colors"
+                >
+                  Hizmet Şartları
+                </a>{' '}geçerlidir.
+              </p>
+            </CardContent>
+          </Card>
           
           {/* Last Updated Info */}
           <div className="text-center pt-8 pb-4">
