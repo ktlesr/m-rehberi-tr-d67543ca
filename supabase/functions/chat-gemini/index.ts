@@ -1733,8 +1733,11 @@ serve(async (req) => {
             updated = true;
           } else if (!incentiveQuery.district) {
             const district = cleanDistrict(userContent);
-            incentiveQuery.district = district;
-            updated = true;
+            // "Diğer" veya benzeri varsayılan değerleri kabul etme
+            if (district && !district.toLowerCase().includes('diğer') && district.trim().length > 0) {
+              incentiveQuery.district = district;
+              updated = true;
+            }
           } else if (!incentiveQuery.osb_status) {
             const osbStatus = parseOsbStatus(userContent);
             if (osbStatus) {
@@ -1847,7 +1850,9 @@ ${incentiveQuery.province
 ${incentiveQuery.district 
   ? `✓ İlçe alındı: ${incentiveQuery.district}` 
   : incentiveQuery.province 
-    ? `○ İlçe bekleniyor - Kullanıcıya ilçeyi sor.`
+    ? `○ ⚠️ İLÇE BİLGİSİ EKSİK - KRİTİK!
+ZORUNLU: Kullanıcıya şu soruyu SOR: "${incentiveQuery.province} ilinin hangi ilçesinde yatırım yapmayı planlıyorsunuz?"
+DİKKAT: "Diğer ilçeler" gibi varsayılan değer KULLANMA! OSB sorusuna geçmeden ÖNCE ilçe bilgisi alınmalı!`
     : `○ İlçe henüz sorulacak`}
 ${incentiveQuery.osb_status 
   ? `✓ OSB Durumu: ${incentiveQuery.osb_status}` 
@@ -1910,6 +1915,12 @@ Sen bir sohbet botu (chatbot) değilsin. Sen, tanımlı veri setlerini ve SABİT
 - AKILLI ANALİZ: Kullanıcı "çorap üretimi" veya "Kütahya'da yatırım" derse, bu verileri kaydet ve bir sonraki eksik veriye geç.
 - TEK SORU: Her seferinde SADECE TEK BİR soru sor.
 - SORU CEVAPLAMA: Kullanıcı akış sırasında bilgi talep ederse (Örn: "Kütahya kaçıncı bölge?"), "Bilgi veremem" DEME. Belgeden bilgiyi bul, soruyu cevapla ve akışa kaldığın yerden devam et.
+
+⚠️ KRİTİK: İLÇE VE OSB SIRASI
+- İl alındıktan sonra MUTLAKA ilçe sorulmalı: "[İl] ilinin hangi ilçesinde yatırım yapmayı planlıyorsunuz?"
+- İlçe alınmadan OSB sorusuna GEÇİLEMEZ
+- "Diğer ilçeler" gibi varsayılan değer ATANAMAZ
+- Kullanıcı ilçe söylemezse, tekrar ilçeyi sor
 
 **SÜPER KURAL (CAZİBE MERKEZLERİ):**
 Eğer sektör "Desteklenmemektedir" sonucu veriyorsa, ÖNCE şunu kontrol et:
@@ -2077,12 +2088,19 @@ Yukarıdaki BÖLÜM 2'deki SABİT TABLOLARI kullanarak raporu doldur.
 
 ---
 
-## 6. FORMATLAMA KURALLARI (ZORUNLU)
+## 6. FORMATLAMA KURALLARI (ZORUNLU - KESİNLİKLE UYULMALI)
 
-**BAŞLIK VE DEĞERLERİ AYRI SATIRLARA YAZ:**
-* Her "Başlık:" ifadesinden ÖNCE yeni satır başlat
-* Başlıkları **kalın** yap
-* Değerleri başlığın hemen yanına yaz (aynı satırda)
+**KRİTİK KURAL - INLINE FORMAT YASAK:**
+- ASLA tek satırda birden fazla başlık-değer yazma
+- ❌ YANLIŞ: "**Yatırım Konusu:** ABC **Lokasyon:** XYZ **Program:** QWE"
+- ✅ DOĞRU: Her başlık-değer çifti AYRI SATIRDA olmalı
+
+**ZORUNLU FORMAT KURALLARI:**
+1. Her **Başlık:** ifadesinden ÖNCE boş satır bırak
+2. Başlıkları **kalın** yap (örn: **Yatırım Konusu:**)
+3. Değerleri başlığın hemen yanına yaz (aynı satırda)
+4. Listeler için tire (-) veya bullet (•) kullan
+5. BÜYÜK HARF başlık kullanma, normal metin kullan
 
 **BİTİRİŞ:** "Detaylı başvuru süreci için [İl] Yatırım Destek Ofisi ile görüşmeniz faydalı olacaktır."
 
