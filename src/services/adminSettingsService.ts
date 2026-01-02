@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AdminSetting, IncentiveCalculationSettings } from "@/types/adminSettings";
 
 export type LogoColorMode = 'all_themed' | 'graphic_themed' | 'text_themed' | 'original' | 'all_white';
-export type QnaDisplayMode = 'card' | 'accordion';
+export type QnaDisplayMode = 'card' | 'accordion' | 'minimal';
 
 export const adminSettingsService = {
   async getQnaDisplayMode(): Promise<QnaDisplayMode> {

@@ -313,6 +313,111 @@ const AnsweredQuestionsSection = () => {
     </Accordion>
   );
 
+  // Render Minimal View - Referans görsele uygun
+  const renderMinimalView = () => (
+    <Accordion 
+      type="multiple" 
+      value={openAccordionItems} 
+      onValueChange={setOpenAccordionItems} 
+      className="space-y-3"
+    >
+      {paginatedQuestions.map((question) => {
+        const isOpen = openAccordionItems.includes(question.id);
+        const provinceAbbr = question.province.substring(0, 2).toUpperCase();
+        
+        return (
+          <AccordionItem
+            key={question.id}
+            value={question.id}
+            className={`bg-white rounded-xl border overflow-hidden transition-all duration-300 ${
+              isOpen ? 'shadow-md ring-1 ring-primary/20' : 'shadow-sm hover:shadow-md'
+            }`}
+          >
+            <AccordionTrigger className="px-4 py-4 hover:no-underline">
+              <div className="flex items-center gap-3 w-full">
+                <div className="flex-shrink-0 w-6 h-6 relative">
+                  <Plus className={`absolute inset-0 h-6 w-6 text-primary transition-all duration-200 ${
+                    isOpen ? 'opacity-0 rotate-90' : 'opacity-100 rotate-0'
+                  }`} />
+                  <Minus className={`absolute inset-0 h-6 w-6 text-primary transition-all duration-200 ${
+                    isOpen ? 'opacity-100 rotate-0' : 'opacity-0 -rotate-90'
+                  }`} />
+                </div>
+                
+                <p className="flex-1 text-sm text-foreground text-left line-clamp-1">
+                  {question.question}
+                </p>
+                
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Badge variant="secondary" className="bg-primary/10 text-primary text-xs font-semibold px-2">
+                    {provinceAbbr}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {question.province}
+                  </span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {formatDate(question.created_at)}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                    isOpen ? 'rotate-180' : ''
+                  }`} />
+                </div>
+              </div>
+            </AccordionTrigger>
+            
+            <AccordionContent className="px-4 pb-4">
+              <div className="bg-purple-50 rounded-lg p-4 mb-3">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm font-semibold text-purple-600">Soru</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-purple-600">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {question.province}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(question.created_at)}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-800 leading-relaxed">
+                  {question.question}
+                </p>
+              </div>
+              
+              {question.answer && (
+                <div className="bg-green-50 rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
+                        <div className="h-2 w-2 bg-white rounded-full" />
+                      </div>
+                      <span className="text-sm font-semibold text-green-600">Cevap</span>
+                    </div>
+                    {question.answer_date && (
+                      <span className="text-xs text-green-600 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Yanıtlandı: {formatDate(question.answer_date)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    {question.answer}
+                  </p>
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
+    </Accordion>
+  );
+
   // Render Card View
   const renderCardView = () => (
     <div className="space-y-6">
@@ -494,6 +599,8 @@ const AnsweredQuestionsSection = () => {
             </Card>
           ) : displayMode === "accordion" ? (
             renderAccordionView()
+          ) : displayMode === "minimal" ? (
+            renderMinimalView()
           ) : (
             renderCardView()
           )}
