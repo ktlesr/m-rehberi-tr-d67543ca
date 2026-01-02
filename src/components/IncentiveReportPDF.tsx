@@ -43,32 +43,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.headerLine,
+    marginBottom: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary,
+    marginHorizontal: -30,
+    marginTop: -30,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logo: {
-    width: 120,
-    height: 40,
+    width: 100,
+    height: 35,
     objectFit: 'contain',
   },
   headerRight: {
     alignItems: 'flex-end',
   },
   reportTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: '#ffffff',
     textTransform: 'uppercase',
   },
   reportDate: {
     fontSize: 9,
-    color: colors.textSecondary,
+    color: '#e0e0e0',
     marginTop: 2,
   },
   // Section title styles
@@ -439,34 +441,40 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult })
           </View>
         </View>
 
-        {/* Özel Şartlar - Special Program Info Box */}
+        {/* Özel Şartlar Section */}
         {hasSpecialProgram && (
-          <View style={styles.infoBox}>
-            <View style={styles.infoBoxHeader}>
-              <View style={styles.infoBoxCheckIcon}>
-                <Text style={styles.infoBoxCheckText}>✓</Text>
+          <>
+            <View style={styles.sectionTitle}>
+              <Text style={styles.sectionTitleText}>Özel Şartlar</Text>
+            </View>
+            
+            <View style={styles.infoBox}>
+              <View style={styles.infoBoxHeader}>
+                <View style={styles.infoBoxCheckIcon}>
+                  <Text style={styles.infoBoxCheckText}>✓</Text>
+                </View>
+                <Text style={styles.infoBoxTitle}>
+                  {isEarthquakeZone ? 'Deprem Bölgesi Teşviki Uygulandı' : 'Cazibe Merkezi Teşviki Uygulandı'}
+                </Text>
               </View>
-              <Text style={styles.infoBoxTitle}>
-                {isEarthquakeZone ? 'Deprem Bölgesi Teşviki Uygulandı' : 'Cazibe Merkezi Teşviki Uygulandı'}
+              <Text style={styles.infoBoxText}>
+                {specialProgram?.description || 
+                  (isEarthquakeZone 
+                    ? 'Bu yatırım deprem bölgesinde yapılacağından, teşvik hesaplamaları deprem bölgesi teşviklerine göre güncellenmiştir.'
+                    : 'Bu yatırım cazibe merkezi kapsamında olduğundan, teşvik hesaplamaları cazibe merkezi teşviklerine göre güncellenmiştir.')}
               </Text>
-            </View>
-            <Text style={styles.infoBoxText}>
-              {specialProgram?.description || 
-                (isEarthquakeZone 
-                  ? 'Bu yatırım deprem bölgesinde yapılacağından, teşvik hesaplamaları deprem bölgesi teşviklerine göre güncellenmiştir.'
-                  : 'Bu yatırım cazibe merkezi kapsamında olduğundan, teşvik hesaplamaları cazibe merkezi teşviklerine göre güncellenmiştir.')}
-            </Text>
-            <View style={styles.infoBoxBadgeRow}>
-              <View style={styles.infoBoxBadge}>
-                <Text style={styles.infoBoxBadgeText}>Orijinal</Text>
-                <Text style={styles.infoBoxBadgeValue}>{specialProgram?.originalRegion || incentiveResult.location.originalRegion}. Bölge</Text>
-              </View>
-              <View style={styles.infoBoxBadge}>
-                <Text style={styles.infoBoxBadgeText}>Uygulanan</Text>
-                <Text style={styles.infoBoxBadgeValue}>{specialProgram?.appliedRegion || incentiveResult.location.region}. Bölge</Text>
+              <View style={styles.infoBoxBadgeRow}>
+                <View style={styles.infoBoxBadge}>
+                  <Text style={styles.infoBoxBadgeText}>Orijinal</Text>
+                  <Text style={styles.infoBoxBadgeValue}>{specialProgram?.originalRegion || incentiveResult.location.originalRegion}. Bölge</Text>
+                </View>
+                <View style={styles.infoBoxBadge}>
+                  <Text style={styles.infoBoxBadgeText}>Uygulanan</Text>
+                  <Text style={styles.infoBoxBadgeValue}>{specialProgram?.appliedRegion || incentiveResult.location.region}. Bölge</Text>
+                </View>
               </View>
             </View>
-          </View>
+          </>
         )}
 
         {/* Conditions Box (if sector has conditions) */}
