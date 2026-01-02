@@ -352,7 +352,7 @@ const AnsweredQuestionsSection = () => {
                 {question.question}
               </p>
                 
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                   <Badge variant="secondary" className="bg-primary/10 text-primary text-xs font-semibold px-2">
                     {provinceAbbr}
                   </Badge>
@@ -364,9 +364,6 @@ const AnsweredQuestionsSection = () => {
                     <Calendar className="h-3 w-3" />
                     {formatDate(question.created_at)}
                   </span>
-                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
-                    isOpen ? 'rotate-180' : ''
-                  }`} />
                 </div>
               </div>
             </AccordionTrigger>
