@@ -24,14 +24,13 @@ const colors = {
   muted: "#6B7280",
 
   // Daha açık gri (kutu arka planı)
-  panelBg: "#F7F8FA",
+  panelBg: "#FAFBFC",
   panelBorder: "#E8ECF2",
   rowDivider: "#E5E7EB",
 
   // Title band (görseldeki açık mavi bant)
-  titleBandBg: "#E7F3FF",
-  titleBandStrip: "#0B4DBA",
-  titleBandText: "#0B4DBA",
+  titleBandBg: "#e3f2fd",
+  titleBandText: "#0011B3",
 
   totalGreen: "#16A34A",
 
@@ -61,14 +60,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Yeşil çerçeve yok: sadece hafif border
   logoBox: {
-    backgroundColor: "rgba(255,255,255,0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    // Çerçeve kaldırıldı
   },
   headerLogo: {
     width: 240,
@@ -105,24 +98,17 @@ const styles = StyleSheet.create({
 
   // SECTION TITLE BAND (görsel gibi)
   sectionTitleBand: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: colors.titleBandBg,
-    borderRadius: 2,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-  },
-  sectionTitleStrip: {
-    width: 4,
-    alignSelf: "stretch",
-    backgroundColor: colors.titleBandStrip,
-    marginRight: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.headerBlue,
   },
   sectionTitleText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "bold",
-    color: colors.titleBandText,
+    color: colors.headerBlue,
   },
 
   // PANEL (gri büyük kutu — daha açık)
@@ -372,7 +358,6 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
 
           {/* YATIRIM KÜNYESİ - başlık bandı */}
           <View style={styles.sectionTitleBand}>
-            <View style={styles.sectionTitleStrip} />
             <Text style={styles.sectionTitleText}>Yatırım Künyesi</Text>
           </View>
 
@@ -451,7 +436,6 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
           {/* TOPLAM DESTEK ÖZETİ - başlık bandı */}
           <View style={{ marginTop: 16 }}>
             <View style={styles.sectionTitleBand}>
-              <View style={styles.sectionTitleStrip} />
               <Text style={styles.sectionTitleText}>Toplam Destek Özeti</Text>
             </View>
 
