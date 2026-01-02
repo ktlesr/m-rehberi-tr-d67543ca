@@ -329,7 +329,7 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult })
 
         {/* Yatırım Künyesi Section */}
         <View style={styles.sectionTitle}>
-          <Text style={styles.sectionTitleText}>Yatırım Künyesi</Text>
+          <Text style={styles.sectionTitleText}>YATIRIM KÜNYESİ</Text>
         </View>
 
         <View style={styles.kunyeContainer}>
