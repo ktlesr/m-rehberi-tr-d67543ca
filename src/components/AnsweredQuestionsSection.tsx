@@ -279,7 +279,7 @@ const AnsweredQuestionsSection = () => {
             <AccordionContent className="px-6 pb-6 pt-2">
               {/* Question */}
               <div className="mb-4">
-                <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                <h4 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
                   <MessageCircle className="h-6 w-6 text-primary" />
                   Soru
                 </h4>
@@ -291,10 +291,10 @@ const AnsweredQuestionsSection = () => {
               {/* Answer */}
               {question.answer && (
                 <div>
-                  <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                    <CircleCheckBig className="h-6 w-6 text-green-500" />
-                    Cevap
-                  </h4>
+                <h4 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <CircleCheckBig className="h-6 w-6 text-green-500" />
+                  Cevap
+                </h4>
                   <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
                     <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{question.answer}</p>
                     {question.answer_date && (
@@ -344,9 +344,13 @@ const AnsweredQuestionsSection = () => {
                   }`} />
                 </div>
                 
-                <p className="flex-1 text-sm text-foreground text-left line-clamp-1">
-                  {question.question}
-                </p>
+              <p className={`flex-1 text-sm text-foreground text-left line-clamp-1 transition-all duration-300 overflow-hidden ${
+                isOpen 
+                  ? 'opacity-0 max-w-0' 
+                  : 'opacity-100 max-w-full'
+              }`}>
+                {question.question}
+              </p>
                 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Badge variant="secondary" className="bg-primary/10 text-primary text-xs font-semibold px-2">
@@ -371,8 +375,8 @@ const AnsweredQuestionsSection = () => {
               <div className="bg-purple-50 rounded-lg p-4 mb-3">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm font-semibold text-purple-600">Soru</span>
+                    <MessageCircle className="h-6 w-6 text-purple-600" />
+                    <span className="text-lg font-semibold text-purple-600">Soru</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-purple-600">
                     <span className="flex items-center gap-1">
@@ -394,10 +398,8 @@ const AnsweredQuestionsSection = () => {
                 <div className="bg-green-50 rounded-lg p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
-                        <div className="h-2 w-2 bg-white rounded-full" />
-                      </div>
-                      <span className="text-sm font-semibold text-green-600">Cevap</span>
+                      <CircleCheckBig className="h-6 w-6 text-green-500" />
+                      <span className="text-lg font-semibold text-green-600">Cevap</span>
                     </div>
                     {question.answer_date && (
                       <span className="text-xs text-green-600 flex items-center gap-1">
@@ -451,10 +453,10 @@ const AnsweredQuestionsSection = () => {
             <div className="space-y-4">
               {/* Question */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-primary" />
-                  Soru
-                </h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <MessageCircle className="h-6 w-6 text-primary" />
+                Soru
+              </h3>
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
                   <p className="text-gray-800 leading-relaxed">
                     {expandedCard === question.id || question.question.length <= 200
@@ -485,12 +487,10 @@ const AnsweredQuestionsSection = () => {
               {/* Answer */}
               {question.answer && (
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                    <div className="h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
-                      <div className="h-2 w-2 bg-white rounded-full"></div>
-                    </div>
-                    Cevap
-                  </h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <CircleCheckBig className="h-6 w-6 text-green-500" />
+                Cevap
+              </h3>
                   <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
                     <div className="relative">
                       <p
