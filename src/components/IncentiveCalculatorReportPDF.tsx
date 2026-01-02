@@ -2,6 +2,7 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet, Font, Image } from "@react-pdf/renderer";
 import { IncentiveCalculatorResults, IncentiveCalculatorInputs } from "@/types/incentiveCalculator";
 
+// Roboto for Turkish chars
 Font.register({
   family: "Roboto",
   fonts: [
@@ -17,16 +18,25 @@ Font.register({
 });
 
 const colors = {
-  headerBlue: "#0B3FAE", // görsele yakın mavi
+  headerBlue: "#1146B7", // header mavi (görsele yakın)
   white: "#FFFFFF",
   text: "#1F2937",
   muted: "#6B7280",
-  linkBlue: "#1D4ED8",
-  panelBg: "#F3F4F6",
-  panelBorder: "#E5E7EB",
+
+  // Daha açık gri (kutu arka planı)
+  panelBg: "#F7F8FA",
+  panelBorder: "#E8ECF2",
   rowDivider: "#E5E7EB",
+
+  // Title band (görseldeki açık mavi bant)
+  titleBandBg: "#E7F3FF",
+  titleBandStrip: "#0B4DBA",
+  titleBandText: "#0B4DBA",
+
   totalGreen: "#16A34A",
+
   footerBg: "#F3F4F6",
+  footerBorder: "#E5E7EB",
 };
 
 const styles = StyleSheet.create({
@@ -50,19 +60,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+
+  // Yeşil çerçeve yok: sadece hafif border
   logoBox: {
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.10)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   headerLogo: {
-    width: 170,
-    height: 46,
+    width: 240,
+    height: 52,
     objectFit: "contain",
   },
+
   headerRight: {
     alignItems: "flex-end",
     maxWidth: 320,
@@ -83,22 +96,36 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.70)",
   },
 
-  // BODY WRAPPER
+  // BODY
   body: {
     paddingHorizontal: 26,
     paddingTop: 18,
-    paddingBottom: 88, // footer için alan
+    paddingBottom: 92, // footer alanı
   },
 
-  // SECTION TITLE (görseldeki gibi mavi metin, alt çizgi hissi)
-  sectionTitle: {
-    fontSize: 12,
+  // SECTION TITLE BAND (görsel gibi)
+  sectionTitleBand: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.titleBandBg,
+    borderRadius: 2,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  sectionTitleStrip: {
+    width: 4,
+    alignSelf: "stretch",
+    backgroundColor: colors.titleBandStrip,
+    marginRight: 12,
+  },
+  sectionTitleText: {
+    fontSize: 13,
     fontWeight: "bold",
-    color: colors.linkBlue,
-    marginBottom: 8,
+    color: colors.titleBandText,
   },
 
-  // PANEL (gri büyük kutu)
+  // PANEL (gri büyük kutu — daha açık)
   panel: {
     backgroundColor: colors.panelBg,
     borderRadius: 8,
@@ -107,15 +134,21 @@ const styles = StyleSheet.create({
     padding: 14,
   },
 
-  // KÜNYE ÜST ÖZET (Toplam Sabit / Toplam Makine)
+  // Üst özet (Toplam sabit / toplam makine)
   topSummaryRow: {
     flexDirection: "row",
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  topSummaryItem: {
+  topSummaryItemLeft: {
     flex: 1,
     flexDirection: "row",
     alignItems: "baseline",
+  },
+  topSummaryItemRight: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "flex-end",
   },
   topSummaryLabel: {
     fontSize: 9.5,
@@ -128,11 +161,11 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 
-  // KÜNYE 2 SÜTUN
+  // Two column layout
   twoCol: {
     flexDirection: "row",
   },
-  col: {
+  colLeft: {
     flex: 1,
     paddingRight: 10,
   },
@@ -147,7 +180,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   kvLabel: {
-    width: 150,
+    width: 160,
     fontSize: 9.5,
     color: colors.muted,
   },
@@ -165,7 +198,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  // DESTEK LİSTESİ
+  // SUPPORT LIST (görseldeki gibi sade satırlar)
   list: {
     backgroundColor: colors.panelBg,
     borderRadius: 8,
@@ -177,7 +210,7 @@ const styles = StyleSheet.create({
   listRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.rowDivider,
@@ -197,11 +230,11 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  // TOPLAM SATIRI (görseldeki gibi alt tarafta ayrı satır + yeşil değer)
+  // Total bar (altta çizgi + yeşil değer)
   totalBar: {
-    marginTop: 8,
+    marginTop: 10,
     borderTopWidth: 2,
-    borderTopColor: "#9CA3AF", // görseldeki koyu çizgi hissi
+    borderTopColor: "#9CA3AF",
     paddingTop: 10,
     paddingHorizontal: 14,
     flexDirection: "row",
@@ -210,16 +243,16 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 11,
-    color: colors.text,
     fontWeight: "bold",
+    color: colors.text,
   },
   totalValue: {
     fontSize: 12,
-    color: colors.totalGreen,
     fontWeight: "bold",
+    color: colors.totalGreen,
   },
 
-  // UYARI (görselde çok belirgin değil; sade tuttum)
+  // Warning (varsa)
   warningBox: {
     backgroundColor: "#FEF2F2",
     borderWidth: 1,
@@ -240,7 +273,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.35,
   },
 
-  // FOOTER (görseldeki gri kutu gibi)
+  // FOOTER (gri kutu)
   footer: {
     position: "absolute",
     left: 26,
@@ -248,7 +281,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     backgroundColor: colors.footerBg,
     borderWidth: 1,
-    borderColor: colors.panelBorder,
+    borderColor: colors.footerBorder,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
@@ -309,7 +342,7 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.logoBox}>
-              {/* İstersen buraya 2 logo koymak için iki Image yan yana ekleyebilirsin */}
+              {/* Bu görseli senin birleşik logo görselinle değiştirmen en temiz sonuç verir */}
               <Image style={styles.headerLogo} src="/logo/logo.png" />
             </View>
           </View>
@@ -337,41 +370,49 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
             </View>
           ) : null}
 
-          {/* YATIRIM KÜNYESİ */}
-          <Text style={styles.sectionTitle}>Yatırım Künyesi</Text>
+          {/* YATIRIM KÜNYESİ - başlık bandı */}
+          <View style={styles.sectionTitleBand}>
+            <View style={styles.sectionTitleStrip} />
+            <Text style={styles.sectionTitleText}>Yatırım Künyesi</Text>
+          </View>
+
           <View style={styles.panel}>
-            {/* Üst özet (görselde tek satırda iki bilgi) */}
+            {/* Üst özet satırı */}
             <View style={styles.topSummaryRow}>
-              <View style={styles.topSummaryItem}>
+              <View style={styles.topSummaryItemLeft}>
                 <Text style={styles.topSummaryLabel}>Toplam Sabit Yatırım Tutarı:</Text>
                 <Text style={styles.topSummaryValue}>{formatCurrency(results.totalFixedInvestment)}</Text>
               </View>
 
-              <View style={[styles.topSummaryItem, { justifyContent: "flex-end" }]}>
+              <View style={styles.topSummaryItemRight}>
                 <Text style={styles.topSummaryLabel}>Toplam Makine Maliyeti:</Text>
                 <Text style={styles.topSummaryValue}>{formatCurrency(totalMachineryCost)}</Text>
               </View>
             </View>
 
-            {/* Alt künye: 2 sütun */}
+            {/* 2 sütun künye */}
             <View style={styles.twoCol}>
-              <View style={styles.col}>
+              <View style={styles.colLeft}>
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Teşvik Türü:</Text>
                   <Text style={styles.kvValue}>{getIncentiveTypeText(inputs.incentiveType)}</Text>
                 </View>
+
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Yatırım İli:</Text>
                   <Text style={styles.kvValue}>{inputs.province}</Text>
                 </View>
+
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Çalışan Sayısı:</Text>
                   <Text style={styles.kvValue}>{inputs.numberOfEmployees} kişi</Text>
                 </View>
+
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Arsa Maliyeti:</Text>
                   <Text style={styles.kvValue}>{formatCurrency(inputs.landCost)}</Text>
                 </View>
+
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>İnşaat Maliyeti:</Text>
                   <Text style={styles.kvValue}>{formatCurrency(inputs.constructionCost)}</Text>
@@ -383,18 +424,22 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
                   <Text style={styles.kvLabel}>İthal Makine Maliyeti:</Text>
                   <Text style={styles.kvValueRight}>{formatCurrency(inputs.importedMachineryCost)}</Text>
                 </View>
+
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Yerli Makine Maliyeti:</Text>
                   <Text style={styles.kvValueRight}>{formatCurrency(inputs.domesticMachineryCost)}</Text>
                 </View>
+
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Diğer Giderler:</Text>
                   <Text style={styles.kvValueRight}>{formatCurrency(inputs.otherExpenses)}</Text>
                 </View>
+
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Destek Tercihi:</Text>
                   <Text style={styles.kvValueRight}>{getSupportPreferenceText(inputs.supportPreference)}</Text>
                 </View>
+
                 <View style={styles.kvRow}>
                   <Text style={styles.kvLabel}>Vergi İndirimi Desteği:</Text>
                   <Text style={styles.kvValueRight}>{getTaxReductionText(inputs.taxReductionSupport)}</Text>
@@ -403,9 +448,12 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
             </View>
           </View>
 
-          {/* TOPLAM DESTEK ÖZETİ */}
+          {/* TOPLAM DESTEK ÖZETİ - başlık bandı */}
           <View style={{ marginTop: 16 }}>
-            <Text style={styles.sectionTitle}>Toplam Destek Özeti</Text>
+            <View style={styles.sectionTitleBand}>
+              <View style={styles.sectionTitleStrip} />
+              <Text style={styles.sectionTitleText}>Toplam Destek Özeti</Text>
+            </View>
 
             <View style={styles.list}>
               <View style={styles.listRow}>
@@ -447,7 +495,6 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
                 <Text style={styles.listValue}>{formatCurrency(results.customsExemptionAmount)}</Text>
               </View>
 
-              {/* Görseldeki gibi alt toplam bar */}
               <View style={styles.totalBar}>
                 <Text style={styles.totalLabel}>Toplam Parasal Destek:</Text>
                 <Text style={styles.totalValue}>{formatCurrency(totalSupport)}</Text>
