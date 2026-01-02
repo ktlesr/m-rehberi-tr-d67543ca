@@ -1,28 +1,29 @@
-name: Mirror source main -> destination yatirimadestek
+name: Mirror source yatirimadestek -> destination yatirimadestek
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/3 * * * *"
+    - cron: "*/5 * * * *"
 
 jobs:
   mirror:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout destination repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Add source remote & fetch
-        run: |
-          git remote add source https://github.com/gekabilgi/yatirimadestek-732014e5.git
-          git fetch source --prune
-
-      - name: Force mirror source/main -> destination/yatirimadestek
+      - name: Add source remote & fetch (private source with auth)
         env:
           MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
         run: |
-          git remote set-url origin https://x-access-token:${MIRROR_TOKEN}@github.com/ktlesr/m-rehberi-tr.git
-          git push origin refs/remotes/source/main:refs/heads/yatirimadestek --force
+          git remote add source https://x-access-token:${MIRROR_TOKEN}@github.com/gekabilgi/yatirimadestek-732014e5.git
+          git fetch source --prune
+
+      - name: Force mirror source/yatirimadestek -> destination/yatirimadestek (includes workflows)
+        env:
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          git remote set-url origin https://x-access-token:${MIRROR_TOKEN}@github.com/ktlesr/m-rehberi-tr.git 
+          git push origin refs/remotes/source/yatirimadestek:refs/heads/yatirimadestek --force
