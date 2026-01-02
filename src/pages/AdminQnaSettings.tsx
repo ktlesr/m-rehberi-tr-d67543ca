@@ -4,10 +4,9 @@ import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { adminSettingsService, QnaDisplayMode } from '@/services/adminSettingsService';
-import { Loader2, LayoutGrid, List, Minimize2, Save } from 'lucide-react';
+import { Loader2, LayoutGrid, List, Minimize2 } from 'lucide-react';
 
 const AdminQnaSettings = () => {
   const [displayMode, setDisplayMode] = useState<QnaDisplayMode>('card');
@@ -35,13 +34,16 @@ const AdminQnaSettings = () => {
     }
   };
 
-  const handleSave = async () => {
+  const handleModeChange = async (value: string) => {
+    const newMode = value as QnaDisplayMode;
+    setDisplayMode(newMode);
+    
     try {
       setSaving(true);
-      await adminSettingsService.setQnaDisplayMode(displayMode);
+      await adminSettingsService.setQnaDisplayMode(newMode);
       toast({
         title: 'Başarılı',
-        description: 'Soru-Cevap görünüm ayarları kaydedildi.',
+        description: 'Görünüm modu kaydedildi.',
       });
     } catch (error) {
       console.error('Error saving QnA settings:', error);
@@ -82,18 +84,23 @@ const AdminQnaSettings = () => {
         <CardContent className="space-y-6">
           <RadioGroup
             value={displayMode}
-            onValueChange={(value) => setDisplayMode(value as QnaDisplayMode)}
+            onValueChange={handleModeChange}
             className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
             <Label
               htmlFor="card"
-              className={`flex flex-col items-center justify-center p-6 rounded-lg border-2 cursor-pointer transition-all ${
+              className={`relative flex flex-col items-center justify-center p-6 rounded-lg border-2 cursor-pointer transition-all ${
                 displayMode === 'card'
                   ? 'border-primary bg-primary/5'
                   : 'border-border hover:border-primary/50'
-              }`}
+              } ${saving ? 'opacity-70 pointer-events-none' : ''}`}
             >
-              <RadioGroupItem value="card" id="card" className="sr-only" />
+              <RadioGroupItem value="card" id="card" className="hidden" />
+              {saving && displayMode === 'card' && (
+                <div className="absolute top-2 right-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                </div>
+              )}
               <LayoutGrid className="h-12 w-12 mb-3 text-primary" />
               <span className="font-semibold text-lg">Kart Görünümü</span>
               <span className="text-sm text-muted-foreground text-center mt-2">
@@ -103,13 +110,18 @@ const AdminQnaSettings = () => {
 
             <Label
               htmlFor="accordion"
-              className={`flex flex-col items-center justify-center p-6 rounded-lg border-2 cursor-pointer transition-all ${
+              className={`relative flex flex-col items-center justify-center p-6 rounded-lg border-2 cursor-pointer transition-all ${
                 displayMode === 'accordion'
                   ? 'border-primary bg-primary/5'
                   : 'border-border hover:border-primary/50'
-              }`}
+              } ${saving ? 'opacity-70 pointer-events-none' : ''}`}
             >
-              <RadioGroupItem value="accordion" id="accordion" className="sr-only" />
+              <RadioGroupItem value="accordion" id="accordion" className="hidden" />
+              {saving && displayMode === 'accordion' && (
+                <div className="absolute top-2 right-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                </div>
+              )}
               <List className="h-12 w-12 mb-3 text-primary" />
               <span className="font-semibold text-lg">Accordion Görünümü</span>
               <span className="text-sm text-muted-foreground text-center mt-2">
@@ -119,13 +131,18 @@ const AdminQnaSettings = () => {
 
             <Label
               htmlFor="minimal"
-              className={`flex flex-col items-center justify-center p-6 rounded-lg border-2 cursor-pointer transition-all ${
+              className={`relative flex flex-col items-center justify-center p-6 rounded-lg border-2 cursor-pointer transition-all ${
                 displayMode === 'minimal'
                   ? 'border-primary bg-primary/5'
                   : 'border-border hover:border-primary/50'
-              }`}
+              } ${saving ? 'opacity-70 pointer-events-none' : ''}`}
             >
-              <RadioGroupItem value="minimal" id="minimal" className="sr-only" />
+              <RadioGroupItem value="minimal" id="minimal" className="hidden" />
+              {saving && displayMode === 'minimal' && (
+                <div className="absolute top-2 right-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                </div>
+              )}
               <Minimize2 className="h-12 w-12 mb-3 text-primary" />
               <span className="font-semibold text-lg">Minimal Görünümü</span>
               <span className="text-sm text-muted-foreground text-center mt-2">
@@ -133,22 +150,6 @@ const AdminQnaSettings = () => {
               </span>
             </Label>
           </RadioGroup>
-
-          <div className="flex justify-end pt-4">
-            <Button onClick={handleSave} disabled={saving} className="min-w-[140px]">
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Kaydediliyor...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Kaydet
-                </>
-              )}
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </AdminLayout>
