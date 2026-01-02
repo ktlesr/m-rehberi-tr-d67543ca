@@ -1,19 +1,7 @@
 import React from "react";
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  Font,
-  Image,
-} from "@react-pdf/renderer";
-import {
-  IncentiveCalculatorResults,
-  IncentiveCalculatorInputs,
-} from "@/types/incentiveCalculator";
+import { Document, Page, Text, View, StyleSheet, Font, Image } from "@react-pdf/renderer";
+import { IncentiveCalculatorResults, IncentiveCalculatorInputs } from "@/types/incentiveCalculator";
 
-// Register Roboto fonts for better Turkish character support
 Font.register({
   family: "Roboto",
   fonts: [
@@ -28,68 +16,62 @@ Font.register({
   ],
 });
 
-// Color palette matching the design system
 const colors = {
-  primary: "#0011B3", // Deep Blue
-  primaryLight: "#e3f2fd",
-  sectionTitle: "#1565c0",
-  sectionTitleBg: "#e3f2fd",
-  textPrimary: "#212121",
-  textSecondary: "#616161",
-  success: "#2e7d32",
-  successBg: "#e8f5e9",
-  warning: "#f9a825",
-  warningBg: "#fffde7",
-  danger: "#c62828",
-  dangerBg: "#ffebee",
-  info: "#0288d1",
-  infoBg: "#e1f5fe",
-  gray: "#9e9e9e",
-  lightGray: "#f5f5f5",
-  white: "#ffffff",
-  border: "#e0e0e0",
-  badgeBlue: "#1976d2",
-  badgeGreen: "#388e3c",
-  badgeOrange: "#f57c00",
-  badgeRed: "#d32f2f",
+  headerBlue: "#0B3FAE", // görsele yakın mavi
+  white: "#FFFFFF",
+  text: "#1F2937",
+  muted: "#6B7280",
+  linkBlue: "#1D4ED8",
+  panelBg: "#F3F4F6",
+  panelBorder: "#E5E7EB",
+  rowDivider: "#E5E7EB",
+  totalGreen: "#16A34A",
+  footerBg: "#F3F4F6",
 };
 
-// Styles
 const styles = StyleSheet.create({
   page: {
-    flexDirection: "column",
     backgroundColor: colors.white,
-    padding: 0,
     fontFamily: "Roboto",
+    padding: 0,
   },
-  // Header
+
+  // HEADER
   header: {
-    backgroundColor: colors.primary,
-    paddingVertical: 20,
-    paddingHorizontal: 24,
+    backgroundColor: colors.headerBlue,
+    paddingTop: 22,
+    paddingBottom: 22,
+    paddingHorizontal: 26,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
+  },
+  headerLeft: {
+    flexDirection: "row",
     alignItems: "center",
   },
-  headerLogos: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  logoBox: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   headerLogo: {
     width: 170,
-    height: 60,
+    height: 46,
     objectFit: "contain",
   },
-  headerTextContainer: {
+  headerRight: {
     alignItems: "flex-end",
+    maxWidth: 320,
   },
   headerTitle: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: "bold",
-    color: "#ffffff",
-    textTransform: "uppercase",
-    marginBottom: 4,
+    color: colors.white,
+    marginBottom: 3,
   },
   headerSubtitle: {
     fontSize: 10,
@@ -98,214 +80,184 @@ const styles = StyleSheet.create({
   },
   headerDate: {
     fontSize: 9,
-    color: "rgba(255,255,255,0.7)",
+    color: "rgba(255,255,255,0.70)",
   },
-  // Content wrapper
-  contentWrapper: {
-    padding: 24,
+
+  // BODY WRAPPER
+  body: {
+    paddingHorizontal: 26,
+    paddingTop: 18,
+    paddingBottom: 88, // footer için alan
   },
-  // Section
-  section: {
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-    backgroundColor: colors.sectionTitleBg,
-    padding: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.sectionTitle,
-  },
+
+  // SECTION TITLE (görseldeki gibi mavi metin, alt çizgi hissi)
   sectionTitle: {
     fontSize: 12,
     fontWeight: "bold",
-    color: colors.sectionTitle,
-  },
-  // Künye Grid
-  kunyeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -4,
-  },
-  kunyeItem: {
-    width: "50%",
-    paddingHorizontal: 4,
+    color: colors.linkBlue,
     marginBottom: 8,
   },
-  kunyeBox: {
-    backgroundColor: "#f8f9fa",
-    padding: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  kunyeLabel: {
-    fontSize: 8,
-    color: colors.textSecondary,
-    marginBottom: 2,
-    textTransform: "uppercase",
-  },
-  kunyeValue: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-  },
-  // Support list
-  supportList: {
-    backgroundColor: "#ffffff",
+
+  // PANEL (gri büyük kutu)
+  panel: {
+    backgroundColor: colors.panelBg,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    padding: 0,
+    borderColor: colors.panelBorder,
+    padding: 14,
   },
-  supportRow: {
+
+  // KÜNYE ÜST ÖZET (Toplam Sabit / Toplam Makine)
+  topSummaryRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eeeeee",
-    backgroundColor: "#ffffff",
+    marginBottom: 10,
   },
-  supportRowLast: {
-    borderBottomWidth: 0,
-  },
-  supportLabel: {
-    fontSize: 10,
-    color: colors.textPrimary,
+  topSummaryItem: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "baseline",
   },
-  supportValue: {
-    fontSize: 10,
+  topSummaryLabel: {
+    fontSize: 9.5,
+    color: colors.muted,
+    marginRight: 8,
+  },
+  topSummaryValue: {
+    fontSize: 10.5,
     fontWeight: "bold",
-    color: colors.textPrimary,
+    color: colors.text,
+  },
+
+  // KÜNYE 2 SÜTUN
+  twoCol: {
+    flexDirection: "row",
+  },
+  col: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  colRight: {
+    flex: 1,
+    paddingLeft: 10,
+  },
+
+  kvRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 6,
+  },
+  kvLabel: {
+    width: 150,
+    fontSize: 9.5,
+    color: colors.muted,
+  },
+  kvValue: {
+    flex: 1,
+    fontSize: 9.8,
+    color: colors.text,
+    fontWeight: "bold",
+  },
+  kvValueRight: {
+    flex: 1,
+    fontSize: 9.8,
+    color: colors.text,
+    fontWeight: "bold",
     textAlign: "right",
   },
-  // Total row
-  totalRow: {
+
+  // DESTEK LİSTESİ
+  list: {
+    backgroundColor: colors.panelBg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.panelBorder,
+    paddingTop: 6,
+    paddingBottom: 6,
+  },
+  listRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: colors.primary,
-    marginTop: 12,
-    padding: 12,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.rowDivider,
+  },
+  listRowLast: {
+    borderBottomWidth: 0,
+  },
+  listLabel: {
+    fontSize: 10,
+    color: colors.muted,
+    flex: 1,
+  },
+  listValue: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: colors.text,
+    textAlign: "right",
+  },
+
+  // TOPLAM SATIRI (görseldeki gibi alt tarafta ayrı satır + yeşil değer)
+  totalBar: {
+    marginTop: 8,
+    borderTopWidth: 2,
+    borderTopColor: "#9CA3AF", // görseldeki koyu çizgi hissi
+    paddingTop: 10,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   totalLabel: {
-    fontSize: 12,
+    fontSize: 11,
+    color: colors.text,
     fontWeight: "bold",
-    color: colors.white,
   },
   totalValue: {
-    fontSize: 14,
+    fontSize: 12,
+    color: colors.totalGreen,
     fontWeight: "bold",
-    color: colors.white,
   },
-  // Warning/Info boxes
-  infoBox: {
-    marginTop: 12,
-    backgroundColor: colors.infoBg,
-    borderWidth: 1,
-    borderColor: colors.info,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
-    padding: 10,
-  },
-  infoBoxTitle: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: colors.info,
-    marginBottom: 4,
-  },
-  infoBoxText: {
-    fontSize: 9,
-    color: colors.textPrimary,
-    lineHeight: 1.4,
-  },
+
+  // UYARI (görselde çok belirgin değil; sade tuttum)
   warningBox: {
-    marginTop: 12,
-    backgroundColor: colors.warningBg,
+    backgroundColor: "#FEF2F2",
     borderWidth: 1,
-    borderColor: colors.warning,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
+    borderColor: "#FCA5A5",
+    borderRadius: 8,
     padding: 10,
+    marginBottom: 12,
   },
-  warningBoxTitle: {
+  warningTitle: {
     fontSize: 10,
     fontWeight: "bold",
-    color: colors.badgeOrange,
+    color: "#B91C1C",
     marginBottom: 4,
   },
-  warningBoxText: {
-    fontSize: 9,
-    color: colors.textPrimary,
-    lineHeight: 1.4,
+  warningText: {
+    fontSize: 9.5,
+    color: colors.text,
+    lineHeight: 1.35,
   },
-  dangerBox: {
-    marginTop: 12,
-    backgroundColor: colors.dangerBg,
-    borderWidth: 1,
-    borderColor: colors.badgeRed,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
-    padding: 10,
-  },
-  dangerBoxTitle: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: colors.badgeRed,
-    marginBottom: 4,
-  },
-  dangerBoxText: {
-    fontSize: 9,
-    color: colors.textPrimary,
-    lineHeight: 1.4,
-  },
-  // Footer
+
+  // FOOTER (görseldeki gri kutu gibi)
   footer: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.lightGray,
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    left: 26,
+    right: 26,
+    bottom: 20,
+    backgroundColor: colors.footerBg,
+    borderWidth: 1,
+    borderColor: colors.panelBorder,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   footerText: {
-    fontSize: 7,
-    color: colors.gray,
+    fontSize: 7.5,
+    color: colors.muted,
     textAlign: "center",
-    lineHeight: 1.5,
-  },
-  // Badge styles
-  badge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    marginLeft: 8,
-  },
-  badgeText: {
-    fontSize: 8,
-    fontWeight: "bold",
-    color: colors.white,
+    lineHeight: 1.4,
   },
 });
 
@@ -314,18 +266,11 @@ interface IncentiveCalculatorReportProps {
   inputs: IncentiveCalculatorInputs;
 }
 
-export const IncentiveCalculatorReportPDF: React.FC<
-  IncentiveCalculatorReportProps
-> = ({ results, inputs }) => {
-  const formatCurrency = (amount: number): string => {
-    return `${amount.toLocaleString("tr-TR")} TL`;
-  };
+export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportProps> = ({ results, inputs }) => {
+  const formatCurrency = (amount: number): string => `${amount.toLocaleString("tr-TR")} TL`;
 
-  const getSupportPreferenceText = (preference: string): string => {
-    return preference === "Interest/Profit Share Support"
-      ? "Faiz/Kar Payı Desteği"
-      : "Makine Desteği";
-  };
+  const getSupportPreferenceText = (preference: string): string =>
+    preference === "Interest/Profit Share Support" ? "Faiz/Kar Payı Desteği" : "Makine Desteği";
 
   const getIncentiveTypeText = (type: string): string => {
     switch (type) {
@@ -340,12 +285,9 @@ export const IncentiveCalculatorReportPDF: React.FC<
     }
   };
 
-  const getTaxReductionText = (preference: string): string => {
-    return preference === "Yes" ? "Evet" : "Hayır";
-  };
+  const getTaxReductionText = (preference: string): string => (preference === "Yes" ? "Evet" : "Hayır");
 
-  const totalMachineryCost =
-    inputs.importedMachineryCost + inputs.domesticMachineryCost;
+  const totalMachineryCost = inputs.importedMachineryCost + inputs.domesticMachineryCost;
 
   const totalSupport =
     results.sgkEmployerPremiumSupport +
@@ -361,234 +303,164 @@ export const IncentiveCalculatorReportPDF: React.FC<
   const formattedTime = reportDate.toLocaleTimeString("tr-TR");
 
   return (
-    <Document
-      title={`Teşvik Hesaplama Raporu - ${inputs.province} - ${formattedDate}`}
-    >
+    <Document title={`Teşvik Hesaplama Raporu - ${inputs.province} - ${formattedDate}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
+        {/* HEADER */}
         <View style={styles.header}>
-          <View style={styles.headerLogos}>
-            <Image style={styles.headerLogo} src="/logo/logo.png" />
+          <View style={styles.headerLeft}>
+            <View style={styles.logoBox}>
+              {/* İstersen buraya 2 logo koymak için iki Image yan yana ekleyebilirsin */}
+              <Image style={styles.headerLogo} src="/logo/logo.png" />
+            </View>
           </View>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>
-              Türkiye Yüzyılı Teşvikleri Hesaplama Raporu
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              Yatırım Teşvik Sistemi - Hesaplama Sonuçları
-            </Text>
+
+          <View style={styles.headerRight}>
+            <Text style={styles.headerTitle}>Türkiye Yüzyılı Teşvikleri Hesaplama Raporu</Text>
+            <Text style={styles.headerSubtitle}>Yatırım Teşvik Sistemi - Hesaplama Sonuçları</Text>
             <Text style={styles.headerDate}>
               Rapor Tarihi: {formattedDate} {formattedTime}
             </Text>
           </View>
         </View>
 
-        {/* Content */}
-        <View style={styles.contentWrapper}>
-          {/* Warning Messages */}
-          {results.warningMessages && results.warningMessages.length > 0 && (
-            <View style={styles.section}>
-              {results.warningMessages.map((warning, index) => (
-                <View key={index} style={styles.dangerBox}>
-                  <Text style={styles.dangerBoxTitle}>Önemli Uyarı</Text>
-                  <Text style={styles.dangerBoxText}>{warning}</Text>
+        {/* BODY */}
+        <View style={styles.body}>
+          {/* WARNINGS */}
+          {results.warningMessages?.length ? (
+            <View style={{ marginBottom: 12 }}>
+              {results.warningMessages.map((w, i) => (
+                <View key={i} style={styles.warningBox}>
+                  <Text style={styles.warningTitle}>Önemli Uyarı</Text>
+                  <Text style={styles.warningText}>{w}</Text>
                 </View>
               ))}
             </View>
-          )}
+          ) : null}
 
-          {/* Yatırım Künyesi */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Yatırım Künyesi</Text>
+          {/* YATIRIM KÜNYESİ */}
+          <Text style={styles.sectionTitle}>Yatırım Künyesi</Text>
+          <View style={styles.panel}>
+            {/* Üst özet (görselde tek satırda iki bilgi) */}
+            <View style={styles.topSummaryRow}>
+              <View style={styles.topSummaryItem}>
+                <Text style={styles.topSummaryLabel}>Toplam Sabit Yatırım Tutarı:</Text>
+                <Text style={styles.topSummaryValue}>{formatCurrency(results.totalFixedInvestment)}</Text>
+              </View>
+
+              <View style={[styles.topSummaryItem, { justifyContent: "flex-end" }]}>
+                <Text style={styles.topSummaryLabel}>Toplam Makine Maliyeti:</Text>
+                <Text style={styles.topSummaryValue}>{formatCurrency(totalMachineryCost)}</Text>
+              </View>
             </View>
-            <View style={styles.kunyeGrid}>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>
-                    Toplam Sabit Yatırım Tutarı
-                  </Text>
-                  <Text style={styles.kunyeValue}>
-                    {formatCurrency(results.totalFixedInvestment)}
-                  </Text>
+
+            {/* Alt künye: 2 sütun */}
+            <View style={styles.twoCol}>
+              <View style={styles.col}>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>Teşvik Türü:</Text>
+                  <Text style={styles.kvValue}>{getIncentiveTypeText(inputs.incentiveType)}</Text>
+                </View>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>Yatırım İli:</Text>
+                  <Text style={styles.kvValue}>{inputs.province}</Text>
+                </View>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>Çalışan Sayısı:</Text>
+                  <Text style={styles.kvValue}>{inputs.numberOfEmployees} kişi</Text>
+                </View>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>Arsa Maliyeti:</Text>
+                  <Text style={styles.kvValue}>{formatCurrency(inputs.landCost)}</Text>
+                </View>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>İnşaat Maliyeti:</Text>
+                  <Text style={styles.kvValue}>{formatCurrency(inputs.constructionCost)}</Text>
                 </View>
               </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Toplam Makine Maliyeti</Text>
-                  <Text style={styles.kunyeValue}>
-                    {formatCurrency(totalMachineryCost)}
-                  </Text>
+
+              <View style={styles.colRight}>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>İthal Makine Maliyeti:</Text>
+                  <Text style={styles.kvValueRight}>{formatCurrency(inputs.importedMachineryCost)}</Text>
                 </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Teşvik Türü</Text>
-                  <Text style={styles.kunyeValue}>
-                    {getIncentiveTypeText(inputs.incentiveType)}
-                  </Text>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>Yerli Makine Maliyeti:</Text>
+                  <Text style={styles.kvValueRight}>{formatCurrency(inputs.domesticMachineryCost)}</Text>
                 </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Yatırım İli</Text>
-                  <Text style={styles.kunyeValue}>{inputs.province}</Text>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>Diğer Giderler:</Text>
+                  <Text style={styles.kvValueRight}>{formatCurrency(inputs.otherExpenses)}</Text>
                 </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Çalışan Sayısı</Text>
-                  <Text style={styles.kunyeValue}>
-                    {inputs.numberOfEmployees} kişi
-                  </Text>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>Destek Tercihi:</Text>
+                  <Text style={styles.kvValueRight}>{getSupportPreferenceText(inputs.supportPreference)}</Text>
                 </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Arsa Maliyeti</Text>
-                  <Text style={styles.kunyeValue}>
-                    {formatCurrency(inputs.landCost)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>İnşaat Maliyeti</Text>
-                  <Text style={styles.kunyeValue}>
-                    {formatCurrency(inputs.constructionCost)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>İthal Makine Maliyeti</Text>
-                  <Text style={styles.kunyeValue}>
-                    {formatCurrency(inputs.importedMachineryCost)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Yerli Makine Maliyeti</Text>
-                  <Text style={styles.kunyeValue}>
-                    {formatCurrency(inputs.domesticMachineryCost)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Diğer Giderler</Text>
-                  <Text style={styles.kunyeValue}>
-                    {formatCurrency(inputs.otherExpenses)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Destek Tercihi</Text>
-                  <Text style={styles.kunyeValue}>
-                    {getSupportPreferenceText(inputs.supportPreference)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.kunyeItem}>
-                <View style={styles.kunyeBox}>
-                  <Text style={styles.kunyeLabel}>Vergi İndirimi Tercihi</Text>
-                  <Text style={styles.kunyeValue}>
-                    {getTaxReductionText(inputs.taxReductionSupport)}
-                  </Text>
+                <View style={styles.kvRow}>
+                  <Text style={styles.kvLabel}>Vergi İndirimi Desteği:</Text>
+                  <Text style={styles.kvValueRight}>{getTaxReductionText(inputs.taxReductionSupport)}</Text>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* Toplam Destek Özeti */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Toplam Destek Özeti</Text>
-            </View>
-            <View style={styles.supportList}>
-              <View style={styles.supportRow}>
-                <Text style={styles.supportLabel}>
-                  SGK İşveren Primi Desteği
-                </Text>
-                <Text style={styles.supportValue}>
-                  {formatCurrency(results.sgkEmployerPremiumSupport)}
-                </Text>
+          {/* TOPLAM DESTEK ÖZETİ */}
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.sectionTitle}>Toplam Destek Özeti</Text>
+
+            <View style={styles.list}>
+              <View style={styles.listRow}>
+                <Text style={styles.listLabel}>SGK İşveren Primi Desteği:</Text>
+                <Text style={styles.listValue}>{formatCurrency(results.sgkEmployerPremiumSupport)}</Text>
               </View>
-              <View style={styles.supportRow}>
-                <Text style={styles.supportLabel}>SGK İşçi Primi Desteği</Text>
-                <Text style={styles.supportValue}>
-                  {formatCurrency(results.sgkEmployeePremiumSupport)}
-                </Text>
+
+              <View style={styles.listRow}>
+                <Text style={styles.listLabel}>SGK İşçi Primi Desteği:</Text>
+                <Text style={styles.listValue}>{formatCurrency(results.sgkEmployeePremiumSupport)}</Text>
               </View>
-              <View style={styles.supportRow}>
-                <Text style={styles.supportLabel}>
-                  Vergi İndirimi / Yatırıma Katkı
-                </Text>
-                <Text style={styles.supportValue}>
-                  {formatCurrency(results.taxReductionInvestmentContribution)}
-                </Text>
+
+              <View style={styles.listRow}>
+                <Text style={styles.listLabel}>Vergi İndirimi / Yatırıma Katkı:</Text>
+                <Text style={styles.listValue}>{formatCurrency(results.taxReductionInvestmentContribution)}</Text>
               </View>
+
               {results.machinerySupportAmount > 0 && (
-                <View style={styles.supportRow}>
-                  <Text style={styles.supportLabel}>Makine Desteği</Text>
-                  <Text style={styles.supportValue}>
-                    {formatCurrency(results.machinerySupportAmount)}
-                  </Text>
+                <View style={styles.listRow}>
+                  <Text style={styles.listLabel}>Makine Desteği:</Text>
+                  <Text style={styles.listValue}>{formatCurrency(results.machinerySupportAmount)}</Text>
                 </View>
               )}
+
               {results.interestProfitShareSupportAmount > 0 && (
-                <View style={styles.supportRow}>
-                  <Text style={styles.supportLabel}>Faiz/Kar Payı Desteği</Text>
-                  <Text style={styles.supportValue}>
-                    {formatCurrency(results.interestProfitShareSupportAmount)}
-                  </Text>
+                <View style={styles.listRow}>
+                  <Text style={styles.listLabel}>Faiz/Kar Payı Desteği:</Text>
+                  <Text style={styles.listValue}>{formatCurrency(results.interestProfitShareSupportAmount)}</Text>
                 </View>
               )}
-              <View style={styles.supportRow}>
-                <Text style={styles.supportLabel}>KDV Muafiyeti (%20)</Text>
-                <Text style={styles.supportValue}>
-                  {formatCurrency(results.vatExemptionAmount)}
-                </Text>
-              </View>
-              <View style={[styles.supportRow, styles.supportRowLast]}>
-                <Text style={styles.supportLabel}>
-                  Gümrük Vergisi Muafiyeti (%2)
-                </Text>
-                <Text style={styles.supportValue}>
-                  {formatCurrency(results.customsExemptionAmount)}
-                </Text>
+
+              <View style={styles.listRow}>
+                <Text style={styles.listLabel}>KDV Muafiyeti:</Text>
+                <Text style={styles.listValue}>{formatCurrency(results.vatExemptionAmount)}</Text>
               </View>
 
-              {/* Total */}
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Toplam Parasal Destek</Text>
-                <Text style={styles.totalValue}>
-                  {formatCurrency(totalSupport)}
-                </Text>
+              <View style={[styles.listRow, styles.listRowLast]}>
+                <Text style={styles.listLabel}>Gümrük Vergisi Muafiyeti:</Text>
+                <Text style={styles.listValue}>{formatCurrency(results.customsExemptionAmount)}</Text>
+              </View>
+
+              {/* Görseldeki gibi alt toplam bar */}
+              <View style={styles.totalBar}>
+                <Text style={styles.totalLabel}>Toplam Parasal Destek:</Text>
+                <Text style={styles.totalValue}>{formatCurrency(totalSupport)}</Text>
               </View>
             </View>
           </View>
-
-          {/* Tax Reduction Info */}
-          {inputs.taxReductionSupport === "No" && (
-            <View style={styles.infoBox}>
-              <Text style={styles.infoBoxTitle}>Bilgilendirme</Text>
-              <Text style={styles.infoBoxText}>
-                Vergi İndirimi Desteği tercih edilmediği için diğer desteklerin
-                (Faiz/Kar Payı ve Makine) üst limitlerinde artış uygulanmıştır.
-              </Text>
-            </View>
-          )}
         </View>
 
-        {/* Footer */}
+        {/* FOOTER */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Bu rapor Türkiye Yüzyılı Kalkınma Hamlesi çerçevesinde hazırlanmış
-            olup, yalnızca bilgilendirme amaçlıdır. Kesin sonuçlar için resmi
-            kurumlara başvurunuz.{"\n"}
+            Bu rapor Türkiye Yüzyılı Kalkınma Hamlesi çerçevesinde hazırlanmış olup, yalnızca bilgilendirme amaçlıdır.
+            Kesin sonuçlar için resmi kurumlara başvurunuz.{"\n"}
             Rapor tarihi: {formattedDate} {formattedTime}
           </Text>
         </View>
