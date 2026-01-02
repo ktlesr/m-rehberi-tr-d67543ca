@@ -274,6 +274,36 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 1.5,
   },
+  // Orange info box
+  infoBoxOrange: {
+    marginTop: 16,
+    backgroundColor: "#fff3e0",
+    borderWidth: 1,
+    borderColor: "#ff9800",
+    borderRadius: 6,
+    padding: 12,
+  },
+  infoBoxOrangeTitle: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#f57c00",
+    marginBottom: 8,
+  },
+  // Red warning box
+  warningBoxRed: {
+    marginTop: 16,
+    backgroundColor: "#ffebee",
+    borderWidth: 1,
+    borderColor: "#f44336",
+    borderRadius: 6,
+    padding: 12,
+  },
+  warningBoxRedTitle: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#f44336",
+    marginBottom: 8,
+  },
   // Footer
   footer: {
     position: "absolute",
@@ -312,6 +342,25 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult })
   const hasSpecialProgram = specialProgram?.isEligible;
   const isEarthquakeZone = specialProgram?.programType === "earthquake_zone";
   const isCazibeMerkezi = specialProgram?.programType === "cazibe_merkezleri";
+
+  // Warning conditions
+  const { region, province } = incentiveResult.location;
+  const { isTarget } = incentiveResult.sector;
+  const naceCode = incentiveResult.sector.nace_code || "";
+  
+  // Istanbul mining sectors check (NACE codes starting with 05, 06, 07, 08, 09)
+  const miningNacePrefixes = ["05", "06", "07", "08", "09"];
+  const isMiningSector = miningNacePrefixes.some((prefix) => naceCode.startsWith(prefix));
+  const isIstanbulMining = province === "İstanbul" && isMiningSector;
+  
+  // İstanbul'da hedef yatırımlar için vergi indirimi uygulanmıyor
+  const showIstanbulTaxWarning = isTarget && province === "İstanbul" && !isIstanbulMining;
+  
+  // İstanbul'da madencilik sektörleri desteklenmiyor
+  const showIstanbulMiningWarning = isIstanbulMining;
+  
+  // Hedef yatırımlar için 4-5-6. bölgelerde faiz/kar payı %10 limit uyarısı
+  const showInterestCapWarning = isTarget && [4, 5, 6].includes(region) && !isIstanbulMining;
 
   return (
     <Document title={`Teşvik Raporu - ${incentiveResult.sector.nace_code}`}>
@@ -504,17 +553,45 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult })
           </View>
         )}
 
+        {/* İstanbul Vergi İndirimi Uyarısı (Turuncu Kutu) */}
+        {showIstanbulTaxWarning && (
+          <View style={styles.infoBoxOrange}>
+            <Text style={styles.infoBoxOrangeTitle}>Önemli Bilgi</Text>
+            <Text style={styles.conditionsText}>
+              İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.
+            </Text>
+          </View>
+        )}
+
+        {/* İstanbul Madencilik Uyarısı (Kırmızı Kutu) */}
+        {showIstanbulMiningWarning && (
+          <View style={styles.warningBoxRed}>
+            <Text style={styles.warningBoxRedTitle}>Önemli Uyarı</Text>
+            <Text style={styles.conditionsText}>
+              Seçilen sektör İstanbul ilinde desteklenmemektedir.
+            </Text>
+          </View>
+        )}
+
         {/* Important Info for Target sectors in regions 1-3 */}
-        {incentiveResult.sector.isTarget &&
-          [1, 2, 3].includes(incentiveResult.location.region) &&
-          !hasSpecialProgram && (
-            <View style={[styles.conditionsBox, { backgroundColor: "#ffebee", borderColor: colors.badgeRed }]}>
-              <Text style={[styles.conditionsTitle, { color: colors.badgeRed }]}>Önemli Bilgi</Text>
-              <Text style={styles.conditionsText}>
-                Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.
-              </Text>
-            </View>
-          )}
+        {isTarget && [1, 2, 3].includes(region) && !hasSpecialProgram && (
+          <View style={styles.warningBoxRed}>
+            <Text style={styles.warningBoxRedTitle}>Önemli Bilgi</Text>
+            <Text style={styles.conditionsText}>
+              Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.
+            </Text>
+          </View>
+        )}
+
+        {/* Faiz/Kar Payı %10 Limit Uyarısı (Sarı Kutu) */}
+        {showInterestCapWarning && (
+          <View style={styles.conditionsBox}>
+            <Text style={styles.conditionsTitle}>Önemli Uyarı</Text>
+            <Text style={styles.conditionsText}>
+              Faiz/Kar Payı Desteği toplam sabit yatırım tutarının %10'unu geçemez.
+            </Text>
+          </View>
+        )}
 
         {/* Footer */}
         <Text style={styles.footer}>
