@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* reCAPTCHA badge'ini gizle - Google politikasına uygun olarak Gizlilik ve Kullanım sayfalarında bilgilendirme mevcuttur */
+.grecaptcha-badge {
+  visibility: hidden !important;
+}
+
 /* Smooth scroll behavior */
 html {
   scroll-behavior: smooth;
