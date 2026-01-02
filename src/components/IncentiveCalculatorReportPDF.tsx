@@ -135,7 +135,6 @@ const styles = StyleSheet.create({
   },
   kunyeBox: {
     backgroundColor: "#f8f9fa",
-    borderRadius: 0,
     padding: 10,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
