@@ -140,7 +140,7 @@ const AdminLogin = () => {
 
             <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Hesaplar yalnızca sistem yöneticisi tarafından manuel olarak oluşturulabilir.
+                <strong>Not:</strong> Hesaplar yalnızca sistem yöneticisi tarafından manuel olarak oluşturulabilir.
                 Erişim talep etmek için lütfen sistem yöneticinizle iletişime geçin..
               </p>
             </div>
