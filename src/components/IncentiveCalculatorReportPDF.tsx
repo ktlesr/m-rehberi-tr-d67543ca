@@ -67,7 +67,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.10)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
-    borderRadius: 10,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -133,7 +136,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.titleBandBg,
-    borderRadius: 2,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 12,
@@ -143,7 +149,10 @@ const styles = StyleSheet.create({
   // PANEL (gri büyük kutu — daha açık)
   panel: {
     backgroundColor: colors.panelBg,
-    borderRadius: 8,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
     borderWidth: 1,
     borderColor: colors.panelBorder,
     padding: 14,
@@ -216,7 +225,10 @@ const styles = StyleSheet.create({
   // SUPPORT LIST (görseldeki gibi sade satırlar)
   list: {
     backgroundColor: colors.panelBg,
-    borderRadius: 8,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
     borderWidth: 1,
     borderColor: colors.panelBorder,
     paddingTop: 6,
@@ -272,7 +284,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
     borderWidth: 1,
     borderColor: "#FCA5A5",
-    borderRadius: 8,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
     padding: 10,
     marginBottom: 12,
   },
@@ -297,7 +312,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.footerBg,
     borderWidth: 1,
     borderColor: colors.footerBorder,
-    borderRadius: 10,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
@@ -516,7 +534,6 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
                 <Text style={styles.totalValue}>{formatCurrency(totalSupport)}</Text>
               </View>
             </View>
-          </View>
         </View>
 
         {/* FOOTER */}
