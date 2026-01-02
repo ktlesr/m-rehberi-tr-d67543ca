@@ -38,7 +38,7 @@ const AdminLogin = () => {
     try {
       // Verify reCAPTCHA first
       if (recaptchaReady) {
-        const recaptchaResult = await verifyRecaptcha('admin_login');
+        const recaptchaResult = await verifyRecaptcha("admin_login");
         if (!recaptchaResult.success) {
           toast.error("Güvenlik doğrulaması başarısız. Lütfen tekrar deneyin.");
           setIsLoading(false);
@@ -90,7 +90,7 @@ const AdminLogin = () => {
               </div>
             </div>
             <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
-            <p className="text-sm text-center text-gray-600">Enter your credentials to access the admin dashboard</p>
+            <p className="text-sm text-center text-gray-600">Admin Panele giriş yapmak için bilgilerinizi giriniz.</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -138,14 +138,12 @@ const AdminLogin = () => {
 
             <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Admin accounts must be created manually by a system administrator. Contact your
-                system administrator to request admin access.
+                <strong>Note:</strong> Hesaplar yalnızca sistem yöneticisi tarafından manuel olarak oluşturulabilir.
+                Erişim talep etmek için lütfen sistem yöneticinizle iletişime geçin..
               </p>
             </div>
 
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              Bu site reCAPTCHA ile korunmaktadır.
-            </p>
+            <p className="text-xs text-muted-foreground text-center mt-4">Bu site reCAPTCHA ile korunmaktadır.</p>
           </CardContent>
         </Card>
       </div>
