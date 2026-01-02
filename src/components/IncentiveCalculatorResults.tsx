@@ -180,12 +180,12 @@ export const IncentiveCalculatorResults: React.FC<IncentiveCalculatorResultsProp
         )}
 
         {/* Support Details */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          <Card className="flex flex-col">
             <CardHeader>
               <CardTitle className="text-base">SGK Destekleri</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 flex-1">
               <div>
                 <span className="text-sm text-muted-foreground">İşveren Primi Desteği</span>
                 <div className="font-medium">{formatCurrency(results.sgkEmployerPremiumSupport)}</div>
@@ -197,11 +197,11 @@ export const IncentiveCalculatorResults: React.FC<IncentiveCalculatorResultsProp
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
               <CardTitle className="text-base">Yatırım Destekleri</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 flex-1">
               <div>
                 <span className="text-sm text-muted-foreground">Vergi İndirimi / Yatırıma Katkı</span>
                 <div className="font-medium">{formatCurrency(results.taxReductionInvestmentContribution)}</div>
@@ -226,11 +226,11 @@ export const IncentiveCalculatorResults: React.FC<IncentiveCalculatorResultsProp
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader>
               <CardTitle className="text-base">KDV ve Gümrük Muafiyetleri</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 flex-1">
               <div>
                 <span className="text-sm text-muted-foreground">KDV Muafiyeti</span>
                 <div className="font-medium">{formatCurrency(results.vatExemptionAmount)}</div>
