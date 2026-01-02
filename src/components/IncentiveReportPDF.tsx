@@ -14,7 +14,7 @@ Font.register({
 
 // Color palette matching reference design
 const colors = {
-  primary: '#1a5f7a',
+  primary: '#0011B3',
   sectionTitle: '#1e88e5',
   sectionTitleBg: '#e3f2fd',
   textPrimary: '#212121',
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    paddingVertical: 16,
+    paddingVertical: 20,
     paddingHorizontal: 20,
     backgroundColor: colors.primary,
     marginHorizontal: -30,
@@ -55,15 +55,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 100,
-    height: 35,
+    width: 170,
+    height: 60,
     objectFit: 'contain',
   },
   headerRight: {
     alignItems: 'flex-end',
   },
   reportTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: 'bold',
     color: '#ffffff',
     textTransform: 'uppercase',
