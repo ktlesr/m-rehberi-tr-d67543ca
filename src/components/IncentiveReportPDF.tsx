@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   sectorName: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "bold",
     color: colors.textPrimary,
     marginBottom: 10,
