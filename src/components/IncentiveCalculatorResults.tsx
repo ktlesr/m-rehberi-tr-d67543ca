@@ -8,7 +8,7 @@ import { CheckCircle, XCircle, AlertTriangle, Calculator, Download } from 'lucid
 import { PaymentPlanPopover } from './PaymentPlanPopover';
 import { IncentiveCalculatorResults as IIncentiveCalculatorResults, IncentiveCalculatorInputs } from '@/types/incentiveCalculator';
 import { pdf } from '@react-pdf/renderer';
-import { IncentiveCalculatorReportPDF } from './IncentiveCalculatorReportPDF';
+import IncentiveCalculatorReportPDF from './IncentiveCalculatorReportPDF';
 
 interface IncentiveCalculatorResultsProps {
   results: IIncentiveCalculatorResults;
