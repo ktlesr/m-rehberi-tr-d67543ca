@@ -22,8 +22,7 @@ const colors = {
   white: "#FFFFFF",
   text: "#1F2937",
   muted: "#6B7280",
-  primary: "#0B4DBA",        // koyu mavi (sol şerit + yazı)
-  sectionTitleBg: "#E7F3FF", // çok açık mavi bant (görsel gibi)
+
   // Daha açık gri (kutu arka planı)
   panelBg: "#F7F8FA",
   panelBorder: "#E8ECF2",
@@ -105,30 +104,6 @@ const styles = StyleSheet.create({
   },
 
   // SECTION TITLE BAND (görsel gibi)
-
-  sectionTitle: {
-  flexDirection: "row",
-  alignItems: "center",
-  backgroundColor: colors.sectionTitleBg,
-  paddingVertical: 10,     // bant yüksekliği
-  paddingHorizontal: 12,
-  marginTop: 18,
-  marginBottom: 12,
-  },
-
-  sectionTitleStrip: {
-    width: 4,                // soldaki dikey mavi şerit
-    alignSelf: "stretch",
-    backgroundColor: colors.primary,
-    marginRight: 12,
-  },
-
-  sectionTitleText: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: colors.primary,
-  },
-
   sectionTitleBand: {
     flexDirection: "row",
     alignItems: "center",
@@ -138,7 +113,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: 12,
   },
- 
+  sectionTitleStrip: {
+    width: 4,
+    alignSelf: "stretch",
+    backgroundColor: colors.titleBandStrip,
+    marginRight: 12,
+  },
+  sectionTitleText: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: colors.titleBandText,
+  },
 
   // PANEL (gri büyük kutu — daha açık)
   panel: {
@@ -386,9 +371,9 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
           ) : null}
 
           {/* YATIRIM KÜNYESİ - başlık bandı */}
-          <View style={styles.sectionTitle}>
+          <View style={styles.sectionTitleBand}>
             <View style={styles.sectionTitleStrip} />
-            <Text style={styles.sectionTitleText}>YATIRIM KÜNYESİ</Text>
+            <Text style={styles.sectionTitleText}>Yatırım Künyesi</Text>
           </View>
 
           <View style={styles.panel}>
@@ -465,11 +450,10 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
 
           {/* TOPLAM DESTEK ÖZETİ - başlık bandı */}
           <View style={{ marginTop: 16 }}>
-            <View style={styles.sectionTitle}>
+            <View style={styles.sectionTitleBand}>
               <View style={styles.sectionTitleStrip} />
-              <Text style={styles.sectionTitleText}>TOPLAM DESTEK ÖZETİ</Text>
+              <Text style={styles.sectionTitleText}>Toplam Destek Özeti</Text>
             </View>
-          </View>
 
             <View style={styles.list}>
               <View style={styles.listRow}>
