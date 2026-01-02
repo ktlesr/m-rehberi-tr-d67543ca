@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { adminSettingsService, QnaDisplayMode } from '@/services/adminSettingsService';
-import { Loader2, LayoutGrid, List, Save } from 'lucide-react';
+import { Loader2, LayoutGrid, List, Minimize2, Save } from 'lucide-react';
 
 const AdminQnaSettings = () => {
   const [displayMode, setDisplayMode] = useState<QnaDisplayMode>('card');
@@ -83,7 +83,7 @@ const AdminQnaSettings = () => {
           <RadioGroup
             value={displayMode}
             onValueChange={(value) => setDisplayMode(value as QnaDisplayMode)}
-            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
             <Label
               htmlFor="card"
@@ -114,6 +114,22 @@ const AdminQnaSettings = () => {
               <span className="font-semibold text-lg">Accordion Görünümü</span>
               <span className="text-sm text-muted-foreground text-center mt-2">
                 Sorular liste halinde gösterilir, tıklandığında cevap açılır. Daha kompakt bir görünüm sağlar.
+              </span>
+            </Label>
+
+            <Label
+              htmlFor="minimal"
+              className={`flex flex-col items-center justify-center p-6 rounded-lg border-2 cursor-pointer transition-all ${
+                displayMode === 'minimal'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/50'
+              }`}
+            >
+              <RadioGroupItem value="minimal" id="minimal" className="sr-only" />
+              <Minimize2 className="h-12 w-12 mb-3 text-primary" />
+              <span className="font-semibold text-lg">Minimal Görünümü</span>
+              <span className="text-sm text-muted-foreground text-center mt-2">
+                Sade tasarım, renkli soru/cevap kutuları ile kompakt görünüm.
               </span>
             </Label>
           </RadioGroup>
