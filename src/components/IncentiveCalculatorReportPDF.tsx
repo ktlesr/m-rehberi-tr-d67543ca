@@ -464,12 +464,12 @@ export const IncentiveCalculatorReportPDF: React.FC<IncentiveCalculatorReportPro
           </View>
 
           {/* TOPLAM DESTEK ÖZETİ - başlık bandı */}
-          <View style={{ marginTop: 16 }}>
+          
             <View style={styles.sectionTitle}>
               <View style={styles.sectionTitleStrip} />
               <Text style={styles.sectionTitleText}>TOPLAM DESTEK ÖZETİ</Text>
             </View>
-          </View>
+          
 
             <View style={styles.list}>
               <View style={styles.listRow}>
