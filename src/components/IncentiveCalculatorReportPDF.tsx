@@ -114,8 +114,6 @@ const styles = StyleSheet.create({
 
     marginTop: 16,
     marginBottom: 12,
-
-    borderRadius: 0,
   },
 
   sectionTitleStrip: {
