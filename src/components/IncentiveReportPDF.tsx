@@ -1,285 +1,165 @@
 // components/IncentiveReportPDF.tsx
-import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
-import { IncentiveResult } from '@/types/incentive';
+import React from "react";
+import { Page, Text, View, Document, StyleSheet, Font } from "@react-pdf/renderer";
+import { IncentiveResult } from "@/types/incentive"; // Adjusted import
 
-// Register Roboto font from CDN
+// IMPORTANT: Register a font that supports Turkish characters.
 Font.register({
-  family: 'Roboto',
+  family: "Noto Sans",
   fonts: [
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-regular-webfont.ttf', fontWeight: 'normal' },
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-bold-webfont.ttf', fontWeight: 'bold' },
+    { src: "/fonts/NotoSans-Regular.ttf" }, // Update path as needed
+    { src: "/fonts/NotoSans-Bold.ttf", fontWeight: "bold" },
   ],
 });
 
-// Color palette matching reference design
+// A professional and clean color palette
 const colors = {
-  primary: '#0011B3',
-  sectionTitle: '#1e88e5',
-  sectionTitleBg: '#e3f2fd',
-  textPrimary: '#212121',
-  textSecondary: '#616161',
-  success: '#4caf50',
-  badgeBlue: '#2196f3',
-  badgeGreen: '#4caf50',
-  badgeRed: '#f44336',
-  badgeOrange: '#ff9800',
-  cardBorder: '#e0e0e0',
-  infoBg: '#e8f5e9',
-  infoBorder: '#4caf50',
-  headerLine: '#1976d2',
+  primary: "#0d47a1",
+  secondary: "#1976d2",
+  textPrimary: "#212121",
+  textSecondary: "#757575",
+  border: "#e0e0e0",
 };
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: 'Roboto',
+    fontFamily: "Noto Sans",
     fontSize: 10,
     padding: 30,
     color: colors.textPrimary,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#fff",
   },
-  // Header styles
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
     backgroundColor: colors.primary,
-    marginHorizontal: -30,
-    marginTop: -30,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logo: {
-    width: 170,
-    height: 60,
-    objectFit: 'contain',
-  },
-  headerRight: {
-    alignItems: 'flex-end',
+    color: "white",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 25,
+    borderRadius: 5,
+    textAlign: "center",
   },
   reportTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    textTransform: 'uppercase',
+    fontSize: 18,
+    fontWeight: "bold",
+    textTransform: "uppercase",
   },
   reportDate: {
     fontSize: 9,
-    color: '#e0e0e0',
-    marginTop: 2,
+    color: "#bbdefb",
+    marginTop: 4,
   },
-  // Section title styles
-  sectionTitle: {
-    backgroundColor: colors.sectionTitleBg,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginTop: 16,
-    marginBottom: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.sectionTitle,
-  },
-  sectionTitleText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: colors.sectionTitle,
-  },
-  // Yatırım Künyesi styles
-  kunyeContainer: {
-    marginBottom: 0,
+  sectorInfo: {
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.primary,
   },
   sectorName: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 10,
-  },
-  kunyeGrid: {
-    flexDirection: 'row',
-    gap: 20,
-  },
-  kunyeColumn: {
-    flex: 1,
-  },
-  kunyeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  kunyeLabel: {
-    fontSize: 9,
-    color: colors.textSecondary,
-  },
-  kunyeValue: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  kunyeValueLarge: {
-    fontSize: 11,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: "bold",
     color: colors.primary,
   },
-  // Badge styles
-  badge: {
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    borderRadius: 3,
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: 'white',
+  naceCode: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+    fontWeight: "bold",
   },
   badgeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: 2,
-  },
-  locationBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
     gap: 6,
+    marginTop: 10,
   },
-  // Destekler styles
-  desteklerGrid: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  destekCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 6,
-    padding: 12,
-  },
-  destekCardTitle: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 10,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-  },
-  destekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  destekLabel: {
-    fontSize: 9,
-    color: colors.textSecondary,
-  },
-  destekValue: {
-    fontSize: 9,
-    fontWeight: 'bold',
-  },
-  destekValueSuccess: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    color: colors.success,
-  },
-  // Özel Şartlar info box
-  infoBox: {
-    marginTop: 16,
-    backgroundColor: colors.infoBg,
-    borderWidth: 1,
-    borderColor: colors.infoBorder,
-    borderRadius: 6,
-    padding: 12,
-  },
-  infoBoxHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  infoBoxCheckIcon: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.success,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infoBoxCheckText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  infoBoxTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: colors.success,
-  },
-  infoBoxText: {
-    fontSize: 9,
-    color: colors.textSecondary,
-    lineHeight: 1.5,
-    marginBottom: 10,
-  },
-  infoBoxBadgeRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  infoBoxBadge: {
+  badge: {
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 4,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "white",
   },
-  infoBoxBadgeText: {
-    fontSize: 8,
+  columnsContainer: {
+    flexDirection: "row",
+    gap: 20,
+  },
+  column: {
+    flex: 1,
+    flexDirection: "column",
+    gap: 15,
+  },
+  card: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    padding: 12,
+    // Ensure cards in a column don't break across pages individually
+    breakInside: "avoid",
+  },
+  cardTitle: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: colors.primary,
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingBottom: 6,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    alignItems: "center",
+  },
+  label: {
     color: colors.textSecondary,
   },
-  infoBoxBadgeValue: {
-    fontSize: 9,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
+  value: {
+    fontWeight: "bold",
+    textAlign: "right",
   },
-  // Conditions box (yellow)
-  conditionsBox: {
-    marginTop: 16,
-    backgroundColor: '#fff8e1',
+  valueLarge: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: colors.primary,
+  },
+  // Styles for the new info boxes
+  infoBox: {
+    marginTop: 15,
     borderWidth: 1,
-    borderColor: '#ffc107',
     borderRadius: 6,
     padding: 12,
   },
-  conditionsTitle: {
+  conditionsBox: {
+    backgroundColor: "#fef9e7", // Light yellow
+    borderColor: "#f1c40f",
+  },
+  alertBox: {
+    backgroundColor: "#fdedec", // Light red
+    borderColor: "#e74c3c",
+  },
+  infoBoxTitle: {
     fontSize: 11,
-    fontWeight: 'bold',
-    color: '#f57c00',
+    fontWeight: "bold",
     marginBottom: 8,
   },
-  conditionsText: {
+  conditionsTitle: {
+    color: "#f39c12", // Orange
+  },
+  alertTitle: {
+    color: "#c0392b", // Red
+  },
+  infoBoxText: {
     fontSize: 9,
-    color: colors.textSecondary,
     lineHeight: 1.5,
   },
-  // Footer
   footer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     left: 30,
     right: 30,
-    textAlign: 'center',
-    color: '#9e9e9e',
+    textAlign: "center",
+    color: "#bdbdbd",
     fontSize: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingTop: 8,
   },
 });
 
@@ -302,200 +182,168 @@ interface IncentiveReportProps {
 
 const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult }) => {
   const supportValues = getSupportValues(incentiveResult);
-  const specialProgram = incentiveResult.location.specialProgram;
-  const hasSpecialProgram = specialProgram?.isEligible;
-  const isEarthquakeZone = specialProgram?.programType === 'earthquake_zone';
-  const isCazibeMerkezi = specialProgram?.programType === 'cazibe_merkezleri';
-  
+
   return (
     <Document title={`Teşvik Raporu - ${incentiveResult.sector.nace_code}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image src="/logo/logo.png" style={styles.logo} />
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.reportTitle}>Teşvik Sonuçları Raporu</Text>
-            <Text style={styles.reportDate}>Oluşturma Tarihi: {new Date().toLocaleDateString('tr-TR')}</Text>
-          </View>
+          <Text style={styles.reportTitle}>Teşvik Sonuçları Raporu</Text>
+          <Text style={styles.reportDate}>Oluşturma Tarihi: {new Date().toLocaleDateString("tr-TR")}</Text>
         </View>
 
-        {/* Yatırım Künyesi Section */}
-        <View style={styles.sectionTitle}>
-          <Text style={styles.sectionTitleText}>Yatırım Künyesi</Text>
-        </View>
-
-        <View style={styles.kunyeContainer}>
+        <View style={styles.sectorInfo}>
           <Text style={styles.sectorName}>{incentiveResult.sector.name}</Text>
-          
-          <View style={styles.kunyeGrid}>
-            {/* Left Column */}
-            <View style={styles.kunyeColumn}>
-              <View style={styles.kunyeRow}>
-                <Text style={styles.kunyeLabel}>NACE Kodu</Text>
-                <Text style={[styles.badge, { backgroundColor: colors.badgeBlue }]}>
-                  {incentiveResult.sector.nace_code}
+          <Text style={styles.naceCode}>NACE Kodu: {incentiveResult.sector.nace_code}</Text>
+          <View style={styles.badgeContainer}>
+            {incentiveResult.sector.isTarget && (
+              <Text style={[styles.badge, { backgroundColor: "#e65100" }]}>Hedef Yatırım</Text>
+            )}
+            {(incentiveResult.sector.isPriority ||
+              incentiveResult.sector.isHighTech ||
+              incentiveResult.sector.isMidHighTech) && (
+              <Text style={[styles.badge, { backgroundColor: "#43a047" }]}>
+                {incentiveResult.sector.isHighTech || incentiveResult.sector.isMidHighTech
+                  ? "Öncelikli ve Yüksek/Orta-Yüksek Teknoloji"
+                  : "Öncelikli Yatırım"}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.columnsContainer}>
+          {/* LEFT COLUMN */}
+          <View style={styles.column}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Yatırım Künyesi</Text>
+              <View style={styles.row}>
+                <Text style={styles.label}>Lokasyon</Text>
+                <Text style={styles.value}>
+                  {incentiveResult.location.province} / {incentiveResult.location.district}
                 </Text>
               </View>
-              <View style={styles.kunyeRow}>
-                <Text style={styles.kunyeLabel}>Alt Bölge</Text>
-                <Text style={styles.kunyeValue}>{incentiveResult.location.subregion || '-'}</Text>
+              <View style={styles.row}>
+                <Text style={styles.label}>Bölge</Text>
+                <Text style={styles.value}>{incentiveResult.location.region}. Bölge</Text>
               </View>
-              <View style={styles.kunyeRow}>
-                <Text style={styles.kunyeLabel}>Min. Yatırım Tutarı</Text>
-                <Text style={styles.kunyeValueLarge}>
-                  {incentiveResult.sector.minInvestment?.toLocaleString('tr-TR')} TL
+              <View style={styles.row}>
+                <Text style={styles.label}>Alt Bölge</Text>
+                <Text style={styles.value}>{incentiveResult.location.subregion || "Yok"}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.label}>Min. Yatırım Tutarı</Text>
+                <Text style={styles.valueLarge}>
+                  {incentiveResult.sector.minInvestment?.toLocaleString("tr-TR")} TL
                 </Text>
               </View>
             </View>
 
-            {/* Right Column */}
-            <View style={styles.kunyeColumn}>
-              <View style={styles.kunyeRow}>
-                <Text style={styles.kunyeLabel}>Lokasyon</Text>
-                <View style={styles.locationBadgeRow}>
-                  <Text style={styles.kunyeValue}>
-                    {incentiveResult.location.province} / {incentiveResult.location.district}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Genel Destekler</Text>
+              <View style={styles.row}>
+                <Text style={styles.label}>KDV İstisnası</Text>
+                <Text style={[styles.value, { color: incentiveResult.supports.vat_exemption ? "#43a047" : "#d32f2f" }]}>
+                  {incentiveResult.supports.vat_exemption ? "EVET" : "HAYIR"}
+                </Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.label}>Gümrük Muafiyeti</Text>
+                <Text
+                  style={[styles.value, { color: incentiveResult.supports.customs_exemption ? "#43a047" : "#d32f2f" }]}
+                >
+                  {incentiveResult.supports.customs_exemption ? "EVET" : "HAYIR"}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* RIGHT COLUMN */}
+          <View style={styles.column}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Yatırım Türü Destekleri</Text>
+
+              {incentiveResult.sector.isTarget && (
+                <View>
+                  <Text style={{ fontWeight: "bold", marginBottom: 5, fontSize: 11 }}>Hedef Yatırım Destekleri</Text>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>SGK Destek Süresi</Text>
+                    <Text style={styles.value}>{incentiveResult.location.sgk_duration}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Vergi İndirimi (YKO)</Text>
+                    <Text style={styles.value}>%{supportValues.target.taxDiscount}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Faiz/Kâr Payı Oranı</Text>
+                    <Text style={styles.value}>
+                      {supportValues.target.interestSupport !== "N/A"
+                        ? `%${supportValues.target.interestSupport}`
+                        : "N/A"}
+                    </Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Faiz/Kâr Payı Limiti</Text>
+                    <Text style={styles.value}>
+                      {supportValues.target.cap !== "N/A"
+                        ? `${parseFloat(supportValues.target.cap).toLocaleString("tr-TR")} TL`
+                        : "N/A"}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {(incentiveResult.sector.isPriority ||
+                incentiveResult.sector.isHighTech ||
+                incentiveResult.sector.isMidHighTech) && (
+                <View style={{ marginTop: incentiveResult.sector.isTarget ? 15 : 0 }}>
+                  <Text style={{ fontWeight: "bold", marginBottom: 5, fontSize: 11 }}>
+                    {incentiveResult.sector.isHighTech || incentiveResult.sector.isMidHighTech
+                      ? "Öncelikli ve Yüksek/Orta-Yüksek Teknoloji Yatırım Destekleri"
+                      : "Öncelikli Yatırım Destekleri"}
                   </Text>
-                  {isEarthquakeZone && (
-                    <Text style={[styles.badge, { backgroundColor: colors.badgeRed }]}>Deprem Bölgesi</Text>
-                  )}
-                  {isCazibeMerkezi && (
-                    <Text style={[styles.badge, { backgroundColor: colors.badgeOrange }]}>Cazibe Merkezi</Text>
-                  )}
+                  <View style={styles.row}>
+                    <Text style={styles.label}>SGK Destek Süresi</Text>
+                    <Text style={styles.value}>{incentiveResult.location.sgk_duration}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Vergi İndirimi (YKO)</Text>
+                    <Text style={styles.value}>%{supportValues.priority.taxDiscount}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Faiz/Kâr Payı Oranı</Text>
+                    <Text style={styles.value}>%{supportValues.priority.interestSupport}</Text>
+                  </View>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Faiz/Kâr Payı Limiti</Text>
+                    <Text style={styles.value}>
+                      {parseFloat(supportValues.priority.cap).toLocaleString("tr-TR")} TL
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.kunyeRow}>
-                <Text style={styles.kunyeLabel}>Bölge</Text>
-                <Text style={styles.kunyeValue}>{incentiveResult.location.region}. Bölge</Text>
-              </View>
-              <View style={styles.kunyeRow}>
-                <Text style={styles.kunyeLabel}>OSB/EB</Text>
-                <Text style={styles.kunyeValue}>{incentiveResult.location.osb_status}</Text>
-              </View>
+              )}
             </View>
           </View>
         </View>
 
-        {/* Destekler Section */}
-        <View style={styles.sectionTitle}>
-          <Text style={styles.sectionTitleText}>Destekler</Text>
-        </View>
+        {/* --- NEW SECTIONS ADDED BELOW --- */}
 
-        <View style={styles.desteklerGrid}>
-          {/* Genel Destekler Card */}
-          <View style={styles.destekCard}>
-            <Text style={styles.destekCardTitle}>Genel Destekler</Text>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>KDV İstisnası</Text>
-              <Text style={styles.destekValueSuccess}>
-                {incentiveResult.supports.vat_exemption ? 'EVET' : 'HAYIR'}
-              </Text>
-            </View>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>Gümrük Vergisi Muafiyeti</Text>
-              <Text style={styles.destekValueSuccess}>
-                {incentiveResult.supports.customs_exemption ? 'EVET' : 'HAYIR'}
-              </Text>
-            </View>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>Yatırım Yeri Tahsisi</Text>
-              <Text style={styles.destekValueSuccess}>EVET</Text>
-            </View>
-          </View>
-
-          {/* Öncelikli/Hedef Yatırım Destekleri Card */}
-          <View style={styles.destekCard}>
-            <Text style={styles.destekCardTitle}>
-              {incentiveResult.sector.isTarget ? 'Hedef Yatırım Destekleri' : 
-               (incentiveResult.sector.isPriority || incentiveResult.sector.isHighTech || incentiveResult.sector.isMidHighTech) 
-                 ? 'Öncelikli Yatırım Destekleri' : 'Yatırım Destekleri'}
-            </Text>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>SGK Destek Süresi</Text>
-              <Text style={styles.destekValue}>{incentiveResult.location.sgk_duration}</Text>
-            </View>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>Vergi İndirimi (YKO)</Text>
-              <Text style={styles.destekValue}>
-                %{incentiveResult.sector.isTarget ? supportValues.target.taxDiscount : supportValues.priority.taxDiscount}
-              </Text>
-            </View>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>Faiz/Kâr Payı Oranı</Text>
-              <Text style={styles.destekValue}>
-                {incentiveResult.sector.isTarget 
-                  ? (supportValues.target.interestSupport !== "N/A" ? `%${supportValues.target.interestSupport}` : '-')
-                  : `%${supportValues.priority.interestSupport}`}
-              </Text>
-            </View>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>Faiz/Kâr Payı Limiti</Text>
-              <Text style={styles.destekValue}>
-                {incentiveResult.sector.isTarget 
-                  ? (supportValues.target.cap !== "N/A" ? `${parseFloat(supportValues.target.cap).toLocaleString('tr-TR')} TL` : '-')
-                  : `${parseFloat(supportValues.priority.cap).toLocaleString('tr-TR')} TL`}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Özel Şartlar Section */}
-        {hasSpecialProgram && (
-          <>
-            <View style={styles.sectionTitle}>
-              <Text style={styles.sectionTitleText}>Özel Şartlar</Text>
-            </View>
-            
-            <View style={styles.infoBox}>
-              <View style={styles.infoBoxHeader}>
-                <View style={styles.infoBoxCheckIcon}>
-                  <Text style={styles.infoBoxCheckText}>✓</Text>
-                </View>
-                <Text style={styles.infoBoxTitle}>
-                  {isEarthquakeZone ? 'Deprem Bölgesi Teşviki Uygulandı' : 'Cazibe Merkezi Teşviki Uygulandı'}
-                </Text>
-              </View>
-              <Text style={styles.infoBoxText}>
-                {specialProgram?.description || 
-                  (isEarthquakeZone 
-                    ? 'Bu yatırım deprem bölgesinde yapılacağından, teşvik hesaplamaları deprem bölgesi teşviklerine göre güncellenmiştir.'
-                    : 'Bu yatırım cazibe merkezi kapsamında olduğundan, teşvik hesaplamaları cazibe merkezi teşviklerine göre güncellenmiştir.')}
-              </Text>
-              <View style={styles.infoBoxBadgeRow}>
-                <View style={styles.infoBoxBadge}>
-                  <Text style={styles.infoBoxBadgeText}>Orijinal</Text>
-                  <Text style={styles.infoBoxBadgeValue}>{specialProgram?.originalRegion || incentiveResult.location.originalRegion}. Bölge</Text>
-                </View>
-                <View style={styles.infoBoxBadge}>
-                  <Text style={styles.infoBoxBadgeText}>Uygulanan</Text>
-                  <Text style={styles.infoBoxBadgeValue}>{specialProgram?.appliedRegion || incentiveResult.location.region}. Bölge</Text>
-                </View>
-              </View>
-            </View>
-          </>
-        )}
-
-        {/* Conditions Box (if sector has conditions) */}
+        {/* Özel Şartlar ve Koşullar Box (Conditional) */}
         {incentiveResult.sector.conditions && (
-          <View style={styles.conditionsBox}>
-            <Text style={styles.conditionsTitle}>Özel Şartlar ve Koşullar</Text>
-            <Text style={styles.conditionsText}>{incentiveResult.sector.conditions}</Text>
+          <View style={[styles.infoBox, styles.conditionsBox]}>
+            <Text style={[styles.infoBoxTitle, styles.conditionsTitle]}>Özel Şartlar ve Koşullar</Text>
+            <Text style={styles.infoBoxText}>{incentiveResult.sector.conditions}</Text>
           </View>
         )}
 
-        {/* Important Info for Target sectors in regions 1-3 */}
-        {incentiveResult.sector.isTarget && [1, 2, 3].includes(incentiveResult.location.region) && !hasSpecialProgram && (
-          <View style={[styles.conditionsBox, { backgroundColor: '#ffebee', borderColor: colors.badgeRed }]}>
-            <Text style={[styles.conditionsTitle, { color: colors.badgeRed }]}>Önemli Bilgi</Text>
-            <Text style={styles.conditionsText}>
+        {/* Önemli Bilgi Alert Box (Conditional) */}
+        {incentiveResult.sector.isTarget && [1, 2, 3].includes(incentiveResult.location.region) && (
+          <View style={[styles.infoBox, styles.alertBox]}>
+            <Text style={[styles.infoBoxTitle, styles.alertTitle]}>Önemli Bilgi</Text>
+            <Text style={styles.infoBoxText}>
               Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.
             </Text>
           </View>
         )}
 
-        {/* Footer */}
         <Text style={styles.footer}>
           Bu rapor sistem tarafından otomatik olarak oluşturulmuştur. Detaylı bilgi için ilgili kurumlara başvurunuz.
         </Text>
