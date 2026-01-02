@@ -9,6 +9,7 @@ import { Bell, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useRecaptcha } from "@/hooks/useRecaptcha";
+import { generateUUID } from "@/lib/uuid";
 
 const PROVINCES = [
   "Adana",
@@ -189,30 +190,19 @@ export const NewsletterSubscribeForm = () => {
         }
       }
 
-      // Check if email already exists
-      const { data: existingSubscriber } = await supabase
-        .from("bulten_uyeler")
-        .select("id")
-        .eq("email", formData.email.toLowerCase().trim())
-        .maybeSingle();
+      // Generate UUID client-side to avoid needing SELECT after INSERT
+      const subscriberId = generateUUID();
 
-      if (existingSubscriber) {
-        toast.error("Bu e-posta adresi zaten kayıtlı. Farklı bir e-posta kullanın.");
-        setIsLoading(false);
-        return;
-      }
-
-      // Insert subscriber
-      const { data: subscriber, error } = await supabase
+      // Insert subscriber without .select() - using client-generated UUID
+      const { error } = await supabase
         .from("bulten_uyeler")
         .insert({
+          id: subscriberId,
           ad_soyad: formData.adSoyad.trim(),
           telefon: formData.telefon || null,
           email: formData.email.toLowerCase().trim(),
           il: formData.il,
-        })
-        .select("id")
-        .single();
+        });
 
       if (error) {
         if (error.code === "23505") {
@@ -223,9 +213,9 @@ export const NewsletterSubscribeForm = () => {
         return;
       }
 
-      // Insert institution preferences (exclude "all" value)
+      // Insert institution preferences using client-generated UUID
       const preferences = actualSelections.map((instId) => ({
-        uye_id: subscriber.id,
+        uye_id: subscriberId,
         institution_id: parseInt(instId),
       }));
 
