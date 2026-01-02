@@ -2920,6 +2920,14 @@ export type Database = {
           suggestion_type: string
         }[]
       }
+      get_today_activity_counts: {
+        Args: never
+        Returns: {
+          active_sessions: number
+          today_calculations: number
+          today_searches: number
+        }[]
+      }
       get_user_roles: { Args: { p_user_id: string }; Returns: string[] }
       get_ydo_user_count: { Args: never; Returns: number }
       has_any_role: {

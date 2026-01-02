@@ -42,50 +42,28 @@ export const useTodayActivity = () => {
 
   const fetchTodayStats = useCallback(async () => {
     try {
-      console.log('Fetching today activity stats...');
+      console.log('Fetching today activity stats via RPC...');
       
-      // Get today's start (midnight in local timezone)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStart = today.toISOString();
-      
-      // Get today's calculations and searches from user_sessions
-      const { data: todayData, error: todayError } = await supabase
-        .from('user_sessions')
-        .select('*')
-        .gte('created_at', todayStart)
-        .in('activity_type', ['calculation', 'search'])
-        .order('created_at', { ascending: false });
+      // Use secure RPC function - no direct table access needed
+      const { data, error } = await supabase.rpc('get_today_activity_counts');
 
-      if (todayError) throw todayError;
+      if (error) throw error;
 
-      const todayCalculations = todayData?.filter(item => item.activity_type === 'calculation').length || 0;
-      const todaySearches = todayData?.filter(item => item.activity_type === 'search').length || 0;
-      
-      // Get active sessions (last 30 minutes)
-      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      const { data: activeData, error: activeError } = await supabase
-        .from('user_sessions')
-        .select('session_id')
-        .gte('created_at', thirtyMinutesAgo);
-
-      if (activeError) throw activeError;
-      
-      const activeSessions = new Set(activeData?.map(s => s.session_id) || []).size;
+      const todayCalculations = Number(data?.[0]?.today_calculations) || 0;
+      const todaySearches = Number(data?.[0]?.today_searches) || 0;
+      const activeSessions = Number(data?.[0]?.active_sessions) || 0;
 
       console.log('Today activity stats fetched:', { todayCalculations, todaySearches, activeSessions });
 
       setStats(prevStats => {
-        // Only update if data has actually changed
         const newStats = {
           todayCalculations,
           todaySearches,
           activeSessions,
           totalToday: todayCalculations + todaySearches,
-          recentActivities: todayData?.slice(0, 30) || []
+          recentActivities: [] // RPC doesn't return details for security
         };
         
-        // Compare with previous stats to avoid unnecessary updates
         if (JSON.stringify(prevStats) === JSON.stringify(newStats)) {
           return prevStats;
         }
