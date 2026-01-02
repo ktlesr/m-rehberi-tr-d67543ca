@@ -6,7 +6,94 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { SupportProgramCard, SupportProgramCardData } from "./SupportProgramCard";
 import { FollowUpQuestionCard } from "./FollowUpQuestionCard";
 import { extractFollowUpQuestion } from "@/utils/followUpQuestionParser";
-import { preprocessMarkdown, markdownComponents } from "@/utils/markdownProcessor";
+
+// Markdown içeriğini düzgün formatlama için ön işleme
+const preprocessMarkdown = (content: string): string => {
+  return (
+    content
+      // ========== BOZUK BOLD TAG DÜZELTMELERİ (ÖNCELİKLİ) ==========
+      // A1. "**text: **" → "**text:** " (boşluk kapatmadan önce)
+      .replace(/\*\*([^*]+?):\s*\*\*/g, "**$1:** ")
+
+      // A2. "**text:**value" → "**text:** value" (iki nokta sonrası boşluk yok)
+      .replace(/\*\*([^*]+):\*\*(\S)/g, "**$1:** $2")
+
+      // A3. Tek başına açık "**" işaretlerini kaldır (kapatılmamış)
+      .replace(/\*\*([^*\n]{3,50}[^*\s])(?!\*\*)/g, (match, p1) => {
+        // Eğer satırda başka ** yoksa, bu orphan bir açılış
+        if (!p1.includes("**")) return p1;
+        return match;
+      })
+
+      // A4. Satır sonundaki yalnız "**" kaldır
+      .replace(/\*\*\s*$/gm, "")
+
+      // A5. Satır başındaki yalnız "**" kaldır
+      .replace(/^\*\*\s+(?!\S+:)/gm, "")
+
+      // A6. "text:**" → "text:" (sonundaki orphan **)
+      .replace(/([^*]):\*\*(?!\s*\S)/g, "$1:")
+
+      // ========== BAŞLIKLARI AYRI SATIRA AL ==========
+      // B1. "**Başlık:** değer **Başlık2:**" → araya paragraf kır
+      .replace(/(\*\*[^*]+:\*\*)\s*([^:\n]{2,120})\s+(\*\*[^*]+:\*\*)/g, "$1 $2\n\n$3")
+
+      // B2. "**Başlık:** değer Başlık2:" → araya paragraf kır + ikinci başlığı kalınlaştır
+      .replace(
+        /(\*\*[^*]+:\*\*)\s*([^:\n]{2,120})\s+((?:NACE Kodu|Ana Sektör Tanımı|Alt Sektör Tanımı|Sektör Tanımı|Teşvik Statüsü|Yatırım Konusu|Lokasyon|Uygulanan Program|Yerel Kalkınma Hamlesi|Teknoloji Hamlesi Programı|Özel Şartlar):)/gim,
+        "$1 $2\n\n**$3** ",
+      )
+
+      // 0. Satır sonundaki "**soru?** ---?" formatını temizle (takip sorusu kalıntısı)
+      .replace(/\*\*([^*]+\?)\*\*\s*(?:---\?)?\s*$/g, "\n\n$1")
+
+      // 1. TEK SATIR SONU + BOLD BAŞLIK -> ÇİFT SATIR SONU (EN KRİTİK)
+      .replace(/\n(\*\*[^*:]+:\*\*)/g, "\n\n$1")
+
+      // 2. SATIR İÇİ BOLD BAŞLIKLARDAN ÖNCE ÇİFT SATIR SONU (karakter + bold)
+      .replace(/([^\n\s])(\s*)(\*\*[^*:]+:\*\*)/g, "$1\n\n$3")
+
+      // 3. "Sektör Analizi:" gibi düz başlıklardan sonra çift satır sonu
+      .replace(/(Sektör Analizi:|Yatırım Teşvik Analiz Raporu)(\s*)/g, "$1\n\n")
+
+      // 4. Bold başlık içeren liste öğelerinden bullet'ı kaldır (* **Label:** veya - **Label:**)
+      .replace(/^[\*\-]\s+(\*\*[^*]+:\*\*)/gm, "$1")
+      .replace(/\n[\*\-]\s+(\*\*[^*]+:\*\*)/g, "\n\n$1")
+
+      // 5. ### başlıklarından önce çift satır sonu
+      .replace(/([^\n])(###)/g, "$1\n\n$2")
+
+      // 6. Numaralı liste öğeleri öncesinde satır sonu
+      .replace(/([.!?])\s+(\d+)\.\s+/g, "$1\n\n$2. ")
+
+      // ========== DÜZ METİN BAŞLIKLARINI FORMAT ===============
+      // 7. Satır içi ardışık "Başlık: değer Başlık2: değer2" kalıplarını ayır
+      .replace(
+        /(:)\s*([^:\n]{2,50})\s+((?:NACE|Sektör|Teşvik|Yatırım|Lokasyon|Program|Bölge|KDV|Gümrük|Vergi|Sigorta|Faiz|Makine|Asgari|OSB|İl|Ana|Alt|Hedef|Öncelikli|Uygulanan|İşletme|Sabit|Minimum|Yerel|Teknoloji|Özel)[^:]*:)/gi,
+        "$1 $2\n\n**$3**",
+      )
+
+      // 8. Satır başındaki düz metin başlıkları bold yap (eğer bold değilse)
+      .replace(
+        /^((?:NACE Kodu|Ana Sektör Tanımı|Alt Sektör Tanımı|Sektör Tanımı|Teşvik Statüsü|Yatırım Konusu|Lokasyon|Uygulanan Program|Bölge|İl|KDV İstisnası|Gümrük Muafiyeti|Vergi İndirimi|Sigorta Primi|Faiz Desteği|Makine Teçhizat|Asgari Yatırım|OSB Durumu|Hedef Yatırım|Öncelikli Yatırım|İşletme Büyüklüğü|Sabit Yatırım Tutarı|Minimum Yatırım|Yerel Kalkınma Hamlesi|Teknoloji Hamlesi Programı|Özel Şartlar):)(\s)/gim,
+        "**$1**$2",
+      )
+
+      // 9. Paragraf içi düz başlıkların önüne satır sonu ekle
+      .replace(
+        /([.!?)\]0-9])\s+((?:NACE Kodu|Ana Sektör|Alt Sektör|Sektör Tanımı|Teşvik Statüsü|Yatırım Konusu|Lokasyon|Uygulanan Program|Bölge|İl|KDV|Gümrük|Vergi|Sigorta|Faiz|Makine|Asgari|OSB|Hedef|Öncelikli|Yerel|Teknoloji|Özel)[^:]*:)/gi,
+        "$1\n\n**$2**",
+      )
+
+      // 10. Inline asterisk'leri yeni satıra taşı (": * item" veya ". * item")
+      .replace(/:\s*\*\s+([^\n*])/g, ":\n\n* $1")
+      .replace(/\.\s*\*\s+([^\n*])/g, ".\n\n* $1")
+
+      // 11. Çift boşlukları temizle (3+ -> 2)
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
+};
 
 interface MessageBubbleProps {
   role: "user" | "assistant";
@@ -56,7 +143,7 @@ export function MessageBubble({
     const processedContent = preprocessMarkdown(mainContent);
 
     if (!sources || sources.length === 0 || isUser) {
-      return <ReactMarkdown components={markdownComponents}>{processedContent}</ReactMarkdown>;
+      return <ReactMarkdown components={markdownComponentsBase}>{processedContent}</ReactMarkdown>;
     }
 
     const citationMap = new Map<string, JSX.Element[]>();
@@ -111,7 +198,7 @@ export function MessageBubble({
     }
 
     const components = {
-      ...markdownComponents,
+      ...markdownComponentsBase,
       p: ({ children, ...props }: any) => {
         const processed = processTextWithCitations(children, citationMap);
         return (
@@ -269,6 +356,78 @@ export function MessageBubble({
   );
 }
 
+/* Ortak markdown renderer ayarları */
+const markdownComponentsBase = {
+  a: ({ node, ...props }: any) => (
+    <a {...props} className="text-primary hover:underline font-medium" target="_blank" rel="noopener noreferrer" />
+  ),
+  code: ({ node, className, children, ...props }: any) => {
+    const match = /language-(\w+)/.exec(className || "");
+    return match ? (
+      <code className={cn("block bg-muted p-3 rounded-lg my-2 text-xs overflow-x-auto", className)} {...props}>
+        {children}
+      </code>
+    ) : (
+      <code className="bg-muted px-1.5 py-0.5 rounded text-xs" {...props}>
+        {children}
+      </code>
+    );
+  },
+  p: ({ node, ...props }: any) => <p className="mb-2 last:mb-0" {...props} />,
+  ul: ({ node, ...props }: any) => <ul className="mb-3 space-y-1" {...props} />,
+  ol: ({ node, ...props }: any) => <ol className="mb-3 space-y-1" {...props} />,
+  li: ({ node, children, ...props }: any) => {
+    // Check if this li contains a strong/bold element as the first child (header-like item)
+    const childArray = Array.isArray(children) ? children : [children];
+    const firstChild = childArray[0];
+    const hasBoldHeader =
+      firstChild?.type === "strong" ||
+      (typeof firstChild === "object" && firstChild?.props?.children?.[0]?.type === "strong");
+
+    // If it has a bold header, render without bullet (cleaner look)
+    if (hasBoldHeader) {
+      return (
+        <li className="mb-2 list-none" {...props}>
+          {children}
+        </li>
+      );
+    }
+
+    // Regular list item with bullet
+    return (
+      <li className="mb-1 ml-4 list-disc" {...props}>
+        {children}
+      </li>
+    );
+  },
+  strong: ({ node, children, ...props }: any) => {
+    // Extract text content from children
+    const getText = (child: any): string => {
+      if (typeof child === "string") return child;
+      if (Array.isArray(child)) return child.map(getText).join("");
+      if (child?.props?.children) return getText(child.props.children);
+      return "";
+    };
+
+    const text = getText(children);
+
+    // If content has colon, only bold the label part (before colon)
+    if (text.includes(":")) {
+      const colonIndex = text.indexOf(":");
+      const label = text.substring(0, colonIndex + 1);
+      const rest = text.substring(colonIndex + 1);
+
+      return (
+        <>
+          <strong className="font-semibold text-foreground">{label}</strong>
+          <span className="font-normal">{rest}</span>
+        </>
+      );
+    }
+
+    return <strong className="font-semibold text-foreground" {...props} />;
+  },
+};
 
 function processTextWithCitations(children: any, citationMap: Map<string, JSX.Element[]>): any {
   if (typeof children === "string") {

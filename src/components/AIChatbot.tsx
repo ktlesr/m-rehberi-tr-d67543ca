@@ -37,7 +37,6 @@ import { useChatbotStats } from "@/hooks/useChatbotStats";
 import { useChatbotSettings } from "@/hooks/useChatbotSettings";
 import { SupportProgramCard, type SupportProgramCardData } from "@/components/chat/SupportProgramCard";
 import { extractFollowUpQuestion } from "@/utils/followUpQuestionParser";
-import { preprocessMarkdown, markdownComponents } from "@/utils/markdownProcessor";
 
 interface Message {
   role: "user" | "assistant";
@@ -114,6 +113,103 @@ function renderContentWithBadges(content: string) {
   return nodes;
 }
 
+// Markdown bileşenleri - asistan mesajları için formatlama
+const markdownComponents = {
+  p: ({ children, ...props }: any) => (
+    <p className="mb-2 last:mb-0" {...props}>
+      {children}
+    </p>
+  ),
+  ul: ({ children, ...props }: any) => (
+    <ul className="list-disc list-inside mb-2 space-y-1 pl-2" {...props}>
+      {children}
+    </ul>
+  ),
+  ol: ({ children, ...props }: any) => (
+    <ol className="list-decimal list-inside mb-2 space-y-1 pl-2" {...props}>
+      {children}
+    </ol>
+  ),
+  li: ({ children, ...props }: any) => (
+    <li className="text-sm leading-relaxed" {...props}>
+      {children}
+    </li>
+  ),
+  strong: ({ children, ...props }: any) => {
+    // Extract text content from children
+    const getText = (child: any): string => {
+      if (typeof child === "string") return child;
+      if (Array.isArray(child)) return child.map(getText).join("");
+      if (child?.props?.children) return getText(child.props.children);
+      return "";
+    };
+
+    const text = getText(children);
+
+    // If content has colon, only bold the label part (before colon)
+    if (text.includes(":")) {
+      const colonIndex = text.indexOf(":");
+      const label = text.substring(0, colonIndex + 1);
+      const rest = text.substring(colonIndex + 1);
+
+      return (
+        <>
+          <strong className="font-semibold text-primary">{label}</strong>
+          <span className="font-normal">{rest}</span>
+        </>
+      );
+    }
+
+    return (
+      <strong className="font-semibold text-primary" {...props}>
+        {children}
+      </strong>
+    );
+  },
+  a: ({ href, children, ...props }: any) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" {...props}>
+      {children}
+    </a>
+  ),
+  code: ({ children, ...props }: any) => (
+    <code className="bg-background/50 px-1 py-0.5 rounded text-xs font-mono" {...props}>
+      {children}
+    </code>
+  ),
+  h1: ({ children, ...props }: any) => (
+    <h1 className="text-base font-bold mb-2" {...props}>
+      {children}
+    </h1>
+  ),
+  h2: ({ children, ...props }: any) => (
+    <h2 className="text-sm font-bold mb-2" {...props}>
+      {children}
+    </h2>
+  ),
+  h3: ({ children, ...props }: any) => (
+    <h3 className="text-sm font-semibold mb-1" {...props}>
+      {children}
+    </h3>
+  ),
+};
+
+// Markdown içeriğini düzgün formatlama için ön işleme
+const preprocessMarkdown = (content: string): string => {
+  return content
+    // Bold başlık içeren liste öğelerinden bullet'ı kaldır (* **Label:** veya - **Label:**)
+    .replace(/^[\*\-]\s+(\*\*[^*]+:\*\*)/gm, '$1')
+    .replace(/\n[\*\-]\s+(\*\*[^*]+:\*\*)/g, '\n\n$1')
+    // Liste işaretçileri öncesinde satır sonu ekle (* veya -)
+    .replace(/([.!?:,])\s*(\*|\-)\s+(\*\*)/g, '$1\n\n$2 $3')
+    // Numaralı liste öğeleri öncesinde satır sonu
+    .replace(/([.!?:,])\s+(\d+)\.\s+(\*\*)/g, '$1\n\n$2. $3')
+    // "Özel Durum:" gibi inline bold başlıklar için satır sonu
+    .replace(/([.!?])\s+(\*\*[^*]+:\*\*)/g, '$1\n\n$2')
+    // İç içe bold başlık + açıklama paterni (liste içinde)
+    .replace(/(\*\*[^*:]+:\*\*[^.!?*]+[.!?])\s+(\*\*[^*]+:\*\*)/g, '$1\n\n$2')
+    // Çift boşlukları temizle
+    .replace(/\n{3,}/g, '\n\n');
+};
 
 function MessageBubble({ message, showSources }: { message: Message; showSources: boolean }) {
   const isUser = message.role === "user";
