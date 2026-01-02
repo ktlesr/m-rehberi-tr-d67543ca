@@ -77,17 +77,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerLogo: {
-    width: 50,
-    height: 50,
+    width: 170,
+    height: 60,
     objectFit: "contain",
   },
   headerTextContainer: {
     alignItems: "flex-end",
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: "bold",
-    color: colors.white,
+    color: "#ffffff",
+    textTransform: "uppercase",
     marginBottom: 4,
   },
   headerSubtitle: {
@@ -133,9 +134,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   kunyeBox: {
-    backgroundColor: colors.lightGray,
-    borderRadius: 4,
-    padding: 8,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 0,
+    padding: 10,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
   },
@@ -152,17 +153,21 @@ const styles = StyleSheet.create({
   },
   // Support list
   supportList: {
-    backgroundColor: colors.lightGray,
-    borderRadius: 6,
-    padding: 12,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 4,
+    padding: 0,
   },
   supportRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: "#eeeeee",
+    backgroundColor: "#ffffff",
   },
   supportRowLast: {
     borderBottomWidth: 0,
