@@ -13,12 +13,19 @@ interface AIEvidencePanelProps {
 }
 
 const fieldLabels: Record<string, string> = {
+  // Support Program fields
   institution_id: 'Kurum',
   application_deadline: 'Son Başvuru Tarihi',
   title: 'Program Adı',
   description: 'Açıklama',
   eligibility_criteria: 'Kimler Başvurabilir',
   contact_info: 'İletişim Bilgileri',
+  // Announcement fields
+  institution_logo: 'Kurum Logosu',
+  institution_name: 'Kurum Adı',
+  detail: 'Duyuru Detayı',
+  announcement_date: 'Duyuru Tarihi',
+  external_link: 'Harici Link',
 };
 
 const confidenceColors: Record<string, string> = {

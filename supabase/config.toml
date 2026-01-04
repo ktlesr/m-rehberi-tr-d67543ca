@@ -85,3 +85,6 @@ verify_jwt = false
 
 [functions.ai-support-draft]
 verify_jwt = true
+
+[functions.ai-announcement-draft]
+verify_jwt = true
