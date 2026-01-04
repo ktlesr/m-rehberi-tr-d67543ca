@@ -316,8 +316,8 @@ function MessageBubble({ message, showSources }: { message: Message; showSources
 export function AIChatbot() {
   const location = useLocation();
 
-  // Hide chatbot on the /chat page
-  if (location.pathname === "/chat") {
+  // Hide chatbot on the /chat page and admin routes
+  if (location.pathname === "/chat" || location.pathname.startsWith("/admin")) {
     return null;
   }
 

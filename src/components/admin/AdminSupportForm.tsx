@@ -47,6 +47,7 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
   const [aiIssues, setAiIssues] = useState<FieldIssue[]>([]);
   const [missingTags, setMissingTags] = useState<MissingTag[]>([]);
   const [showEvidencePanel, setShowEvidencePanel] = useState(false);
+  const [aiFiles, setAiFiles] = useState<File[]>([]);
 
   useEffect(() => {
     fetchInstitutions();
@@ -268,9 +269,33 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
     setShowEvidencePanel(false);
   };
 
+  // AI file handlers
+  const handleAiFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newFiles = Array.from(e.target.files || []).filter(f => f.type === 'application/pdf');
+    if (newFiles.length === 0) {
+      toast.error('Lütfen sadece PDF dosyası yükleyin');
+      return;
+    }
+    setAiFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const removeAiFile = (index: number) => {
+    setAiFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAiFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+    if (droppedFiles.length === 0) {
+      toast.error('Lütfen sadece PDF dosyası yükleyin');
+      return;
+    }
+    setAiFiles(prev => [...prev, ...droppedFiles]);
+  };
+
   // AI Draft generation handler
   const handleAiGenerate = async () => {
-    if (files.length === 0 && !sourceUrl.trim()) {
+    if (aiFiles.length === 0 && !sourceUrl.trim()) {
       toast.error('Lütfen bir PDF dosyası yükleyin veya kaynak URL girin');
       return;
     }
@@ -281,10 +306,10 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
       // Upload files temporarily if any
       const uploadedFileRefs: Array<{ name: string; path: string }> = [];
       
-      if (files.length > 0) {
+      if (aiFiles.length > 0) {
         const tempId = crypto.randomUUID();
         
-        for (const file of files) {
+        for (const file of aiFiles) {
           const path = `temp/${tempId}/${file.name}`;
           const { error: uploadError } = await supabase.storage
             .from('program-files')
@@ -438,11 +463,64 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
                   </div>
                 </div>
                 
+                {/* PDF Upload Area for AI */}
+                <div className="mb-4">
+                  <Label className="text-sm text-gray-700 mb-2 block">
+                    PDF Dosyası Yükle (opsiyonel)
+                  </Label>
+                  <div
+                    className="border-2 border-dashed border-purple-300 rounded-lg p-4 bg-white/50 transition-colors hover:border-purple-400 hover:bg-purple-50/50"
+                    onDrop={handleAiFileDrop}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDragEnter={(e) => e.preventDefault()}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf"
+                      onChange={handleAiFileUpload}
+                      className="hidden"
+                      id="ai-file-upload"
+                    />
+                    <label htmlFor="ai-file-upload" className="cursor-pointer flex flex-col items-center">
+                      <Upload className="w-8 h-8 text-purple-400 mb-2" />
+                      <span className="text-sm text-purple-600 font-medium">PDF dosyalarını buraya sürükleyin veya tıklayın</span>
+                      <span className="text-xs text-gray-400 mt-1">Sadece PDF formatı desteklenir</span>
+                    </label>
+                  </div>
+                  
+                  {/* Uploaded AI files list */}
+                  {aiFiles.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {aiFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-purple-200 shadow-sm">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <FileText className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                            <span className="text-sm truncate text-gray-700">{file.name}</span>
+                            <span className="text-xs text-gray-400 flex-shrink-0">
+                              ({(file.size / 1024).toFixed(1)} KB)
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAiFile(index)}
+                            className="h-7 w-7 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-4">
                   <Button
                     type="button"
                     onClick={handleAiGenerate}
-                    disabled={(files.length === 0 && !sourceUrl.trim()) || isAiGenerating}
+                    disabled={(aiFiles.length === 0 && !sourceUrl.trim()) || isAiGenerating}
                     className="bg-purple-600 hover:bg-purple-700 text-white"
                   >
                     {isAiGenerating ? (
@@ -458,7 +536,10 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
                     )}
                   </Button>
                   <p className="text-xs text-gray-500 flex-1">
-                    PDF dosyası yükleyin veya kaynak URL girin. AI formu otomatik dolduracak ve etiketleri seçecek.
+                    {aiFiles.length > 0 
+                      ? `${aiFiles.length} dosya seçildi. AI formu otomatik dolduracak.`
+                      : 'PDF dosyası yükleyin veya kaynak URL girin.'
+                    }
                   </p>
                 </div>
               </div>
