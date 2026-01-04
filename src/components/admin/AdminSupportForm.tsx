@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, X, Plus, Check, Minus, ArrowLeft } from 'lucide-react';
+import { Upload, X, Plus, Check, Minus, ArrowLeft, Sparkles, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Institution, Tag, TagCategory, SupportProgram, FileAttachment } from '@/types/support';
 import { DraggableFileList } from './DraggableFileList';
+import { AIEvidencePanel } from './AIEvidencePanel';
+import { FieldEvidence, FieldIssue, MissingTag, AIDraftResponse } from '@/types/aiDraft';
 
 interface AdminSupportFormProps {
   onSubmit: (data: any) => void;
@@ -36,6 +38,15 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [tagsByCategory, setTagsByCategory] = useState<Record<string, Tag[]>>({});
   const [categories, setCategories] = useState<TagCategory[]>([]);
+  
+  // AI Draft Generator states
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [adminHint, setAdminHint] = useState('');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiEvidence, setAiEvidence] = useState<FieldEvidence[]>([]);
+  const [aiIssues, setAiIssues] = useState<FieldIssue[]>([]);
+  const [missingTags, setMissingTags] = useState<MissingTag[]>([]);
+  const [showEvidencePanel, setShowEvidencePanel] = useState(false);
 
   useEffect(() => {
     fetchInstitutions();
@@ -248,6 +259,101 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
     setSelectedTags([]);
     setFiles([]);
     setExistingFiles([]);
+    // Reset AI states
+    setSourceUrl('');
+    setAdminHint('');
+    setAiEvidence([]);
+    setAiIssues([]);
+    setMissingTags([]);
+    setShowEvidencePanel(false);
+  };
+
+  // AI Draft generation handler
+  const handleAiGenerate = async () => {
+    if (files.length === 0 && !sourceUrl.trim()) {
+      toast.error('Lütfen bir PDF dosyası yükleyin veya kaynak URL girin');
+      return;
+    }
+
+    setIsAiGenerating(true);
+    
+    try {
+      // Upload files temporarily if any
+      const uploadedFileRefs: Array<{ name: string; path: string }> = [];
+      
+      if (files.length > 0) {
+        const tempId = crypto.randomUUID();
+        
+        for (const file of files) {
+          const path = `temp/${tempId}/${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from('program-files')
+            .upload(path, file);
+          
+          if (uploadError) {
+            console.error('File upload error:', uploadError);
+            continue;
+          }
+          
+          uploadedFileRefs.push({ name: file.name, path });
+        }
+      }
+
+      // Call the AI draft edge function
+      const { data, error } = await supabase.functions.invoke<AIDraftResponse>('ai-support-draft', {
+        body: {
+          uploaded_files: uploadedFileRefs,
+          source_url: sourceUrl.trim() || null,
+          hint: adminHint.trim() || null,
+        },
+      });
+
+      if (error) {
+        console.error('AI draft error:', error);
+        toast.error('AI analizi başarısız: ' + (error.message || 'Bilinmeyen hata'));
+        return;
+      }
+
+      if (!data) {
+        toast.error('AI yanıtı alınamadı');
+        return;
+      }
+
+      // Populate form fields
+      setFormData({
+        institution_id: data.filled_fields.institution_id?.toString() || '',
+        title: data.filled_fields.title || '',
+        description: data.filled_fields.description || '',
+        application_deadline: data.filled_fields.application_deadline || '',
+        eligibility_criteria: data.filled_fields.eligibility_criteria || '',
+        contact_info: data.filled_fields.contact_info || '',
+      });
+
+      // Set selected tags
+      setSelectedTags(data.selected_tag_ids || []);
+
+      // Store evidence and issues
+      setAiEvidence(data.evidence || []);
+      setAiIssues(data.issues || []);
+      setMissingTags(data.missing_tags || []);
+
+      // Show evidence panel
+      setShowEvidencePanel(true);
+
+      const issueCount = (data.issues || []).length;
+      const missingCount = (data.missing_tags || []).length;
+      
+      if (issueCount > 0 || missingCount > 0) {
+        toast.warning(`AI analizi tamamlandı! ${issueCount} uyarı, ${missingCount} eşleştirilemeyen etiket var.`);
+      } else {
+        toast.success('AI analizi başarıyla tamamlandı! Lütfen bilgileri kontrol edin.');
+      }
+    } catch (err) {
+      console.error('AI generation error:', err);
+      toast.error('AI analizi sırasında hata oluştu');
+    } finally {
+      setIsAiGenerating(false);
+    }
   };
 
   const getCategoryIcon = (categoryName: string) => {
@@ -273,18 +379,92 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
   };
 
   return (
-    <Card>
-      <CardHeader>
-        {onCancel && (
-          <Button variant="ghost" onClick={onCancel} className="w-fit">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Geri Dön
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <>
+      <Card>
+        <CardHeader>
+          {onCancel && (
+            <Button variant="ghost" onClick={onCancel} className="w-fit">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Geri Dön
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* AI Draft Generation Section - NEW */}
+            {!editingProgram && (
+              <div className="p-5 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border-2 border-purple-200 shadow-sm mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  <h4 className="font-semibold text-purple-800">AI ile Otomatik Doldur</h4>
+                  {showEvidencePanel && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowEvidencePanel(true)}
+                      className="ml-auto text-purple-600 border-purple-300"
+                    >
+                      <FileText className="w-4 h-4 mr-1" />
+                      Kanıtları Göster
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label htmlFor="sourceUrl" className="text-sm text-gray-700">
+                      Kaynak URL (opsiyonel)
+                    </Label>
+                    <Input
+                      id="sourceUrl"
+                      placeholder="https://ornek.com/destek-programi"
+                      value={sourceUrl}
+                      onChange={(e) => setSourceUrl(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="adminHint" className="text-sm text-gray-700">
+                      İpucu (opsiyonel)
+                    </Label>
+                    <Input
+                      id="adminHint"
+                      placeholder="Örn: TÜBİTAK hibe programı"
+                      value={adminHint}
+                      onChange={(e) => setAdminHint(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <Button
+                    type="button"
+                    onClick={handleAiGenerate}
+                    disabled={(files.length === 0 && !sourceUrl.trim()) || isAiGenerating}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    {isAiGenerating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        AI Analiz Ediyor...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        AI ile Oluştur
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-gray-500 flex-1">
+                    PDF dosyası yükleyin veya kaynak URL girin. AI formu otomatik dolduracak ve etiketleri seçecek.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <Label htmlFor="institution">Select Institution *</Label>
               <Select value={formData.institution_id} onValueChange={(value) => handleInputChange('institution_id', value)}>
@@ -502,5 +682,16 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
         </form>
       </CardContent>
     </Card>
+
+    {/* AI Evidence Panel */}
+    {showEvidencePanel && (
+      <AIEvidencePanel
+        evidence={aiEvidence}
+        issues={aiIssues}
+        missingTags={missingTags}
+        onClose={() => setShowEvidencePanel(false)}
+      />
+    )}
+  </>
   );
 };

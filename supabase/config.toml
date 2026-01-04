@@ -82,3 +82,6 @@ verify_jwt = false
 
 [functions.verify-recaptcha]
 verify_jwt = false
+
+[functions.ai-support-draft]
+verify_jwt = true
