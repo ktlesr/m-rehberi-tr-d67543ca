@@ -34,11 +34,19 @@ const confidenceLabels: Record<string, string> = {
 };
 
 export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEvidencePanelProps) {
+  // Position state
   const [position, setPosition] = useState({ x: window.innerWidth - 420, y: 80 });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  // Size state (resizable)
+  const [size, setSize] = useState({ width: 384, height: 500 });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startY: number; initialW: number; initialH: number } | null>(null);
+
+  // Drag handlers
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     setIsDragging(true);
     dragRef.current = {
       startX: e.clientX,
@@ -48,46 +56,75 @@ export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEv
     };
   }, [position]);
 
+  // Resize handlers
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    resizeRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialW: size.width,
+      initialH: size.height,
+    };
+  }, [size]);
+
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging || !dragRef.current) return;
+    if (isDragging && dragRef.current) {
+      const deltaX = e.clientX - dragRef.current.startX;
+      const deltaY = e.clientY - dragRef.current.startY;
+      
+      const newX = Math.max(0, Math.min(window.innerWidth - size.width, dragRef.current.initialX + deltaX));
+      const newY = Math.max(0, Math.min(window.innerHeight - 100, dragRef.current.initialY + deltaY));
+      
+      setPosition({ x: newX, y: newY });
+    }
     
-    const deltaX = e.clientX - dragRef.current.startX;
-    const deltaY = e.clientY - dragRef.current.startY;
-    
-    const newX = Math.max(0, Math.min(window.innerWidth - 400, dragRef.current.initialX + deltaX));
-    const newY = Math.max(0, Math.min(window.innerHeight - 100, dragRef.current.initialY + deltaY));
-    
-    setPosition({ x: newX, y: newY });
-  }, [isDragging]);
+    if (isResizing && resizeRef.current) {
+      const deltaX = e.clientX - resizeRef.current.startX;
+      const deltaY = e.clientY - resizeRef.current.startY;
+      
+      const newWidth = Math.max(320, Math.min(800, resizeRef.current.initialW + deltaX));
+      const newHeight = Math.max(300, Math.min(window.innerHeight - 100, resizeRef.current.initialH + deltaY));
+      
+      setSize({ width: newWidth, height: newHeight });
+    }
+  }, [isDragging, isResizing, size.width]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
+    setIsResizing(false);
     dragRef.current = null;
+    resizeRef.current = null;
   }, []);
 
   return (
-    <div 
-      className="fixed inset-0 z-50"
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    >
-      {/* Transparent overlay - doesn't close on click */}
-      <div className="absolute inset-0" />
+    <>
+      {/* Overlay only active during drag/resize - allows background interaction otherwise */}
+      {(isDragging || isResizing) && (
+        <div 
+          className="fixed inset-0 z-40"
+          style={{ cursor: isDragging ? 'move' : 'se-resize' }}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        />
+      )}
       
-      {/* Draggable Panel */}
+      {/* Draggable & Resizable Panel */}
       <div 
-        className="absolute w-96 bg-white shadow-2xl border rounded-lg flex flex-col"
+        className="fixed bg-white shadow-2xl border rounded-lg flex flex-col z-50"
         style={{ 
           left: position.x, 
           top: position.y,
-          maxHeight: 'calc(100vh - 100px)',
+          width: size.width,
+          height: size.height,
         }}
       >
         {/* Draggable Header */}
         <div 
-          className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 rounded-t-lg cursor-move select-none"
-          onMouseDown={handleMouseDown}
+          className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 rounded-t-lg cursor-move select-none flex-shrink-0"
+          onMouseDown={handleDragStart}
         >
           <div className="flex items-center gap-2">
             <GripHorizontal className="w-4 h-4 text-gray-400" />
@@ -99,7 +136,7 @@ export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEv
           </Button>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto pb-4">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-4 space-y-4">
             {/* Issues Section */}
             {issues.length > 0 && (
@@ -239,7 +276,23 @@ export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEv
             AI tarafından oluşturulmuştur. Lütfen bilgileri kontrol edin.
           </p>
         </div>
+
+        {/* Resize Handle - Bottom Right Corner */}
+        <div 
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize group"
+          onMouseDown={handleResizeStart}
+        >
+          <svg 
+            viewBox="0 0 24 24" 
+            className="w-full h-full text-gray-300 group-hover:text-gray-500 transition-colors"
+          >
+            <path 
+              fill="currentColor" 
+              d="M22 22H20V20H22V22ZM22 18H20V16H22V18ZM18 22H16V20H18V22ZM22 14H20V12H22V14ZM18 18H16V16H18V18ZM14 22H12V20H14V22Z"
+            />
+          </svg>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
