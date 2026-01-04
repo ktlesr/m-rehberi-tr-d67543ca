@@ -8,22 +8,35 @@ const corsHeaders = {
 
 // Turkish character normalization for tag matching
 function normalizeTurkish(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/İ/g, 'i')
+  // First convert to lowercase using Turkish locale
+  let result = text.toLocaleLowerCase('tr-TR');
+  
+  // Handle specific Turkish character mappings for safety
+  result = result
+    .replace(/İ/gi, 'i')
     .replace(/I/g, 'ı')
-    .replace(/Ş/g, 'ş')
-    .replace(/Ğ/g, 'ğ')
-    .replace(/Ü/g, 'ü')
-    .replace(/Ö/g, 'ö')
-    .replace(/Ç/g, 'ç')
-    .replace(/ı/g, 'ı')
-    .replace(/ğ/g, 'ğ')
-    .replace(/ü/g, 'ü')
-    .replace(/ş/g, 'ş')
-    .replace(/ö/g, 'ö')
-    .replace(/ç/g, 'ç')
+    .replace(/i̇/g, 'i') // Combined dotted i character
     .trim();
+  
+  return result;
+}
+
+// Check if a label indicates "all provinces"
+function isAllProvincesLabel(label: string): boolean {
+  const normalized = normalizeTurkish(label);
+  const allProvincesPatterns = [
+    'tüm iller',
+    'tüm türkiye',
+    'türkiye geneli',
+    'ülke geneli',
+    '81 il',
+    'tüm illerde',
+    'bütün iller',
+    'her il',
+    'türkiye çapında',
+    'tüm yurt'
+  ];
+  return allProvincesPatterns.some(pattern => normalized.includes(pattern));
 }
 
 // Category name mapping
@@ -424,8 +437,8 @@ KURALLAR:
       }
     }
 
-    // Map tag labels to IDs
-    const selectedTagIds: number[] = [];
+    // Map tag labels to IDs - use Set to prevent duplicates
+    const selectedTagIdsSet = new Set<number>();
     const missingTags: Array<{ category: string; labels: string[] }> = [];
 
     if (tags && extractedData.tags) {
@@ -450,8 +463,29 @@ KURALLAR:
         const categoryTags = tagLookup.get(category);
         const unmatchedLabels: string[] = [];
 
+        // Special case: "provinces" category with "all provinces" labels
+        if (category === 'provinces' && categoryTags) {
+          const hasAllProvincesLabel = labels.some(label => label && isAllProvincesLabel(label));
+          
+          if (hasAllProvincesLabel) {
+            // Select ALL province tags
+            console.log("Detected 'all provinces' - selecting all province tags");
+            for (const tagId of categoryTags.values()) {
+              selectedTagIdsSet.add(tagId);
+            }
+            // Don't add "Tüm iller" to missing tags since we handled it
+            continue;
+          }
+        }
+
         for (const label of labels) {
           if (!label) continue;
+          
+          // Skip "all provinces" labels in normal processing (already handled above)
+          if (category === 'provinces' && isAllProvincesLabel(label)) {
+            continue;
+          }
+          
           const normalizedLabel = normalizeTurkish(label);
           
           // Try exact match
@@ -468,7 +502,7 @@ KURALLAR:
           }
 
           if (tagId) {
-            selectedTagIds.push(tagId);
+            selectedTagIdsSet.add(tagId);
           } else {
             unmatchedLabels.push(label);
           }
@@ -480,6 +514,9 @@ KURALLAR:
         }
       }
     }
+    
+    // Convert Set to Array
+    const selectedTagIds = Array.from(selectedTagIdsSet);
 
     // Helper function to get value from evidence as fallback
     const getValueFromEvidence = (fieldKey: string): string | null => {
