@@ -1,6 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
 import MainNavbar from '@/components/MainNavbar';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
+import { markdownComponents } from '@/utils/markdownComponents';
 
 const AnnouncementDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -119,10 +121,10 @@ const AnnouncementDetail = () => {
               </div>
 
               {/* Content */}
-              <div className="prose prose-slate max-w-none">
-                <div className="text-base leading-relaxed whitespace-pre-wrap text-foreground">
+              <div className="prose prose-slate max-w-none text-base leading-relaxed text-foreground">
+                <ReactMarkdown components={markdownComponents}>
                   {announcement.detail}
-                </div>
+                </ReactMarkdown>
               </div>
 
               {/* External Link */}
