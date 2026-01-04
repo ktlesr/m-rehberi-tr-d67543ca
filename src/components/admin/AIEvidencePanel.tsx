@@ -35,7 +35,7 @@ const confidenceLabels: Record<string, string> = {
 
 export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEvidencePanelProps) {
   return (
-    <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl border-l z-50 flex flex-col">
+    <div className="fixed right-0 top-0 h-screen w-96 bg-white shadow-2xl border-l z-50 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -47,7 +47,7 @@ export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEv
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto pb-4">
         <div className="p-4 space-y-4">
           {/* Issues Section */}
           {issues.length > 0 && (
