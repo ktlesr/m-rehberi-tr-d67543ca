@@ -47,3 +47,25 @@ export interface AIDraftResponse {
   evidence: FieldEvidence[];
   issues: FieldIssue[];
 }
+
+// Announcement Draft Types
+export interface AnnouncementDraftFilledFields {
+  institution_logo: string | null;
+  institution_name: string | null;
+  title: string | null;
+  detail: string | null;
+  announcement_date: string | null;
+  external_link: string | null;
+}
+
+export interface AnnouncementDraftRequest {
+  uploaded_files: Array<{ id?: string; name: string; path: string }>;
+  source_url: string | null;
+  hint: string | null;
+}
+
+export interface AnnouncementDraftResponse {
+  filled_fields: AnnouncementDraftFilledFields;
+  evidence: FieldEvidence[];
+  issues: FieldIssue[];
+}
