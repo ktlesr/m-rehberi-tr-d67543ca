@@ -47,6 +47,38 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_draft_missing_tags: {
+        Row: {
+          category_name: string
+          created_at: string | null
+          id: string
+          suggested_labels: string[] | null
+          support_program_id: string | null
+        }
+        Insert: {
+          category_name: string
+          created_at?: string | null
+          id?: string
+          suggested_labels?: string[] | null
+          support_program_id?: string | null
+        }
+        Update: {
+          category_name?: string
+          created_at?: string | null
+          id?: string
+          suggested_labels?: string[] | null
+          support_program_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_draft_missing_tags_support_program_id_fkey"
+            columns: ["support_program_id"]
+            isOneToOne: false
+            referencedRelation: "support_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcement_email_logs: {
         Row: {
           announcement_id: string | null
@@ -2385,6 +2417,47 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_program_field_evidence: {
+        Row: {
+          confidence: string | null
+          created_at: string | null
+          evidence_quotes: Json | null
+          evidence_refs: Json | null
+          field_key: string
+          id: string
+          support_program_id: string | null
+          value_text: string | null
+        }
+        Insert: {
+          confidence?: string | null
+          created_at?: string | null
+          evidence_quotes?: Json | null
+          evidence_refs?: Json | null
+          field_key: string
+          id?: string
+          support_program_id?: string | null
+          value_text?: string | null
+        }
+        Update: {
+          confidence?: string | null
+          created_at?: string | null
+          evidence_quotes?: Json | null
+          evidence_refs?: Json | null
+          field_key?: string
+          id?: string
+          support_program_id?: string | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_program_field_evidence_support_program_id_fkey"
+            columns: ["support_program_id"]
+            isOneToOne: false
+            referencedRelation: "support_programs"
             referencedColumns: ["id"]
           },
         ]
