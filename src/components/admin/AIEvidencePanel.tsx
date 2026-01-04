@@ -2,7 +2,6 @@ import React from 'react';
 import { X, AlertTriangle, CheckCircle, Info, FileText, Link as LinkIcon, Quote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { FieldEvidence, FieldIssue, MissingTag } from '@/types/aiDraft';
 
@@ -38,7 +37,7 @@ export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEv
   return (
     <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl border-l z-50 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-blue-50">
+      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 flex-shrink-0">
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-purple-600" />
           <h3 className="font-semibold text-gray-800">AI Analiz Sonuçları</h3>
@@ -48,7 +47,7 @@ export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEv
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-4">
           {/* Issues Section */}
           {issues.length > 0 && (
@@ -180,10 +179,10 @@ export function AIEvidencePanel({ evidence, issues, missingTags, onClose }: AIEv
             </div>
           </div>
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Footer */}
-      <div className="p-4 border-t bg-gray-50">
+      <div className="p-4 border-t bg-gray-50 flex-shrink-0">
         <p className="text-xs text-gray-500 text-center">
           AI tarafından oluşturulmuştur. Lütfen bilgileri kontrol edin.
         </p>
