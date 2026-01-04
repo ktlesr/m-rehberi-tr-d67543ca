@@ -456,6 +456,35 @@ KURALLAR:
         }
       }
 
+      // Check if evidence or issues mention "all provinces" for provinces category
+      const checkAllProvincesInEvidenceOrIssues = (): boolean => {
+        // Check in evidence
+        if (extractedData.evidence) {
+          for (const ev of extractedData.evidence) {
+            if (ev.field_key === 'provinces' || ev.field_key === 'tags.provinces') {
+              const valueText = (ev.value || '') + ' ' + (ev.quotes?.join(' ') || '');
+              if (isAllProvincesLabel(valueText)) {
+                return true;
+              }
+            }
+          }
+        }
+        // Check in issues - look for messages mentioning "tüm iller" or "admin not"
+        if (extractedData.issues) {
+          for (const issue of extractedData.issues) {
+            if (issue.field_key === 'provinces' || issue.field_key === 'tags.provinces') {
+              const msgNormalized = normalizeTurkish(issue.message || '');
+              if (msgNormalized.includes('tüm iller') || 
+                  msgNormalized.includes('tüm illerde') ||
+                  msgNormalized.includes('admin not') && (msgNormalized.includes('il') || msgNormalized.includes('türkiye'))) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      };
+
       // Process each category
       for (const [category, labels] of Object.entries(extractedData.tags)) {
         if (!Array.isArray(labels)) continue;
@@ -469,7 +498,7 @@ KURALLAR:
           
           if (hasAllProvincesLabel) {
             // Select ALL province tags
-            console.log("Detected 'all provinces' - selecting all province tags");
+            console.log("Detected 'all provinces' in tags - selecting all province tags");
             for (const tagId of categoryTags.values()) {
               selectedTagIdsSet.add(tagId);
             }
@@ -511,6 +540,27 @@ KURALLAR:
         if (unmatchedLabels.length > 0) {
           const displayCategory = reverseCategoryMapping[category] || category;
           missingTags.push({ category: displayCategory, labels: unmatchedLabels });
+        }
+      }
+
+      // After processing all tags, check if provinces category is empty but evidence/issues indicate "all provinces"
+      const provinceTags = tagLookup.get('provinces');
+      if (provinceTags) {
+        // Check if any province tags were selected
+        let hasAnyProvinceSelected = false;
+        for (const tagId of provinceTags.values()) {
+          if (selectedTagIdsSet.has(tagId)) {
+            hasAnyProvinceSelected = true;
+            break;
+          }
+        }
+
+        // If no provinces selected, check evidence/issues for "all provinces" indication
+        if (!hasAnyProvinceSelected && checkAllProvincesInEvidenceOrIssues()) {
+          console.log("No provinces in tags but evidence/issues indicate 'all provinces' - selecting all province tags");
+          for (const tagId of provinceTags.values()) {
+            selectedTagIdsSet.add(tagId);
+          }
         }
       }
     }
