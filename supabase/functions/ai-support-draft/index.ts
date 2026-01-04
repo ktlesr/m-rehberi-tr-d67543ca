@@ -336,7 +336,17 @@ KURALLAR:
                     },
                   },
                 },
-                required: ["tags", "evidence", "issues"],
+                required: [
+                  "institution_name",
+                  "application_deadline", 
+                  "program_name",
+                  "description",
+                  "eligibility_criteria",
+                  "contact_information",
+                  "tags", 
+                  "evidence", 
+                  "issues"
+                ],
               },
             },
           },
@@ -471,15 +481,28 @@ KURALLAR:
       }
     }
 
-    // Prepare response
+    // Helper function to get value from evidence as fallback
+    const getValueFromEvidence = (fieldKey: string): string | null => {
+      const ev = extractedData.evidence?.find(e => e.field_key === fieldKey);
+      return ev?.value || null;
+    };
+
+    // Prepare response with evidence fallback
     const response = {
       filled_fields: {
         institution_id: institutionId,
-        application_deadline: extractedData.application_deadline,
-        title: extractedData.program_name || "",
-        description: extractedData.description || "",
-        eligibility_criteria: extractedData.eligibility_criteria || "",
-        contact_info: extractedData.contact_information || "",
+        application_deadline: extractedData.application_deadline || 
+                              getValueFromEvidence("application_deadline"),
+        title: extractedData.program_name || 
+               getValueFromEvidence("program_name") || 
+               getValueFromEvidence("title") || "",
+        description: extractedData.description || 
+                     getValueFromEvidence("description") || "",
+        eligibility_criteria: extractedData.eligibility_criteria || 
+                              getValueFromEvidence("eligibility_criteria") || "",
+        contact_info: extractedData.contact_information || 
+                      getValueFromEvidence("contact_information") || 
+                      getValueFromEvidence("contact_info") || "",
       },
       selected_tag_ids: selectedTagIds,
       missing_tags: missingTags,
