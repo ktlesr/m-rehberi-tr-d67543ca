@@ -943,6 +943,71 @@ const TURKISH_PROVINCES = [
   "Zonguldak",
 ];
 
+// ============= İLK MESAJDAN SEKTÖR VE İL ÇIKARMA FONKSİYONU =============
+// Kullanıcının ilk mesajından hem NACE/sektör hem de il bilgisini çıkarır
+const extractInitialSlots = (message: string): { sector: string | null; province: string | null } => {
+  const lowerMessage = message.toLowerCase();
+  
+  // 1. Türkiye il adlarından birini bul
+  let foundProvince: string | null = null;
+  for (const prov of TURKISH_PROVINCES) {
+    const provLower = prov.toLowerCase();
+    // Türkçe karakter varyasyonları için normalize et
+    const provNormalized = provLower
+      .replace(/ı/g, 'i')
+      .replace(/ğ/g, 'g')
+      .replace(/ü/g, 'u')
+      .replace(/ş/g, 's')
+      .replace(/ö/g, 'o')
+      .replace(/ç/g, 'c');
+    const msgNormalized = lowerMessage
+      .replace(/ı/g, 'i')
+      .replace(/ğ/g, 'g')
+      .replace(/ü/g, 'u')
+      .replace(/ş/g, 's')
+      .replace(/ö/g, 'o')
+      .replace(/ç/g, 'c');
+    
+    // Kütahya, Kütahya'da, Kütahyada, Kütahya ilinde, Kütahya ili vb.
+    const patterns = [
+      new RegExp(`\\b${provLower}(?:'?da|'?de|'?ta|'?te)?\\b`, 'i'),
+      new RegExp(`\\b${provLower}\\s+ili(?:nde)?\\b`, 'i'),
+      new RegExp(`\\b${provNormalized}(?:'?da|'?de|'?ta|'?te)?\\b`, 'i'),
+    ];
+    
+    for (const pattern of patterns) {
+      if (pattern.test(lowerMessage) || pattern.test(msgNormalized)) {
+        foundProvince = prov;
+        break;
+      }
+    }
+    if (foundProvince) break;
+  }
+  
+  // 2. NACE kodu veya sektör bilgisini çıkar
+  let sector: string | null = message;
+  
+  // İl adını mesajdan çıkar (varsa)
+  if (foundProvince) {
+    // İl adını ve eklerini temizle
+    const provLower = foundProvince.toLowerCase();
+    sector = message
+      .replace(new RegExp(`${foundProvince}(?:'?da|'?de|'?ta|'?te|\\s+ili(?:nde)?)?`, 'gi'), '')
+      .replace(/desteklenir mi|destekleniyor mu|teşvik var mı|tesvik var mi/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  
+  // Boş kaldıysa null yap
+  if (!sector || sector.length === 0) {
+    sector = null;
+  }
+  
+  console.log(`📊 extractInitialSlots: message="${message}" → sector="${sector}", province="${foundProvince}"`);
+  
+  return { sector, province: foundProvince };
+};
+
 const normalizeRegionNumbers = (text: string): string => {
   const replacements: Record<string, string> = {
     "birinci bölge": "1. Bölge",
@@ -1687,14 +1752,15 @@ serve(async (req) => {
             console.error("Error deleting old incentive_query:", deleteError);
           }
           
-          // Create a new query with the new sector
+          // Create a new query with the new sector (and province if found in message)
+          const { sector: extractedSector, province: extractedProvince } = extractInitialSlots(lastUserMessage.content);
           const { data: newQuery, error: insertError } = await supabase
             .from("incentive_queries")
             .insert({
               session_id: sessionId,
               status: "collecting",
-              sector: lastUserMessage.content, // New sector from user message
-              province: null,
+              sector: extractedSector || lastUserMessage.content,
+              province: extractedProvince, // İl de bulunmuşsa doldur
               district: null,
               osb_status: null,
             })
@@ -1725,10 +1791,17 @@ serve(async (req) => {
           // It's left as is to match your original structure, but the prompt fixes
           // and history cleanup should make the chatbot's *output* cleaner.
           if (!incentiveQuery.sector) {
-            incentiveQuery.sector = userContent;
+            // İlk slot doldurulurken hem sektör hem il çıkar
+            const { sector: extractedSector, province: extractedProvince } = extractInitialSlots(userContent);
+            incentiveQuery.sector = extractedSector || userContent;
+            if (extractedProvince && !incentiveQuery.province) {
+              incentiveQuery.province = extractedProvince;
+            }
             updated = true;
           } else if (!incentiveQuery.province) {
-            const province = cleanProvince(userContent);
+            // İl slotu için önce extractInitialSlots dene, sonra cleanProvince
+            const { province: extractedProvince } = extractInitialSlots(userContent);
+            const province = extractedProvince || cleanProvince(userContent);
             incentiveQuery.province = province;
             updated = true;
           } else if (!incentiveQuery.district) {
