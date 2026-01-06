@@ -21,19 +21,10 @@ function fixMarkdownLineBreaks(text: string): string {
   );
 }
 
-// Inline atıf kontrolü ve fallback enjeksiyonu
+// Inline atıf kontrolü - kaynaklar UI'da ayrı gösterildiği için eklemeye gerek yok
 function ensureInlineCitations(text: string, sources: any[]): string {
-  if (!sources || sources.length === 0) return text;
-
-  // Metin içinde [numara] var mı kontrol et
-  const hasInlineCitations = /\[\d+\]/.test(text);
-
-  if (!hasInlineCitations) {
-    // Eğer inline atıf yoksa, metnin sonuna toplu atıf ekle
-    const refStr = sources.map((_, i) => `[${i + 1}]`).join(" ");
-    return text.trim() + "\n\n" + refStr;
-  }
-
+  // Kaynaklar zaten MessageBubble'da "Kullanılan Kaynaklar" bölümünde gösteriliyor
+  // Metin sonuna [1] [2] [3]... eklemeye gerek yok
   return text;
 }
 
