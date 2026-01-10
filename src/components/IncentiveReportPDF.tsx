@@ -334,9 +334,10 @@ const getSupportValues = (incentiveResult: IncentiveResult) => {
 
 interface IncentiveReportProps {
   incentiveResult: IncentiveResult;
+  importantInfos?: string[];     // Önemli bilgiler listesi
 }
 
-const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult }) => {
+const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, importantInfos = [] }) => {
   const supportValues = getSupportValues(incentiveResult);
   const specialProgram = incentiveResult.location.specialProgram;
   const hasSpecialProgram = specialProgram?.isEligible;
@@ -345,7 +346,7 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult })
 
   // Warning conditions
   const { region, province } = incentiveResult.location;
-  const { isTarget } = incentiveResult.sector;
+  const { isTarget, isMidHighTech, isHighTech, isPriority } = incentiveResult.sector;
   const naceCode = incentiveResult.sector.nace_code || "";
   
   // Istanbul mining sectors check (NACE codes starting with 05, 06, 07, 08, 09)
@@ -353,14 +354,34 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult })
   const isMiningSector = miningNacePrefixes.some((prefix) => naceCode.startsWith(prefix));
   const isIstanbulMining = province === "İstanbul" && isMiningSector;
   
-  // İstanbul'da hedef yatırımlar için vergi indirimi uygulanmıyor
-  const showIstanbulTaxWarning = isTarget && province === "İstanbul" && !isIstanbulMining;
-  
   // İstanbul'da madencilik sektörleri desteklenmiyor
   const showIstanbulMiningWarning = isIstanbulMining;
   
   // Hedef yatırımlar için 4-5-6. bölgelerde faiz/kar payı %10 limit uyarısı
   const showInterestCapWarning = isTarget && [4, 5, 6].includes(region) && !isIstanbulMining;
+  
+  // Build importantInfos list if not passed from parent
+  const computedImportantInfos: string[] = importantInfos.length > 0 ? importantInfos : (() => {
+    const infos: string[] = [];
+    
+    if (isTarget && province === "İstanbul" && !isIstanbulMining) {
+      infos.push("İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.");
+    }
+    
+    if (isTarget && [1, 2, 3].includes(region) && !hasSpecialProgram) {
+      infos.push("Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.");
+    }
+    
+    if (isMidHighTech && !isPriority) {
+      infos.push("Bu yatırım orta-yüksek teknoloji yatırımı niteliğindedir. Öncelikli yatırım statüsü kazanabilmesi için İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.254.900.000 TL olması gerekmektedir. Bu şartlar sağlanmadığı takdirde Hedef yatırım olarak değerlendirilir.");
+    }
+    
+    if (isHighTech && !isMidHighTech && !isPriority) {
+      infos.push("Bu yatırım yüksek teknoloji yatırımı niteliğindedir. Öncelikli yatırım statüsü kazanabilmesi için yatırım tutarının en az 627.450.000 TL olması gerekmektedir. Bu şartı sağlamadığı takdirde Hedef yatırım olarak değerlendirilir.");
+    }
+    
+    return infos;
+  })();
 
   return (
     <Document title={`Teşvik Raporu - ${incentiveResult.sector.nace_code}`}>
@@ -553,13 +574,13 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult })
           </View>
         )}
 
-        {/* İstanbul Vergi İndirimi Uyarısı (Turuncu Kutu) */}
-        {showIstanbulTaxWarning && (
+        {/* Birleşik Önemli Bilgi Kutusu */}
+        {computedImportantInfos.length > 0 && (
           <View style={styles.infoBoxOrange}>
             <Text style={styles.infoBoxOrangeTitle}>Önemli Bilgi</Text>
-            <Text style={styles.conditionsText}>
-              İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.
-            </Text>
+            {computedImportantInfos.map((info, idx) => (
+              <Text key={idx} style={[styles.conditionsText, { marginBottom: 4 }]}>• {info}</Text>
+            ))}
           </View>
         )}
 
@@ -569,16 +590,6 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult })
             <Text style={styles.warningBoxRedTitle}>Önemli Uyarı</Text>
             <Text style={styles.conditionsText}>
               Seçilen sektör İstanbul ilinde desteklenmemektedir.
-            </Text>
-          </View>
-        )}
-
-        {/* Important Info for Target sectors in regions 1-3 */}
-        {isTarget && [1, 2, 3].includes(region) && !hasSpecialProgram && (
-          <View style={styles.warningBoxRed}>
-            <Text style={styles.warningBoxRedTitle}>Önemli Bilgi</Text>
-            <Text style={styles.conditionsText}>
-              Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.
             </Text>
           </View>
         )}

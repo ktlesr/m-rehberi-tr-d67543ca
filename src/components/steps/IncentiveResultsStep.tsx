@@ -525,52 +525,62 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
             </Alert>
           )}
 
-          {/* Istanbul Target Investment Tax Reduction Warning */}
-          {incentiveResult.sector.isTarget && incentiveResult.location.province === "İstanbul" && (
-            <Alert className="border-orange-200 bg-orange-50">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <AlertDescription className="text-orange-800">
-                <strong>Önemli Bilgi:</strong> İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Target Sector Interest/Profit Share Support Warning */}
-          {incentiveResult.sector.isTarget && [1, 2, 3].includes(incentiveResult.location.region) && (
-            <Alert className="border-red-200 bg-red-50">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">
-                <strong>Önemli Bilgi:</strong> Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Orta-Yüksek/Yüksek Teknoloji Öncelikli Yatırım Şartları Uyarısı */}
-          {(incentiveResult.sector.isMidHighTech || incentiveResult.sector.isHighTech) && !incentiveResult.sector.isPriority && (
-            <Alert className="border-purple-200 bg-purple-50">
-              <AlertTriangle className="h-4 w-4 text-purple-600" />
-              <AlertDescription className="text-purple-800">
-                <strong>Önemli Bilgi:</strong>{' '}
-                {incentiveResult.sector.isMidHighTech ? (
-                  <>
-                    Bu yatırım orta-yüksek teknoloji yatırımı niteliğindedir. 
-                    <strong> Öncelikli yatırım</strong> statüsü kazanabilmesi için:
-                    <ul className="list-disc ml-5 mt-1">
-                      <li>İstanbul ili dışında gerçekleştirilmesi</li>
-                      <li>Yatırım tutarının en az <strong>1.254.900.000 TL</strong> olması</li>
-                    </ul>
-                    şartlarını sağlaması gerekmektedir. Bu şartlar sağlanmadığı takdirde <strong>Hedef yatırım</strong> olarak değerlendirilir.
-                  </>
-                ) : (
-                  <>
-                    Bu yatırım yüksek teknoloji yatırımı niteliğindedir. 
-                    <strong> Öncelikli yatırım</strong> statüsü kazanabilmesi için yatırım tutarının en az <strong>627.450.000 TL</strong> olması gerekmektedir. 
-                    Bu şartı sağlamadığı takdirde <strong>Hedef yatırım</strong> olarak değerlendirilir.
-                  </>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Birleşik Önemli Bilgi Kutucuğu */}
+          {(() => {
+            const importantInfos: React.ReactNode[] = [];
+            
+            // 1. İstanbul hedef yatırım uyarısı
+            if (incentiveResult.sector.isTarget && incentiveResult.location.province === "İstanbul") {
+              importantInfos.push(
+                <li key="istanbul">İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.</li>
+              );
+            }
+            
+            // 2. Faiz/Kar Payı 1., 2., 3. bölge uyarısı
+            if (incentiveResult.sector.isTarget && [1, 2, 3].includes(incentiveResult.location.region)) {
+              importantInfos.push(
+                <li key="faiz">Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.</li>
+              );
+            }
+            
+            // 3. Orta-Yüksek Teknoloji uyarısı
+            if (incentiveResult.sector.isMidHighTech && !incentiveResult.sector.isPriority) {
+              importantInfos.push(
+                <li key="midtech">
+                  Bu yatırım orta-yüksek teknoloji yatırımı niteliğindedir. 
+                  <strong> Öncelikli yatırım</strong> statüsü kazanabilmesi için İstanbul ili dışında gerçekleştirilmesi ve 
+                  yatırım tutarının en az <strong>1.254.900.000 TL</strong> olması gerekmektedir. 
+                  Bu şartlar sağlanmadığı takdirde <strong>Hedef yatırım</strong> olarak değerlendirilir.
+                </li>
+              );
+            }
+            
+            // 4. Yüksek Teknoloji uyarısı
+            if (incentiveResult.sector.isHighTech && !incentiveResult.sector.isMidHighTech && !incentiveResult.sector.isPriority) {
+              importantInfos.push(
+                <li key="hightech">
+                  Bu yatırım yüksek teknoloji yatırımı niteliğindedir. 
+                  <strong> Öncelikli yatırım</strong> statüsü kazanabilmesi için yatırım tutarının en az <strong>627.450.000 TL</strong> olması gerekmektedir. 
+                  Bu şartı sağlamadığı takdirde <strong>Hedef yatırım</strong> olarak değerlendirilir.
+                </li>
+              );
+            }
+            
+            // Eğer hiç önemli bilgi yoksa null döndür
+            if (importantInfos.length === 0) return null;
+            
+            return (
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <strong>Önemli Bilgi:</strong>
+                  <ul className="list-disc ml-5 mt-2 space-y-2">
+                    {importantInfos}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            );
+          })()}
 
           {/* Support Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
