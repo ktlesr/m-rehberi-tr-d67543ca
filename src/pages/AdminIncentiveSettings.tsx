@@ -45,42 +45,74 @@ const SettingsCard = ({ title, description, children, footer }: {
 
 /**
  * @description A styled input group for numeric values with a unit.
- * @param {string} id - The unique ID for the input and label.
- * @param {string} label - The text for the label.
- * @param {number} value - The numeric value for the input.
- * @param {(value: string) => void} onChange - The onChange event handler.
- * @param {'TL' | '%'} unit - The unit to display next to the value.
+ * Handles Turkish number formatting (e.g., 4.355,92) properly.
  */
 const NumericInputGroup = ({ id, label, value, onChange, unit }: {
   id: string;
   label: string;
   value: number;
-  onChange: (value: string) => void;
+  onChange: (value: number) => void;
   unit: 'TL' | '%';
 }) => {
-    // Helper to format number with comma for display
-    const formatValue = (num: number) => {
-        return num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    };
-    
-    return (
-        <div className="space-y-2">
-        <Label htmlFor={id}>{label}</Label>
-        <div className="relative">
-            <Input
-            id={id}
-            type="text"
-            inputMode="decimal" // Better for mobile keyboards
-            value={formatValue(value)}
-            onChange={(e) => onChange(e.target.value)}
-            className="pr-12 text-right" // Make space for the unit
-            />
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-            <span className="text-gray-500 sm:text-sm">{unit}</span>
-            </div>
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+
+  // Format number for display (Turkish locale: 4.355,92)
+  const formatForDisplay = (num: number) => {
+    return num.toLocaleString('tr-TR', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+  };
+
+  // Parse Turkish formatted string to number
+  const parseFromTurkish = (str: string): number => {
+    // Remove thousand separators (dots), replace decimal comma with dot
+    const cleaned = str
+      .replace(/\./g, '')     // Remove all dots (thousand separators)
+      .replace(',', '.');      // Replace comma with dot (decimal)
+    return parseFloat(cleaned) || 0;
+  };
+
+  const handleFocus = () => {
+    setIsEditing(true);
+    // Show raw number with comma as decimal separator for easy editing
+    setEditValue(value.toString().replace('.', ','));
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    // Parse the edited value and send to parent
+    const numericValue = parseFromTurkish(editValue);
+    onChange(numericValue);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow only numbers and comma while editing
+    const rawValue = e.target.value.replace(/[^0-9,]/g, '');
+    setEditValue(rawValue);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          type="text"
+          inputMode="decimal"
+          value={isEditing ? editValue : formatForDisplay(value)}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          className="pr-12 text-right"
+        />
+        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <span className="text-muted-foreground text-sm">{unit}</span>
         </div>
-        </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 
@@ -126,18 +158,11 @@ const AdminIncentiveSettings = () => {
     loadSettings();
   }, [toast]); // Added toast as a dependency
 
-  const handleInputChange = (key: keyof IncentiveCalculationSettings, value: string) => {
-    // Sanitize input: remove non-numeric characters except comma/dot, then replace comma with dot.
-    const sanitizedValue = value.replace(/[^0-9,.]/g, '').replace(',', '.');
-    const numericValue = sanitizedValue === '' ? 0 : parseFloat(sanitizedValue);
-    
-    // Prevent state update if parsing fails (e.g., "1.2.3")
-    if (!isNaN(numericValue)) {
-      setSettings(prev => ({
-        ...prev,
-        [key]: numericValue,
-      }));
-    }
+  const handleInputChange = (key: keyof IncentiveCalculationSettings, value: number) => {
+    setSettings(prev => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const handleSave = async (
