@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calculator, Target, Star, Zap, Cpu, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Calculator, Target, Star, Zap, Cpu, CheckCircle, XCircle, AlertTriangle, Rocket } from 'lucide-react';
 import { Download } from 'lucide-react';
 import { UnifiedQueryData } from '@/components/UnifiedIncentiveQuery';
 import { IncentiveResult } from '@/types/incentive';
@@ -14,6 +14,7 @@ import { pdf } from '@react-pdf/renderer';
 import IncentiveReportPDF from '@/components/IncentiveReportPDF';
 import { isIstanbulMiningInvestment, isResGesInvestment, getGesResOverrideValues, isIstanbulTargetInvestment } from '@/utils/investmentValidation';
 import { isRegion6Province, checkSpecialProgramEligibility, SpecialProgramEligibility } from '@/utils/regionUtils';
+import { determineInvestmentStatus, getStatusBadges } from '@/utils/investmentStatusHelper';
 
 interface IncentiveResultsStepProps {
   queryData: UnifiedQueryData;
@@ -299,15 +300,31 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
       const isProvince6 = isRegion6Province(queryData.selectedProvince);
       const applyRegion6Benefits = isProvince6 || specialProgram.isEligible;
       
+      // Apply hierarchical investment status logic
+      const investmentStatus = determineInvestmentStatus(
+        {
+          teknoloji_hamlesi: queryData.selectedSector.teknoloji_hamlesi,
+          yuksek_teknoloji: queryData.selectedSector.yuksek_teknoloji || false,
+          orta_yuksek_teknoloji: queryData.selectedSector.orta_yuksek_teknoloji || false,
+          hedef_yatirim: queryData.selectedSector.hedef_yatirim || false,
+          oncelikli_yatirim: queryData.selectedSector.oncelikli_yatirim || false
+        },
+        undefined, // investmentAmount not known yet
+        queryData.selectedProvince
+      );
+      
       const result: IncentiveResult = {
         sector: {
           nace_code: queryData.selectedSector.nace_kodu,
           name: queryData.selectedSector.sektor,
-          // For Region 6 provinces or special programs, replace Hedef with Öncelikli
-          isTarget: applyRegion6Benefits ? false : (queryData.selectedSector.hedef_yatirim || false),
-          isPriority: applyRegion6Benefits ? true : (queryData.selectedSector.oncelikli_yatirim || false),
-          isHighTech: queryData.selectedSector.yuksek_teknoloji || false,
-          isMidHighTech: queryData.selectedSector.orta_yuksek_teknoloji || false,
+          // For Region 6 provinces or special programs, always priority
+          // Otherwise use hierarchical status
+          isTarget: applyRegion6Benefits ? false : investmentStatus.isTarget,
+          isPriority: applyRegion6Benefits ? true : investmentStatus.isPriority,
+          isHighTech: investmentStatus.isHighTech,
+          isMidHighTech: investmentStatus.isMidHighTech,
+          isTechInitiative: investmentStatus.isTechInitiative,
+          investmentStatusExplanation: investmentStatus.explanation,
           conditions: queryData.selectedSector.sartlar || "",
           minInvestment: minInvestment
         },
@@ -409,16 +426,22 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
                 <Badge variant="outline">{incentiveResult.sector.nace_code}</Badge>
               </div>
               <div className="flex gap-2 flex-wrap">
-                {incentiveResult.sector.isTarget && (
-                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1">
-                    <Target className="h-3 w-3" />
-                    Hedef Yatırım
+                {incentiveResult.sector.isTechInitiative && (
+                  <Badge className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex items-center gap-1">
+                    <Rocket className="h-3 w-3" />
+                    Teknoloji Hamlesi
                   </Badge>
                 )}
                 {incentiveResult.sector.isPriority && (
                   <Badge className="bg-green-500 hover:bg-green-600 text-white flex items-center gap-1">
                     <Star className="h-3 w-3" />
                     Öncelikli Yatırım
+                  </Badge>
+                )}
+                {incentiveResult.sector.isTarget && !incentiveResult.sector.isPriority && (
+                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1">
+                    <Target className="h-3 w-3" />
+                    Hedef Yatırım
                   </Badge>
                 )}
                 {incentiveResult.sector.isHighTech && (

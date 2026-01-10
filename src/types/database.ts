@@ -7,6 +7,7 @@ export interface SectorSearchData {
   oncelikli_yatirim: boolean;
   yuksek_teknoloji: boolean;
   orta_yuksek_teknoloji: boolean;
+  teknoloji_hamlesi: string | null;  // "EVET" or "HAYIR" or null
   sartlar: string | null;
   bolge_1: number;
   bolge_2: number;
