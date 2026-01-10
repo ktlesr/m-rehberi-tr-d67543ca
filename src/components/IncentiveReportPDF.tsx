@@ -346,8 +346,9 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
 
   // Warning conditions
   const { region, province } = incentiveResult.location;
-  const { isTarget, isMidHighTech, isHighTech, isPriority } = incentiveResult.sector;
+  const { isTarget, isMidHighTech, isHighTech, isPriority, isTechInitiative } = incentiveResult.sector;
   const naceCode = incentiveResult.sector.nace_code || "";
+  const investmentStatusExplanation = incentiveResult.sector.investmentStatusExplanation;
 
   // Istanbul mining sectors check (NACE codes starting with 05, 06, 07, 08, 09)
   const miningNacePrefixes = ["05", "06", "07", "08", "09"];
@@ -361,12 +362,14 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
   const showInterestCapWarning = isTarget && [4, 5, 6].includes(region) && !isIstanbulMining;
 
   // Build importantInfos list if not passed from parent
+  // CRITICAL: Do NOT show "aksi halde hedef" messages when Teknoloji Hamlesi is true
   const computedImportantInfos: string[] =
     importantInfos.length > 0
       ? importantInfos
       : (() => {
           const infos: string[] = [];
 
+          // Only show these if actually isTarget (not for Teknoloji Hamlesi)
           if (isTarget && province === "İstanbul" && !isIstanbulMining) {
             infos.push("İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.");
           }
@@ -375,13 +378,15 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             infos.push("Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.");
           }
 
-          if (isMidHighTech && !isPriority) {
+          // ONLY show these warnings if NOT Teknoloji Hamlesi
+          // [YASAKLI DAVRANIŞ]: Teknoloji Hamlesi EVET olana asla "hedef" mesajı
+          if (isMidHighTech && !isTechInitiative && !isPriority) {
             infos.push(
               "Bu yatırım orta-yüksek teknoloji yatırımı niteliğindedir. Öncelikli yatırım statüsü kazanabilmesi için İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.255.000.000 TL olması gerekmektedir. Bu şartlar sağlanmadığı takdirde Hedef yatırım olarak değerlendirilir.",
             );
           }
 
-          if (isHighTech && !isMidHighTech && !isPriority) {
+          if (isHighTech && !isMidHighTech && !isTechInitiative && !isPriority) {
             infos.push(
               "Bu yatırım yüksek teknoloji yatırımı niteliğindedir. Öncelikli yatırım statüsü kazanabilmesi için yatırım tutarının en az 627.000.000 TL olması gerekmektedir. Bu şartı sağlamadığı takdirde Hedef yatırım olarak değerlendirilir.",
             );
@@ -497,8 +502,8 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             </View>
           </View>
 
-          {/* Hedef Yatırım Destekleri Kartı */}
-          {(isTarget || isMidHighTech || isHighTech) && (
+          {/* Hedef Yatırım Destekleri Kartı - ONLY show if actually isTarget (NOT for Teknoloji Hamlesi) */}
+          {isTarget && !isTechInitiative && (
             <View style={styles.destekCard}>
               <Text style={styles.destekCardTitle}>Hedef Yatırım Destekleri</Text>
               <View style={styles.destekRow}>
@@ -527,14 +532,16 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
           )}
 
           {/* Öncelikli Yatırım Destekleri Kartı */}
-          {(isPriority || isMidHighTech || isHighTech) && (
+          {(isPriority || isTechInitiative || isMidHighTech || isHighTech) && (
             <View style={styles.destekCard}>
               <Text style={[styles.destekCardTitle, { color: colors.success }]}>
-                {isMidHighTech
-                  ? "Öncelikli Yatırım Destekleri"
-                  : isHighTech
+                {isTechInitiative
+                  ? "Öncelikli Yatırım Destekleri (Teknoloji Hamlesi)"
+                  : isMidHighTech
                     ? "Öncelikli Yatırım Destekleri"
-                    : "Öncelikli Yatırım Destekleri"}
+                    : isHighTech
+                      ? "Öncelikli Yatırım Destekleri"
+                      : "Öncelikli Yatırım Destekleri"}
               </Text>
               <View style={styles.destekRow}>
                 <Text style={styles.destekLabel}>SGK Destek Süresi</Text>
@@ -557,6 +564,31 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             </View>
           )}
         </View>
+
+        {/* Yatırım Durumu Değerlendirmesi Section */}
+        {investmentStatusExplanation && (
+          <View style={styles.infoBox}>
+            <View style={styles.infoBoxHeader}>
+              <View style={styles.infoBoxCheckIcon}>
+                <Text style={styles.infoBoxCheckText}>i</Text>
+              </View>
+              <Text style={[styles.infoBoxTitle, { color: colors.badgeBlue }]}>Yatırım Durumu Değerlendirmesi</Text>
+            </View>
+            <Text style={styles.infoBoxText}>{investmentStatusExplanation}</Text>
+            {isTechInitiative && (
+              <View style={styles.infoBoxBadgeRow}>
+                <View style={[styles.infoBoxBadge, { backgroundColor: "#ffebee", borderColor: "#f44336" }]}>
+                  <Text style={[styles.infoBoxBadgeText, { color: "#f44336" }]}>Teknoloji Hamlesi</Text>
+                  <Text style={[styles.infoBoxBadgeValue, { color: "#f44336" }]}>EVET</Text>
+                </View>
+                <View style={[styles.infoBoxBadge, { backgroundColor: "#e8f5e9", borderColor: colors.success }]}>
+                  <Text style={[styles.infoBoxBadgeText, { color: colors.success }]}>Yatırım Statüsü</Text>
+                  <Text style={[styles.infoBoxBadgeValue, { color: colors.success }]}>ÖNCELİKLİ</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Özel Şartlar Section */}
         {hasSpecialProgram && (
