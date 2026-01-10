@@ -474,7 +474,7 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
 
         {/* Destekler Section */}
         <View style={styles.sectionTitle}>
-          <Text style={styles.sectionTitleText}>Destekler</Text>
+          <Text style={styles.sectionTitleText}>DESTEKLER</Text>
         </View>
 
         <View style={styles.desteklerGrid}>
