@@ -12,6 +12,7 @@ export type InvestmentStatus =
   | "YUKSEK_TEKNOLOJI_HEDEF"
   | "ORTA_YUKSEK_TEKNOLOJI_ONCELIKLI"
   | "ORTA_YUKSEK_TEKNOLOJI_HEDEF"
+  | "ONCELIKLI_ONLY" // DURUM 4 - Raw oncelikli_yatirim tag
   | "HEDEF_ONLY"
   | "NONE";
 
@@ -130,7 +131,21 @@ export function determineInvestmentStatus(
     };
   }
 
-  // DURUM 4: Diğer - Sadece Hedef (if in hedef list)
+  // DURUM 4a: Ham "ÖNCELİKLİ" etiketi (Hamle/Yüksek/Orta-Yüksek değil ama öncelikli listede)
+  const isOncelikliRaw = sectorData.oncelikli_yatirim || false;
+  if (isOncelikliRaw) {
+    return {
+      status: "ONCELIKLI_ONLY",
+      isPriority: true,
+      isTarget: false, // Öncelikli ise hedef gösterilmez
+      isTechInitiative: false,
+      isHighTech: false,
+      isMidHighTech: false,
+      explanation: `9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir.`,
+    };
+  }
+
+  // DURUM 4b: Sadece Hedef (if in hedef list)
   if (isHedef) {
     return {
       status: "HEDEF_ONLY",
@@ -139,7 +154,7 @@ export function determineInvestmentStatus(
       isTechInitiative: false,
       isHighTech: false,
       isMidHighTech: false,
-      explanation: `9903 sayılı Karar kapsamında öncelikli yatırım şartlarını sağlamadığından, yalnızca hedef yatırım kapsamında değerlendirilir (hedef listede yer alması kaydıyla).`,
+      explanation: `9903 sayılı Karar kapsamında öncelikli yatırım şartlarını sağlamadığından, yalnızca hedef yatırım kapsamında değerlendirilir.`,
     };
   }
 

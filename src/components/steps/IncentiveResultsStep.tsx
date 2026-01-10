@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calculator, Target, Star, Zap, Cpu, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Calculator, Target, Star, Zap, Cpu, CheckCircle, XCircle, AlertTriangle, Rocket, Info } from "lucide-react";
 import { Download } from "lucide-react";
 import { UnifiedQueryData } from "@/components/UnifiedIncentiveQuery";
 import { IncentiveResult } from "@/types/incentive";
@@ -19,6 +19,7 @@ import {
   isIstanbulTargetInvestment,
 } from "@/utils/investmentValidation";
 import { isRegion6Province, checkSpecialProgramEligibility, SpecialProgramEligibility } from "@/utils/regionUtils";
+import { determineInvestmentStatus, SectorDataForStatus } from "@/utils/investmentStatusHelper";
 
 interface IncentiveResultsStepProps {
   queryData: UnifiedQueryData;
@@ -305,15 +306,39 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
       const isProvince6 = isRegion6Province(queryData.selectedProvince);
       const applyRegion6Benefits = isProvince6 || specialProgram.isEligible;
 
+      // Use determineInvestmentStatus helper for proper hierarchy (DURUM 1-4)
+      const sectorDataForStatus: SectorDataForStatus = {
+        teknoloji_hamlesi: queryData.selectedSector.teknoloji_hamlesi || null,
+        yuksek_teknoloji: queryData.selectedSector.yuksek_teknoloji || false,
+        orta_yuksek_teknoloji: queryData.selectedSector.orta_yuksek_teknoloji || false,
+        hedef_yatirim: queryData.selectedSector.hedef_yatirim || false,
+        oncelikli_yatirim: queryData.selectedSector.oncelikli_yatirim || false,
+      };
+      
+      // Calculate investment status using the helper (no investment amount in this screen)
+      const investmentStatus = determineInvestmentStatus(
+        sectorDataForStatus,
+        undefined, // investmentAmount not available
+        queryData.selectedProvince
+      );
+
+      // Apply Region 6 override if applicable, otherwise use helper results
+      // CRITICAL: Teknoloji Hamlesi ALWAYS takes precedence - never downgrade to hedef
+      const finalIsPriority = applyRegion6Benefits || investmentStatus.isPriority;
+      const finalIsTarget = investmentStatus.isTechInitiative 
+        ? false // Teknoloji Hamlesi = NEVER hedef
+        : (applyRegion6Benefits ? false : investmentStatus.isTarget);
+
       const result: IncentiveResult = {
         sector: {
           nace_code: queryData.selectedSector.nace_kodu,
           name: queryData.selectedSector.sektor,
-          // For Region 6 provinces or special programs, replace Hedef with Öncelikli
-          isTarget: applyRegion6Benefits ? false : queryData.selectedSector.hedef_yatirim || false,
-          isPriority: applyRegion6Benefits ? true : queryData.selectedSector.oncelikli_yatirim || false,
-          isHighTech: queryData.selectedSector.yuksek_teknoloji || false,
-          isMidHighTech: queryData.selectedSector.orta_yuksek_teknoloji || false,
+          isTarget: finalIsTarget,
+          isPriority: finalIsPriority,
+          isHighTech: investmentStatus.isHighTech,
+          isMidHighTech: investmentStatus.isMidHighTech,
+          isTechInitiative: investmentStatus.isTechInitiative,
+          investmentStatusExplanation: investmentStatus.explanation,
           conditions: queryData.selectedSector.sartlar || "",
           minInvestment: minInvestment,
         },
@@ -420,7 +445,14 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
                 <Badge variant="outline">{incentiveResult.sector.nace_code}</Badge>
               </div>
               <div className="flex gap-2 flex-wrap">
-                {incentiveResult.sector.isTarget && (
+                {/* Teknoloji Hamlesi Badge - Always show first if applicable */}
+                {incentiveResult.sector.isTechInitiative && (
+                  <Badge className="bg-red-600 hover:bg-red-700 text-white flex items-center gap-1">
+                    <Rocket className="h-3 w-3" />
+                    Teknoloji Hamlesi
+                  </Badge>
+                )}
+                {incentiveResult.sector.isTarget && !incentiveResult.sector.isTechInitiative && (
                   <Badge className="bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1">
                     <Target className="h-3 w-3" />
                     Hedef Yatırım
@@ -516,11 +548,23 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
             </Alert>
           )}
 
+          {/* Yatırım Durumu Değerlendirmesi - Shows the explanation from determineInvestmentStatus */}
+          {incentiveResult.sector.investmentStatusExplanation && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>Yatırım Durumu Değerlendirmesi:</strong>
+                <p className="mt-2">{incentiveResult.sector.investmentStatusExplanation}</p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Birleşik Önemli Bilgi Kutucuğu */}
           {(() => {
             const importantInfos: { key: string; content: React.ReactNode }[] = [];
+            const isTechInitiative = incentiveResult.sector.isTechInitiative;
 
-            // İstanbul hedef yatırım uyarısı
+            // İstanbul hedef yatırım uyarısı - only if actually isTarget
             if (incentiveResult.sector.isTarget && incentiveResult.location.province === "İstanbul") {
               importantInfos.push({
                 key: "istanbul",
@@ -528,7 +572,7 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
               });
             }
 
-            // Faiz/Kar Payı 1., 2., 3. bölge uyarısı
+            // Faiz/Kar Payı 1., 2., 3. bölge uyarısı - only if actually isTarget
             if (incentiveResult.sector.isTarget && [1, 2, 3].includes(incentiveResult.location.region)) {
               importantInfos.push({
                 key: "faiz",
@@ -536,8 +580,9 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
               });
             }
 
-            // Orta-Yüksek Teknoloji uyarısı
-            if (incentiveResult.sector.isMidHighTech) {
+            // Orta-Yüksek Teknoloji uyarısı - ONLY if NOT Teknoloji Hamlesi
+            // Teknoloji Hamlesi her zaman önceliklidir, "aksi halde hedef" mesajı YASAKLI
+            if (incentiveResult.sector.isMidHighTech && !isTechInitiative) {
               importantInfos.push({
                 key: "midtech",
                 content: (
@@ -550,8 +595,8 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
               });
             }
 
-            // Yüksek Teknoloji uyarısı
-            if (incentiveResult.sector.isHighTech && !incentiveResult.sector.isMidHighTech) {
+            // Yüksek Teknoloji uyarısı - ONLY if NOT Teknoloji Hamlesi
+            if (incentiveResult.sector.isHighTech && !incentiveResult.sector.isMidHighTech && !isTechInitiative) {
               importantInfos.push({
                 key: "hightech",
                 content: (
