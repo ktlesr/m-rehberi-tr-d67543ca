@@ -1705,6 +1705,9 @@ serve(async (req) => {
       );
     }
 
+    // NACE kodu pattern'i: 10.20, 28.94.04, 2894, 10, vb.
+    const hasNaceCode = /\b\d{2}\.?\d{0,2}\.?\d{0,2}\b/.test(lastUserMessage.content);
+
     const isIncentiveRelated =
       (lowerContent.includes("teşvik") ||
         lowerContent.includes("tesvik") ||
@@ -1716,10 +1719,15 @@ serve(async (req) => {
         lowerContent.includes("sektor") ||
         lowerContent.includes("üretim") ||
         lowerContent.includes("uretim") ||
-        lowerContent.includes("imalat")) &&
+        lowerContent.includes("imalat") ||
+        hasNaceCode) &&  // NACE kodu varsa da incentive-related say
       !isSupportQuery;
 
-    console.log("isIncentiveRelated:", isIncentiveRelated);
+    console.log("🔍 Incentive Detection:", { 
+      hasNaceCode, 
+      isIncentiveRelated, 
+      userMessage: lastUserMessage.content.substring(0, 100) 
+    });
 
     let incentiveQuery: any = null;
 
@@ -1841,13 +1849,17 @@ serve(async (req) => {
           }
         }
       } else {
+        // İlk mesajdan sektör ve il bilgisini çıkar
+        const { sector: initialSector, province: initialProvince } = extractInitialSlots(lastUserMessage.content);
+        console.log("📊 New query - extractInitialSlots result:", { sector: initialSector, province: initialProvince });
+        
         const { data: newQuery, error: insertError } = await supabase
           .from("incentive_queries")
           .insert({
             session_id: sessionId,
             status: "collecting",
-            sector: null,
-            province: null,
+            sector: initialSector,      // İlk mesajdan çıkarılan sektör
+            province: initialProvince,  // İlk mesajdan çıkarılan il
             district: null,
             osb_status: null,
           })
@@ -1856,7 +1868,7 @@ serve(async (req) => {
 
         if (!insertError && newQuery) {
           incentiveQuery = newQuery;
-          console.log("✓ Started new incentive query:", incentiveQuery);
+          console.log("✓ Started new incentive query with initial slots:", incentiveQuery);
         } else {
           console.error("Error starting incentive query:", insertError);
         }
