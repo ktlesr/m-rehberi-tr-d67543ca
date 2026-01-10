@@ -326,9 +326,9 @@ const getSupportValues = (incentiveResult: IncentiveResult) => {
   const targetSupports = { taxDiscount: "20", interestSupport: "N/A", cap: "N/A" };
   if (isTarget && [4, 5, 6].includes(region)) {
     targetSupports.interestSupport = "25";
-    targetSupports.cap = "12000000";
+    targetSupports.cap = "15100000";
   }
-  const prioritySupports = { taxDiscount: "30", interestSupport: "25", cap: "24000000" };
+  const prioritySupports = { taxDiscount: "30", interestSupport: "25", cap: "30100000" };
   return { target: targetSupports, priority: prioritySupports };
 };
 
