@@ -2202,10 +2202,10 @@ Sektör verilerinde "teknoloji_hamlesi" alanını MUTLAKA kontrol et ve aşağı
 - Yanıt: "Teknoloji Hamlesi Programı kapsamında yer aldığından, 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Bu kapsamda asgari yatırım tutarı 1. ve 2. Bölgeler için 15.100.000 TL, 3., 4., 5. ve 6. Bölgelerde 7.500.000 TL olmalıdır."
 
 **DURUM 2 (Hamle Değil + Yüksek Teknoloji):** "TEKNOLOJİ HAMLESİ: HAYIR" + "YÜKSEK TEKNOLOJİ: EVET" ise;
-- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az 627.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 627.450.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
+- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az 627.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 627.000.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
 
 **DURUM 3 (Hamle Değil + Orta-Yüksek Teknoloji):** "TEKNOLOJİ HAMLESİ: HAYIR" + "ORTA-YÜKSEK TEKNOLOJİ: EVET" ise;
-- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.255.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 1.254.900.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
+- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.255.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 1.255.000.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
 
 **DURUM 4 (Diğer):** Yukarıdaki şartlar sağlanmıyorsa;
 - Yanıt: "9903 sayılı Karar kapsamında öncelikli yatırım şartlarını sağlamadığından, yalnızca hedef yatırım kapsamında değerlendirilir (hedef listede yer alması kaydıyla)."
