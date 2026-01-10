@@ -420,9 +420,20 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
               </View>
               <View style={styles.kunyeRow}>
                 <Text style={styles.kunyeLabel}>Min. Yatırım Tutarı</Text>
-                <Text style={styles.kunyeValueLarge}>
-                  {incentiveResult.sector.minInvestment?.toLocaleString("tr-TR")} TL
-                </Text>
+                {(isMidHighTech || isHighTech) ? (
+                  <View>
+                    <Text style={styles.kunyeValue}>
+                      Hedef: {incentiveResult.sector.minInvestment?.toLocaleString("tr-TR")} TL
+                    </Text>
+                    <Text style={[styles.kunyeValue, { color: colors.success, marginTop: 2 }]}>
+                      Öncelikli: {isMidHighTech ? "1.254.900.000 TL" : "627.450.000 TL"}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.kunyeValueLarge}>
+                    {incentiveResult.sector.minInvestment?.toLocaleString("tr-TR")} TL
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -479,51 +490,65 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             </View>
           </View>
 
-          {/* Öncelikli/Hedef Yatırım Destekleri Card */}
-          <View style={styles.destekCard}>
-            <Text style={styles.destekCardTitle}>
-              {incentiveResult.sector.isTarget
-                ? "Hedef Yatırım Destekleri"
-                : incentiveResult.sector.isPriority ||
-                    incentiveResult.sector.isHighTech ||
-                    incentiveResult.sector.isMidHighTech
-                  ? "Öncelikli Yatırım Destekleri"
-                  : "Yatırım Destekleri"}
-            </Text>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>SGK Destek Süresi</Text>
-              <Text style={styles.destekValue}>{incentiveResult.location.sgk_duration}</Text>
+          {/* Hedef Yatırım Destekleri Kartı */}
+          {(isTarget || isMidHighTech || isHighTech) && (
+            <View style={styles.destekCard}>
+              <Text style={styles.destekCardTitle}>Hedef Yatırım Destekleri</Text>
+              <View style={styles.destekRow}>
+                <Text style={styles.destekLabel}>SGK Destek Süresi</Text>
+                <Text style={styles.destekValue}>{incentiveResult.location.sgk_duration}</Text>
+              </View>
+              <View style={styles.destekRow}>
+                <Text style={styles.destekLabel}>Vergi İndirimi (YKO)</Text>
+                <Text style={styles.destekValue}>%{supportValues.target.taxDiscount}</Text>
+              </View>
+              <View style={styles.destekRow}>
+                <Text style={styles.destekLabel}>Faiz/Kâr Payı Oranı</Text>
+                <Text style={styles.destekValue}>
+                  {supportValues.target.interestSupport !== "N/A" ? `%${supportValues.target.interestSupport}` : "-"}
+                </Text>
+              </View>
+              <View style={styles.destekRow}>
+                <Text style={styles.destekLabel}>Faiz/Kâr Payı Limiti</Text>
+                <Text style={styles.destekValue}>
+                  {supportValues.target.cap !== "N/A" 
+                    ? `${parseFloat(supportValues.target.cap).toLocaleString("tr-TR")} TL` 
+                    : "-"}
+                </Text>
+              </View>
             </View>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>Vergi İndirimi (YKO)</Text>
-              <Text style={styles.destekValue}>
-                %
-                {incentiveResult.sector.isTarget
-                  ? supportValues.target.taxDiscount
-                  : supportValues.priority.taxDiscount}
+          )}
+
+          {/* Öncelikli Yatırım Destekleri Kartı */}
+          {(isPriority || isMidHighTech || isHighTech) && (
+            <View style={styles.destekCard}>
+              <Text style={[styles.destekCardTitle, { color: colors.success }]}>
+                {isMidHighTech 
+                  ? "Öncelikli Yatırım Destekleri (min. 1.254.900.000 TL + İstanbul dışı)"
+                  : isHighTech 
+                    ? "Öncelikli Yatırım Destekleri (min. 627.450.000 TL)"
+                    : "Öncelikli Yatırım Destekleri"}
               </Text>
+              <View style={styles.destekRow}>
+                <Text style={styles.destekLabel}>SGK Destek Süresi</Text>
+                <Text style={styles.destekValue}>{incentiveResult.location.sgk_duration}</Text>
+              </View>
+              <View style={styles.destekRow}>
+                <Text style={styles.destekLabel}>Vergi İndirimi (YKO)</Text>
+                <Text style={styles.destekValue}>%{supportValues.priority.taxDiscount}</Text>
+              </View>
+              <View style={styles.destekRow}>
+                <Text style={styles.destekLabel}>Faiz/Kâr Payı Oranı</Text>
+                <Text style={styles.destekValue}>%{supportValues.priority.interestSupport}</Text>
+              </View>
+              <View style={styles.destekRow}>
+                <Text style={styles.destekLabel}>Faiz/Kâr Payı Limiti</Text>
+                <Text style={styles.destekValue}>
+                  {parseFloat(supportValues.priority.cap).toLocaleString("tr-TR")} TL
+                </Text>
+              </View>
             </View>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>Faiz/Kâr Payı Oranı</Text>
-              <Text style={styles.destekValue}>
-                {incentiveResult.sector.isTarget
-                  ? supportValues.target.interestSupport !== "N/A"
-                    ? `%${supportValues.target.interestSupport}`
-                    : "-"
-                  : `%${supportValues.priority.interestSupport}`}
-              </Text>
-            </View>
-            <View style={styles.destekRow}>
-              <Text style={styles.destekLabel}>Faiz/Kâr Payı Limiti</Text>
-              <Text style={styles.destekValue}>
-                {incentiveResult.sector.isTarget
-                  ? supportValues.target.cap !== "N/A"
-                    ? `${parseFloat(supportValues.target.cap).toLocaleString("tr-TR")} TL`
-                    : "-"
-                  : `${parseFloat(supportValues.priority.cap).toLocaleString("tr-TR")} TL`}
-              </Text>
-            </View>
-          </View>
+          )}
         </View>
 
         {/* Özel Şartlar Section */}
