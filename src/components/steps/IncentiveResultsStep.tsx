@@ -464,7 +464,22 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
                 </div>
                 <div>
                   <span className="text-muted-foreground">Minimum Yatırım Tutarı:</span>
-                  <div className="font-medium">{incentiveResult.sector.minInvestment?.toLocaleString('tr-TR')} TL</div>
+                  {(incentiveResult.sector.isMidHighTech || incentiveResult.sector.isHighTech) ? (
+                    <div className="space-y-1 mt-1">
+                      <div className="font-medium flex items-center gap-2">
+                        <Target className="h-3 w-3 text-blue-500" />
+                        <span>Hedef İçin: {incentiveResult.sector.minInvestment?.toLocaleString('tr-TR')} TL</span>
+                      </div>
+                      <div className="font-medium flex items-center gap-2">
+                        <Star className="h-3 w-3 text-green-500" />
+                        <span>Öncelikli İçin: {incentiveResult.sector.isMidHighTech 
+                          ? "1.254.900.000 TL" 
+                          : "627.450.000 TL"}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="font-medium">{incentiveResult.sector.minInvestment?.toLocaleString('tr-TR')} TL</div>
+                  )}
                 </div>
                 <div>
                   <span className="text-muted-foreground">Bölge:</span>
@@ -526,6 +541,33 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
               <AlertTriangle className="h-4 w-4 text-red-600" />
               <AlertDescription className="text-red-800">
                 <strong>Önemli Bilgi:</strong> Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Orta-Yüksek/Yüksek Teknoloji Öncelikli Yatırım Şartları Uyarısı */}
+          {(incentiveResult.sector.isMidHighTech || incentiveResult.sector.isHighTech) && !incentiveResult.sector.isPriority && (
+            <Alert className="border-purple-200 bg-purple-50">
+              <AlertTriangle className="h-4 w-4 text-purple-600" />
+              <AlertDescription className="text-purple-800">
+                <strong>Önemli Bilgi:</strong>{' '}
+                {incentiveResult.sector.isMidHighTech ? (
+                  <>
+                    Bu yatırım orta-yüksek teknoloji yatırımı niteliğindedir. 
+                    <strong> Öncelikli yatırım</strong> statüsü kazanabilmesi için:
+                    <ul className="list-disc ml-5 mt-1">
+                      <li>İstanbul ili dışında gerçekleştirilmesi</li>
+                      <li>Yatırım tutarının en az <strong>1.254.900.000 TL</strong> olması</li>
+                    </ul>
+                    şartlarını sağlaması gerekmektedir. Bu şartlar sağlanmadığı takdirde <strong>Hedef yatırım</strong> olarak değerlendirilir.
+                  </>
+                ) : (
+                  <>
+                    Bu yatırım yüksek teknoloji yatırımı niteliğindedir. 
+                    <strong> Öncelikli yatırım</strong> statüsü kazanabilmesi için yatırım tutarının en az <strong>627.450.000 TL</strong> olması gerekmektedir. 
+                    Bu şartı sağlamadığı takdirde <strong>Hedef yatırım</strong> olarak değerlendirilir.
+                  </>
+                )}
               </AlertDescription>
             </Alert>
           )}

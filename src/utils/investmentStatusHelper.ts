@@ -23,7 +23,11 @@ export interface InvestmentStatusResult {
   isHighTech: boolean;
   isMidHighTech: boolean;
   explanation: string;
-  minInvestmentRequirement?: number;
+  minInvestmentRequirement?: number;  // Öncelikli için minimum tutar
+  minTargetInvestmentByRegion?: {     // Hedef için bölgesel minimum tutarlar
+    regions12: number;   // 1. ve 2. Bölge için
+    regions3456: number; // 3., 4., 5., 6. Bölge için
+  };
   requiresNonIstanbul?: boolean;
 }
 
@@ -96,6 +100,10 @@ export function determineInvestmentStatus(
       isHighTech: true,
       isMidHighTech: false,
       minInvestmentRequirement: MIN_HIGH_TECH_INVESTMENT,
+      minTargetInvestmentByRegion: {
+        regions12: 15_100_000,    // 1. ve 2. Bölge için
+        regions3456: 7_500_000    // 3., 4., 5., 6. Bölge için
+      },
       explanation: `Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az 627.450.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 627.450.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir.`
     };
   }
@@ -114,6 +122,10 @@ export function determineInvestmentStatus(
       isHighTech: false,
       isMidHighTech: true,
       minInvestmentRequirement: MIN_MID_HIGH_TECH_INVESTMENT,
+      minTargetInvestmentByRegion: {
+        regions12: 15_100_000,    // 1. ve 2. Bölge için
+        regions3456: 7_500_000    // 3., 4., 5., 6. Bölge için
+      },
       requiresNonIstanbul: true,
       explanation: `Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.254.900.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 1.254.900.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir.`
     };
