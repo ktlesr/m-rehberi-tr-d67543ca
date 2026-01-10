@@ -454,7 +454,7 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
                 </div>
                 <div>
                   <span className="text-muted-foreground">Minimum Yatırım Tutarı:</span>
-                  {(incentiveResult.sector.isMidHighTech || incentiveResult.sector.isHighTech) ? (
+                  {incentiveResult.sector.isMidHighTech || incentiveResult.sector.isHighTech ? (
                     <div className="space-y-1 mt-1">
                       <div className="font-medium flex items-center gap-2">
                         <Target className="h-3 w-3 text-blue-500" />
@@ -462,13 +462,14 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
                       </div>
                       <div className="font-medium flex items-center gap-2">
                         <Star className="h-3 w-3 text-green-500" />
-                        <span>Öncelikli İçin:</span> {incentiveResult.sector.isMidHighTech 
-                          ? "1.254.900.000 TL (İstanbul dışı)" 
-                          : "627.450.000 TL"}
+                        <span>Öncelikli İçin:</span>{" "}
+                        {incentiveResult.sector.isMidHighTech ? "1.255.000.000 TL (İstanbul dışı)" : "627.000.000 TL"}
                       </div>
                     </div>
                   ) : (
-                    <div className="font-medium">{incentiveResult.sector.minInvestment?.toLocaleString("tr-TR")} TL</div>
+                    <div className="font-medium">
+                      {incentiveResult.sector.minInvestment?.toLocaleString("tr-TR")} TL
+                    </div>
                   )}
                 </div>
                 <div>
@@ -518,60 +519,60 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
           {/* Birleşik Önemli Bilgi Kutucuğu */}
           {(() => {
             const importantInfos: { key: string; content: React.ReactNode }[] = [];
-            
+
             // İstanbul hedef yatırım uyarısı
             if (incentiveResult.sector.isTarget && incentiveResult.location.province === "İstanbul") {
               importantInfos.push({
                 key: "istanbul",
-                content: "İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır."
+                content: "İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.",
               });
             }
-            
+
             // Faiz/Kar Payı 1., 2., 3. bölge uyarısı
             if (incentiveResult.sector.isTarget && [1, 2, 3].includes(incentiveResult.location.region)) {
               importantInfos.push({
                 key: "faiz",
-                content: "Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır."
+                content: "Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.",
               });
             }
-            
+
             // Orta-Yüksek Teknoloji uyarısı
             if (incentiveResult.sector.isMidHighTech) {
               importantInfos.push({
                 key: "midtech",
                 content: (
                   <>
-                    Bu yatırım <strong>orta-yüksek teknoloji</strong> yatırımı niteliğindedir. 
-                    <strong> Öncelikli yatırım</strong> statüsü için: İstanbul dışı + min. <strong>1.254.900.000 TL</strong>. 
-                    Aksi halde <strong>Hedef yatırım</strong> olarak değerlendirilir.
+                    Bu yatırım <strong>orta-yüksek teknoloji</strong> yatırımı niteliğindedir.
+                    <strong> Öncelikli yatırım</strong> statüsü için: İstanbul dışı + min.{" "}
+                    <strong>1.255.000.000 TL</strong>. Aksi halde <strong>Hedef yatırım</strong> olarak değerlendirilir.
                   </>
-                )
+                ),
               });
             }
-            
+
             // Yüksek Teknoloji uyarısı
             if (incentiveResult.sector.isHighTech && !incentiveResult.sector.isMidHighTech) {
               importantInfos.push({
                 key: "hightech",
                 content: (
                   <>
-                    Bu yatırım <strong>yüksek teknoloji</strong> yatırımı niteliğindedir. 
-                    <strong> Öncelikli yatırım</strong> statüsü için: min. <strong>627.450.000 TL</strong>. 
-                    Aksi halde <strong>Hedef yatırım</strong> olarak değerlendirilir.
+                    Bu yatırım <strong>yüksek teknoloji</strong> yatırımı niteliğindedir.
+                    <strong> Öncelikli yatırım</strong> statüsü için: min. <strong>627.000.000 TL</strong>. Aksi halde{" "}
+                    <strong>Hedef yatırım</strong> olarak değerlendirilir.
                   </>
-                )
+                ),
               });
             }
-            
+
             if (importantInfos.length === 0) return null;
-            
+
             return (
               <Alert className="border-amber-200 bg-amber-50">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800">
                   <strong>Önemli Bilgi:</strong>
                   <ul className="list-disc ml-5 mt-2 space-y-2">
-                    {importantInfos.map(item => (
+                    {importantInfos.map((item) => (
                       <li key={item.key}>{item.content}</li>
                     ))}
                   </ul>

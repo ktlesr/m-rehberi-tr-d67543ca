@@ -29,17 +29,20 @@ function getSupabaseAdmin() {
 async function normalizeQueryForCache(query: string): Promise<{ normalized: string; hash: string }> {
   const normalized = query
     .toLowerCase()
-    .replace(/[?!.,;:'"()]/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/[?!.,;:'"()]/g, "")
+    .replace(/\s+/g, " ")
     .trim();
-  
+
   // Generate SHA-256 hash
   const encoder = new TextEncoder();
   const data = encoder.encode(normalized);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
-  
+  const hash = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 32);
+
   return { normalized, hash };
 }
 
@@ -47,64 +50,70 @@ async function normalizeQueryForCache(query: string): Promise<{ normalized: stri
 async function checkCache(supabase: any, queryHash: string): Promise<any | null> {
   try {
     const { data, error } = await supabase
-      .from('question_cache')
-      .select('*')
-      .eq('query_hash', queryHash)
-      .gt('expires_at', new Date().toISOString())
+      .from("question_cache")
+      .select("*")
+      .eq("query_hash", queryHash)
+      .gt("expires_at", new Date().toISOString())
       .single();
-    
+
     if (error || !data) return null;
-    
+
     // Update hit count asynchronously (don't wait)
     supabase
-      .from('question_cache')
-      .update({ 
+      .from("question_cache")
+      .update({
         hit_count: data.hit_count + 1,
-        last_hit_at: new Date().toISOString()
+        last_hit_at: new Date().toISOString(),
       })
-      .eq('id', data.id)
-      .then(() => console.log('✅ Cache hit count updated'))
-      .catch((err: any) => console.error('⚠️ Failed to update cache hit count:', err));
-    
+      .eq("id", data.id)
+      .then(() => console.log("✅ Cache hit count updated"))
+      .catch((err: any) => console.error("⚠️ Failed to update cache hit count:", err));
+
     console.log(`🎯 Cache HIT for hash: ${queryHash.substring(0, 8)}...`);
     return data;
   } catch (error) {
-    console.error('⚠️ Cache check error:', error);
+    console.error("⚠️ Cache check error:", error);
     return null;
   }
 }
 
 // Save response to cache
-async function saveToCache(supabase: any, params: {
-  queryHash: string;
-  normalizedQuery: string;
-  originalQuery: string;
-  responseText: string;
-  groundingChunks?: any;
-  supportCards?: any;
-  source?: string;
-  searchMetadata?: any;
-}): Promise<void> {
+async function saveToCache(
+  supabase: any,
+  params: {
+    queryHash: string;
+    normalizedQuery: string;
+    originalQuery: string;
+    responseText: string;
+    groundingChunks?: any;
+    supportCards?: any;
+    source?: string;
+    searchMetadata?: any;
+  },
+): Promise<void> {
   try {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    
-    await supabase.from('question_cache').upsert({
-      query_hash: params.queryHash,
-      normalized_query: params.normalizedQuery,
-      original_query: params.originalQuery,
-      response_text: params.responseText,
-      grounding_chunks: params.groundingChunks || null,
-      support_cards: params.supportCards || null,
-      source: params.source || 'gemini',
-      search_metadata: params.searchMetadata || null,
-      expires_at: expiresAt,
-      hit_count: 1,
-      last_hit_at: new Date().toISOString()
-    }, { onConflict: 'query_hash' });
-    
+
+    await supabase.from("question_cache").upsert(
+      {
+        query_hash: params.queryHash,
+        normalized_query: params.normalizedQuery,
+        original_query: params.originalQuery,
+        response_text: params.responseText,
+        grounding_chunks: params.groundingChunks || null,
+        support_cards: params.supportCards || null,
+        source: params.source || "gemini",
+        search_metadata: params.searchMetadata || null,
+        expires_at: expiresAt,
+        hit_count: 1,
+        last_hit_at: new Date().toISOString(),
+      },
+      { onConflict: "query_hash" },
+    );
+
     console.log(`💾 Response cached for hash: ${params.queryHash.substring(0, 8)}...`);
   } catch (error) {
-    console.error('⚠️ Cache save error:', error);
+    console.error("⚠️ Cache save error:", error);
   }
 }
 
@@ -145,7 +154,7 @@ interface SearchAnalytics {
 // Track search analytics
 async function trackSearchAnalytics(supabase: any, analytics: SearchAnalytics): Promise<void> {
   try {
-    await supabase.from('hybrid_search_analytics').insert({
+    await supabase.from("hybrid_search_analytics").insert({
       session_id: analytics.sessionId,
       query: analytics.query,
       query_hash: analytics.queryHash,
@@ -165,12 +174,12 @@ async function trackSearchAnalytics(supabase: any, analytics: SearchAnalytics): 
       expanded_queries_count: analytics.queryAnalysis.expandedCount,
       keywords_extracted: analytics.queryAnalysis.keywordsCount,
       response_source: analytics.response.source,
-      response_length: analytics.response.length
+      response_length: analytics.response.length,
     });
-    
+
     console.log(`📊 Analytics tracked for query: ${analytics.query.substring(0, 30)}...`);
   } catch (error) {
-    console.error('⚠️ Analytics tracking error:', error);
+    console.error("⚠️ Analytics tracking error:", error);
   }
 }
 
@@ -253,26 +262,26 @@ async function generateEmbedding(text: string, model: string, dimensions: number
 // Detect if user is asking about a new sector/NACE code (topic change)
 function detectNewSectorQuery(userMessage: string, existingQuery: any): boolean {
   if (!existingQuery?.sector) return false; // No existing sector to compare
-  
+
   const message = userMessage.toLowerCase();
-  
+
   // NACE code pattern: XX.XX or XX.XX.XX
   const nacePattern = /\b(\d{2}(?:\.\d{2}){1,2})\b/g;
-  const messageNaceCodes = [...message.matchAll(nacePattern)].map(m => m[1]);
-  
+  const messageNaceCodes = [...message.matchAll(nacePattern)].map((m) => m[1]);
+
   // If message contains a NACE code, check if it's different from existing
   if (messageNaceCodes.length > 0) {
     const existingNaceMatch = existingQuery.sector.match(nacePattern);
     const existingNace = existingNaceMatch ? existingNaceMatch[0] : null;
-    
+
     // If any NACE code in message is different from existing, it's a new topic
-    const hasNewNace = messageNaceCodes.some(code => code !== existingNace);
+    const hasNewNace = messageNaceCodes.some((code) => code !== existingNace);
     if (hasNewNace) {
-      console.log(`🔄 New NACE code detected: ${messageNaceCodes.join(', ')} (existing: ${existingNace})`);
+      console.log(`🔄 New NACE code detected: ${messageNaceCodes.join(", ")} (existing: ${existingNace})`);
       return true;
     }
   }
-  
+
   // Keywords indicating a new/different topic
   const resetKeywords = [
     /yeni (bir )?(sektör|yatırım|proje|konu)/i,
@@ -284,12 +293,12 @@ function detectNewSectorQuery(userMessage: string, existingQuery: any): boolean 
     /bunun yerine\b/i,
     /konuyu değiştir/i,
   ];
-  
-  if (resetKeywords.some(pattern => pattern.test(userMessage))) {
+
+  if (resetKeywords.some((pattern) => pattern.test(userMessage))) {
     console.log("🔄 Topic change keyword detected");
     return true;
   }
-  
+
   return false;
 }
 
@@ -405,8 +414,7 @@ async function searchSupportPrograms(query: string, supabase: any): Promise<any[
           kurum: institution?.name || "Bilinmiyor",
           son_tarih: p.application_deadline,
           ozet: p.description?.substring(0, 300) + (p.description?.length > 300 ? "..." : ""),
-          uygunluk:
-            p.eligibility_criteria?.substring(0, 200) + (p.eligibility_criteria?.length > 200 ? "..." : ""),
+          uygunluk: p.eligibility_criteria?.substring(0, 200) + (p.eligibility_criteria?.length > 200 ? "..." : ""),
           iletisim: p.contact_info,
           belgeler: files || [],
           tags,
@@ -427,9 +435,7 @@ async function searchSupportPrograms(query: string, supabase: any): Promise<any[
       console.log(`🎯 Support search: direct lookup by program code: ${code}`);
       const { data: directPrograms, error: directErr } = await supabase
         .from("support_programs")
-        .select(
-          "id, title, description, eligibility_criteria, application_deadline, contact_info, institution_id",
-        )
+        .select("id, title, description, eligibility_criteria, application_deadline, contact_info, institution_id")
         .ilike("title", `%${code}%`)
         .limit(5);
 
@@ -502,7 +508,7 @@ async function searchSupportPrograms(query: string, supabase: any): Promise<any[
 // Vertex RAG yanıtının "bilgi bulunamadı" mesajı içerip içermediğini kontrol et
 function isNoResultsFoundResponse(text: string): boolean {
   if (!text || text.trim().length === 0) return true;
-  
+
   const noResultsPatterns = [
     /verilen kaynaklarda.*?bilgi bulunmamaktadır/i,
     /belgelerde.*?bilgi bulunmamaktadır/i,
@@ -515,22 +521,22 @@ function isNoResultsFoundResponse(text: string): boolean {
     /hakkında.*?bilgi bulunmamaktadır/i,
     /destekleri hakkında bilgi bulunmamaktadır/i,
   ];
-  
+
   // Check if the text is just "---" or contains no real content
   const trimmed = text.trim();
-  if (trimmed === '---' || trimmed === '' || /^-+\s*$/.test(trimmed)) {
+  if (trimmed === "---" || trimmed === "" || /^-+\s*$/.test(trimmed)) {
     return true;
   }
-  
-  return noResultsPatterns.some(pattern => pattern.test(text));
+
+  return noResultsPatterns.some((pattern) => pattern.test(text));
 }
 
 // ============= ENHANCED HYBRID SEARCH FUNCTIONS =============
 
 // Query Expansion with Gemini - generates query variations and extracts keywords
 async function expandQueryWithGemini(
-  query: string, 
-  conversationHistory: any[]
+  query: string,
+  conversationHistory: any[],
 ): Promise<{
   expandedQueries: string[];
   keywords: string[];
@@ -538,15 +544,15 @@ async function expandQueryWithGemini(
 }> {
   try {
     const ai = getAiClient();
-    
+
     // Extract recent context from conversation
     const recentUserMessages = conversationHistory
       .filter((m: any) => m.role === "user")
       .slice(-3)
       .map((m: any) => m.content);
-    
+
     const recentContext = recentUserMessages.slice(0, -1).join(" ").substring(0, 300);
-    
+
     const prompt = `Aşağıdaki kullanıcı sorusu için 3 farklı soru varyasyonu ve anahtar kelimeleri çıkar.
 
 Kullanıcı Sorusu: "${query}"
@@ -561,58 +567,52 @@ SADECE JSON formatında yanıt ver, başka bir şey yazma:
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { 
+      config: {
         temperature: 0.1,
-        maxOutputTokens: 500
+        maxOutputTokens: 500,
       },
     });
 
     const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    
+
     // Parse JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       const variations = parsed.variations || [];
       const keywords = parsed.keywords || [];
-      
+
       // Build contextual query combining context and original query
-      const contextualQuery = recentContext 
-        ? `${recentContext} ${query}`.trim()
-        : query;
-      
+      const contextualQuery = recentContext ? `${recentContext} ${query}`.trim() : query;
+
       console.log("✅ Query expansion successful:", { variations: variations.length, keywords: keywords.length });
-      
+
       return {
         expandedQueries: variations.slice(0, 3),
         keywords: keywords.slice(0, 5),
-        contextualQuery
+        contextualQuery,
       };
     }
   } catch (error) {
     console.error("⚠️ Query expansion failed, using original query:", error);
   }
-  
+
   // Fallback: extract keywords manually
   const keywords = query
     .toLowerCase()
     .replace(/[?.,!]/g, "")
     .split(/\s+/)
     .filter((w) => w.length > 3 && !["hangi", "nedir", "nasıl", "nerede", "kaç"].includes(w));
-  
+
   return {
     expandedQueries: [],
     keywords,
-    contextualQuery: query
+    contextualQuery: query,
   };
 }
 
 // Search question_variants table with expanded queries
-async function searchQuestionVariants(
-  query: string,
-  expandedQueries: string[],
-  supabase: any
-): Promise<any[] | null> {
+async function searchQuestionVariants(query: string, expandedQueries: string[], supabase: any): Promise<any[] | null> {
   try {
     // Generate embedding for the query
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
@@ -652,7 +652,7 @@ async function searchQuestionVariants(
       query_embedding: queryEmbedding,
       match_threshold: 0.04,
       match_count: 10,
-      expanded_queries: expandedQueries.length > 0 ? expandedQueries : null
+      expanded_queries: expandedQueries.length > 0 ? expandedQueries : null,
     });
 
     if (error) {
@@ -682,64 +682,72 @@ function rerankResults(
   qvMatches: any[],
   supportCards: any[],
   keywords: string[],
-  originalQuery: string
+  originalQuery: string,
 ): RerankResult {
   // Source weights
   const SOURCE_WEIGHTS = {
-    vertex: 0.50,
-    questionVariant: 0.30,
-    supportProgram: 0.20
+    vertex: 0.5,
+    questionVariant: 0.3,
+    supportProgram: 0.2,
   };
 
   // Calculate keyword bonus
   const calculateKeywordBonus = (text: string): number => {
     if (!text || keywords.length === 0) return 0;
     const lowerText = text.toLowerCase();
-    const matchCount = keywords.filter(k => lowerText.includes(k.toLowerCase())).length;
+    const matchCount = keywords.filter((k) => lowerText.includes(k.toLowerCase())).length;
     return Math.min(matchCount * 0.05, 0.15); // Max 15% bonus
   };
 
   // Process QV matches with reranking
-  const rankedQvMatches = qvMatches.map((match) => {
-    const baseScore = match.similarity || 0;
-    const keywordBonus = calculateKeywordBonus(match.canonical_question + " " + match.canonical_answer);
-    const matchTypeBonus = match.match_type === "exact" ? 0.1 : 
-                          match.match_type === "fuzzy" ? 0.05 : 0;
-    
-    return {
-      ...match,
-      rerankScore: (baseScore * SOURCE_WEIGHTS.questionVariant) + keywordBonus + matchTypeBonus
-    };
-  }).sort((a, b) => b.rerankScore - a.rerankScore);
+  const rankedQvMatches = qvMatches
+    .map((match) => {
+      const baseScore = match.similarity || 0;
+      const keywordBonus = calculateKeywordBonus(match.canonical_question + " " + match.canonical_answer);
+      const matchTypeBonus = match.match_type === "exact" ? 0.1 : match.match_type === "fuzzy" ? 0.05 : 0;
+
+      return {
+        ...match,
+        rerankScore: baseScore * SOURCE_WEIGHTS.questionVariant + keywordBonus + matchTypeBonus,
+      };
+    })
+    .sort((a, b) => b.rerankScore - a.rerankScore);
 
   // Process support cards with keyword boosting
-  const rankedSupportCards = supportCards.map((card) => {
-    const textToCheck = `${card.title || ""} ${card.ozet || ""} ${card.kurum || ""}`;
-    const keywordBonus = calculateKeywordBonus(textToCheck);
-    return {
-      ...card,
-      rerankScore: SOURCE_WEIGHTS.supportProgram + keywordBonus
-    };
-  }).sort((a, b) => b.rerankScore - a.rerankScore);
+  const rankedSupportCards = supportCards
+    .map((card) => {
+      const textToCheck = `${card.title || ""} ${card.ozet || ""} ${card.kurum || ""}`;
+      const keywordBonus = calculateKeywordBonus(textToCheck);
+      return {
+        ...card,
+        rerankScore: SOURCE_WEIGHTS.supportProgram + keywordBonus,
+      };
+    })
+    .sort((a, b) => b.rerankScore - a.rerankScore);
 
   // Build QV context from top matches
   const topQvMatches = rankedQvMatches.slice(0, 3);
-  const qvContext = topQvMatches.length > 0
-    ? topQvMatches.map((m, i) => {
-        const variants = m.variants?.length > 0 ? `\n*Alternatif: ${m.variants[0]}*` : "";
-        return `**${i + 1}. ${m.canonical_question}**${variants}\n${m.canonical_answer}`;
-      }).join("\n\n---\n\n")
-    : null;
+  const qvContext =
+    topQvMatches.length > 0
+      ? topQvMatches
+          .map((m, i) => {
+            const variants = m.variants?.length > 0 ? `\n*Alternatif: ${m.variants[0]}*` : "";
+            return `**${i + 1}. ${m.canonical_question}**${variants}\n${m.canonical_answer}`;
+          })
+          .join("\n\n---\n\n")
+      : null;
 
   // Calculate average QV similarity
-  const qvSimilarity = topQvMatches.length > 0
-    ? topQvMatches.reduce((sum, m) => sum + (m.similarity || 0), 0) / topQvMatches.length
-    : 0;
+  const qvSimilarity =
+    topQvMatches.length > 0 ? topQvMatches.reduce((sum, m) => sum + (m.similarity || 0), 0) / topQvMatches.length : 0;
 
   // Collect top sources
   const topSources = [
-    ...topQvMatches.map(m => m.source_document).filter(Boolean),
-    ...rankedSupportCards.slice(0, 2).map(c => c.kurum).filter(Boolean)
+    ...topQvMatches.map((m) => m.source_document).filter(Boolean),
+    ...rankedSupportCards
+      .slice(0, 2)
+      .map((c) => c.kurum)
+      .filter(Boolean),
   ].slice(0, 5);
 
   return {
@@ -747,7 +755,7 @@ function rerankResults(
     qvContext,
     qvSimilarity,
     supportCards: rankedSupportCards.slice(0, 5),
-    topSources
+    topSources,
   };
 }
 
@@ -755,10 +763,10 @@ function rerankResults(
 async function searchWithAdaptiveThreshold(
   query: string,
   expandedQueries: string[],
-  supabase: any
+  supabase: any,
 ): Promise<any[] | null> {
   const thresholds = [0.03, 0.02, 0.01];
-  
+
   // Generate embedding once
   const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
   if (!openAIApiKey) return null;
@@ -784,13 +792,13 @@ async function searchWithAdaptiveThreshold(
 
     for (const threshold of thresholds) {
       console.log(`🔍 Trying adaptive threshold: ${threshold}`);
-      
+
       const { data: matches, error } = await supabase.rpc("hybrid_match_question_variants", {
         query_text: query,
         query_embedding: queryEmbedding,
         match_threshold: threshold,
         match_count: 5,
-        expanded_queries: expandedQueries.length > 0 ? expandedQueries : null
+        expanded_queries: expandedQueries.length > 0 ? expandedQueries : null,
       });
 
       if (!error && matches && matches.length > 0) {
@@ -947,34 +955,34 @@ const TURKISH_PROVINCES = [
 // Kullanıcının ilk mesajından hem NACE/sektör hem de il bilgisini çıkarır
 const extractInitialSlots = (message: string): { sector: string | null; province: string | null } => {
   const lowerMessage = message.toLowerCase();
-  
+
   // 1. Türkiye il adlarından birini bul
   let foundProvince: string | null = null;
   for (const prov of TURKISH_PROVINCES) {
     const provLower = prov.toLowerCase();
     // Türkçe karakter varyasyonları için normalize et
     const provNormalized = provLower
-      .replace(/ı/g, 'i')
-      .replace(/ğ/g, 'g')
-      .replace(/ü/g, 'u')
-      .replace(/ş/g, 's')
-      .replace(/ö/g, 'o')
-      .replace(/ç/g, 'c');
+      .replace(/ı/g, "i")
+      .replace(/ğ/g, "g")
+      .replace(/ü/g, "u")
+      .replace(/ş/g, "s")
+      .replace(/ö/g, "o")
+      .replace(/ç/g, "c");
     const msgNormalized = lowerMessage
-      .replace(/ı/g, 'i')
-      .replace(/ğ/g, 'g')
-      .replace(/ü/g, 'u')
-      .replace(/ş/g, 's')
-      .replace(/ö/g, 'o')
-      .replace(/ç/g, 'c');
-    
+      .replace(/ı/g, "i")
+      .replace(/ğ/g, "g")
+      .replace(/ü/g, "u")
+      .replace(/ş/g, "s")
+      .replace(/ö/g, "o")
+      .replace(/ç/g, "c");
+
     // Kütahya, Kütahya'da, Kütahyada, Kütahya ilinde, Kütahya ili vb.
     const patterns = [
-      new RegExp(`\\b${provLower}(?:'?da|'?de|'?ta|'?te)?\\b`, 'i'),
-      new RegExp(`\\b${provLower}\\s+ili(?:nde)?\\b`, 'i'),
-      new RegExp(`\\b${provNormalized}(?:'?da|'?de|'?ta|'?te)?\\b`, 'i'),
+      new RegExp(`\\b${provLower}(?:'?da|'?de|'?ta|'?te)?\\b`, "i"),
+      new RegExp(`\\b${provLower}\\s+ili(?:nde)?\\b`, "i"),
+      new RegExp(`\\b${provNormalized}(?:'?da|'?de|'?ta|'?te)?\\b`, "i"),
     ];
-    
+
     for (const pattern of patterns) {
       if (pattern.test(lowerMessage) || pattern.test(msgNormalized)) {
         foundProvince = prov;
@@ -983,28 +991,28 @@ const extractInitialSlots = (message: string): { sector: string | null; province
     }
     if (foundProvince) break;
   }
-  
+
   // 2. NACE kodu veya sektör bilgisini çıkar
   let sector: string | null = message;
-  
+
   // İl adını mesajdan çıkar (varsa)
   if (foundProvince) {
     // İl adını ve eklerini temizle
     const provLower = foundProvince.toLowerCase();
     sector = message
-      .replace(new RegExp(`${foundProvince}(?:'?da|'?de|'?ta|'?te|\\s+ili(?:nde)?)?`, 'gi'), '')
-      .replace(/desteklenir mi|destekleniyor mu|teşvik var mı|tesvik var mi/gi, '')
-      .replace(/\s+/g, ' ')
+      .replace(new RegExp(`${foundProvince}(?:'?da|'?de|'?ta|'?te|\\s+ili(?:nde)?)?`, "gi"), "")
+      .replace(/desteklenir mi|destekleniyor mu|teşvik var mı|tesvik var mi/gi, "")
+      .replace(/\s+/g, " ")
       .trim();
   }
-  
+
   // Boş kaldıysa null yap
   if (!sector || sector.length === 0) {
     sector = null;
   }
-  
+
   console.log(`📊 extractInitialSlots: message="${message}" → sector="${sector}", province="${foundProvince}"`);
-  
+
   return { sector, province: foundProvince };
 };
 
@@ -1037,66 +1045,65 @@ const normalizeRegionNumbers = (text: string): string => {
 
 // ============= GROUNDING CHUNK FİLTRELEME FONKSİYONU =============
 // Chunk'ları ana topic'e göre filtreler, alakasız konuları çıkarır
-const filterGroundingChunksByTopic = (
-  chunks: any[],
-  mainTopic: string
-): any[] => {
+const filterGroundingChunksByTopic = (chunks: any[], mainTopic: string): any[] => {
   if (!mainTopic || chunks.length === 0) return chunks;
-  
+
   const topicLower = mainTopic.toLowerCase().trim();
-  const topicWords = topicLower.split(/\s+/).filter(w => w.length > 2);
-  
+  const topicWords = topicLower.split(/\s+/).filter((w) => w.length > 2);
+
   // Bilinen alakasız konular listesi - bu konular ana topic olmadıkça filtrelen
   const irrelevantTopics = [
-    'grafit zenginleştirme',
-    'grafit',
-    'deri işleme',
-    'sentetik kâğıt',
-    'taş kâğıt',
-    'aktif karbon',
-    'su paketleme',
-    'çay atıkları',
-    'fındık kabuğu',
-    'meyve suyu konsantresi',
-    'ayçiçek yağı',
-    'zeytin yağı',
+    "grafit zenginleştirme",
+    "grafit",
+    "deri işleme",
+    "sentetik kâğıt",
+    "taş kâğıt",
+    "aktif karbon",
+    "su paketleme",
+    "çay atıkları",
+    "fındık kabuğu",
+    "meyve suyu konsantresi",
+    "ayçiçek yağı",
+    "zeytin yağı",
   ];
-  
+
   // Ana topic'in alakasız listede olup olmadığını kontrol et
-  const isMainTopicIrrelevant = irrelevantTopics.some(t => topicLower.includes(t));
-  
+  const isMainTopicIrrelevant = irrelevantTopics.some((t) => topicLower.includes(t));
+
   // Eğer ana topic alakasız listede ise, o konuyu filtreden çıkar
-  const topicsToFilter = isMainTopicIrrelevant 
-    ? irrelevantTopics.filter(t => !topicLower.includes(t))
+  const topicsToFilter = isMainTopicIrrelevant
+    ? irrelevantTopics.filter((t) => !topicLower.includes(t))
     : irrelevantTopics;
-  
-  const filteredChunks = chunks.filter(chunk => {
-    const text = (chunk?.retrievedContext?.text || '').toLowerCase();
-    const title = (chunk?.retrievedContext?.title || '').toLowerCase();
-    const combined = text + ' ' + title;
-    
+
+  const filteredChunks = chunks.filter((chunk) => {
+    const text = (chunk?.retrievedContext?.text || "").toLowerCase();
+    const title = (chunk?.retrievedContext?.title || "").toLowerCase();
+    const combined = text + " " + title;
+
     // Ana topic'i içeriyorsa kesinlikle tut
-    const containsMainTopic = topicWords.some(word => combined.includes(word));
-    
+    const containsMainTopic = topicWords.some((word) => combined.includes(word));
+
     // Alakasız konuları içeriyorsa ve ana topic'i içermiyorsa çıkar
-    const containsIrrelevant = topicsToFilter.some(t => combined.includes(t));
-    
+    const containsIrrelevant = topicsToFilter.some((t) => combined.includes(t));
+
     if (containsMainTopic) {
       console.log(`✅ CHUNK KEPT - contains main topic "${mainTopic}":`, title.substring(0, 80));
       return true;
     }
-    
+
     if (containsIrrelevant) {
       console.log(`❌ CHUNK FILTERED - irrelevant topic found:`, title.substring(0, 80));
       return false;
     }
-    
+
     // Genel chunk - tut
     return true;
   });
-  
-  console.log(`🔍 filterGroundingChunksByTopic: ${chunks.length} → ${filteredChunks.length} chunks (topic: "${mainTopic}")`);
-  
+
+  console.log(
+    `🔍 filterGroundingChunksByTopic: ${chunks.length} → ${filteredChunks.length} chunks (topic: "${mainTopic}")`,
+  );
+
   return filteredChunks;
 };
 
@@ -1108,7 +1115,7 @@ const cleanIrrelevantContent = (text: string, mainTopic?: string): string => {
   // Pattern 3: Numara listesiyle gelen alakasız konular
   // Pattern 4: "Ayrıca şunlar da desteklenmektedir" ifadesi sonrası
   // Pattern 5: Takip sorusundan sonraki her şey
-  
+
   const patterns = [
     /\n*---\s*\n*📊?\s*İlgili Bilgiler[\s\S]*$/i,
     /\n*📊\s*İlgili Bilgiler:[\s\S]*$/i,
@@ -1119,41 +1126,41 @@ const cleanIrrelevantContent = (text: string, mainTopic?: string): string => {
     // YENİ: Numaralı liste ile başlayan alakasız blokları kes
     /\n+---\s*\n+\d+\.\s+[^\n]+yatırımı[\s\S]*$/gi,
   ];
-  
+
   let cleaned = text;
   for (const pattern of patterns) {
-    cleaned = cleaned.replace(pattern, '');
+    cleaned = cleaned.replace(pattern, "");
   }
-  
+
   // YENİ: Takip sorusundan sonraki alakasız içeriği kes
   const followUpPatterns = [
-    'Bu yatırımı hangi ilde yapmayı planlıyorsunuz?',
-    'Bu yatırımı hangi ilde',
-    'Hangi ilde yatırım yapmayı',
+    "Bu yatırımı hangi ilde yapmayı planlıyorsunuz?",
+    "Bu yatırımı hangi ilde",
+    "Hangi ilde yatırım yapmayı",
   ];
-  
+
   for (const followUp of followUpPatterns) {
     const followUpIndex = cleaned.indexOf(followUp);
     if (followUpIndex > 0) {
       // Takip sorusunun sonuna kadar al, gerisini kes
-      const endOfQuestion = cleaned.indexOf('?', followUpIndex);
+      const endOfQuestion = cleaned.indexOf("?", followUpIndex);
       if (endOfQuestion > followUpIndex) {
         cleaned = cleaned.substring(0, endOfQuestion + 1);
         break;
       }
     }
   }
-  
+
   // Trailing whitespace ve fazla satır sonlarını temizle
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
-  
-  console.log('🧹 cleanIrrelevantContent:', {
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n").trim();
+
+  console.log("🧹 cleanIrrelevantContent:", {
     originalLength: text.length,
     cleanedLength: cleaned.length,
     removedChars: text.length - cleaned.length,
-    mainTopic: mainTopic || 'N/A'
+    mainTopic: mainTopic || "N/A",
   });
-  
+
   return cleaned;
 };
 
@@ -1161,27 +1168,27 @@ const cleanIrrelevantContent = (text: string, mainTopic?: string): string => {
 // Cache'e kaydetmeden önce yanıtın temiz olduğunu kontrol et
 const isCleanResponse = (text: string): boolean => {
   const badPatterns = [
-    'İlgili Bilgiler',
-    'Alternatif:',
-    'Alternatif soru:',
-    'Grafit Zenginleştirme',
-    'Çay Atıklarından Aktif Karbon',
-    'Su Paketleme Tesisi',
+    "İlgili Bilgiler",
+    "Alternatif:",
+    "Alternatif soru:",
+    "Grafit Zenginleştirme",
+    "Çay Atıklarından Aktif Karbon",
+    "Su Paketleme Tesisi",
   ];
-  
+
   const badRegexPatterns = [
-    /\n---\s*\n\d+\./,  // Numaralı liste ayracı
+    /\n---\s*\n\d+\./, // Numaralı liste ayracı
   ];
-  
-  const hasBadString = badPatterns.some(p => text.includes(p));
-  const hasBadRegex = badRegexPatterns.some(p => p.test(text));
-  
+
+  const hasBadString = badPatterns.some((p) => text.includes(p));
+  const hasBadRegex = badRegexPatterns.some((p) => p.test(text));
+
   const isClean = !hasBadString && !hasBadRegex;
-  
+
   if (!isClean) {
-    console.log('⚠️ Response failed cleanliness check - will not cache');
+    console.log("⚠️ Response failed cleanliness check - will not cache");
   }
-  
+
   return isClean;
 };
 
@@ -1300,12 +1307,12 @@ serve(async (req) => {
     // Site içi destekler modu - sadece support_programs tablosunu kullan
     if (ragMode === "site_ici_destekler") {
       console.log("🔍 Using Site İçi Destekler mode");
-      
+
       const lastUserMessage = messages
         .slice()
         .reverse()
         .find((m: any) => m.role === "user");
-      
+
       if (!lastUserMessage) {
         throw new Error("No user message found");
       }
@@ -1323,7 +1330,7 @@ serve(async (req) => {
             sources: [],
             groundingChunks: [],
           }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       } else {
         return new Response(
@@ -1333,7 +1340,7 @@ serve(async (req) => {
             sources: [],
             groundingChunks: [],
           }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     }
@@ -1344,7 +1351,7 @@ serve(async (req) => {
         .slice()
         .reverse()
         .find((m: any) => m.role === "user");
-      
+
       if (!lastUserMessage) {
         throw new Error("No user message found");
       }
@@ -1364,12 +1371,12 @@ serve(async (req) => {
         // ============= STEP 0: CHECK CACHE FIRST =============
         const startTime = Date.now();
         const timings = { embedding: 0, qvSearch: 0, vertexSearch: 0, supportSearch: 0 };
-        
+
         const { normalized: normalizedQuery, hash: queryHash } = await normalizeQueryForCache(lastUserMessage.content);
         console.log(`🔑 Query hash: ${queryHash.substring(0, 8)}...`);
-        
+
         const cachedResponse = await checkCache(supabase, queryHash);
-        
+
         if (cachedResponse) {
           // Track cache hit analytics
           await trackSearchAnalytics(supabase, {
@@ -1380,9 +1387,9 @@ serve(async (req) => {
             results: { qvMatchCount: 0, vertexHasResults: false, supportMatchCount: 0 },
             cache: { hit: true, key: queryHash },
             queryAnalysis: { expanded: false, expandedCount: 0, keywordsCount: 0 },
-            response: { source: 'cache', length: cachedResponse.response_text?.length || 0 }
+            response: { source: "cache", length: cachedResponse.response_text?.length || 0 },
           });
-          
+
           return new Response(
             JSON.stringify({
               text: cachedResponse.response_text,
@@ -1390,9 +1397,9 @@ serve(async (req) => {
               supportCards: cachedResponse.support_cards || [],
               sources: cachedResponse.search_metadata?.sources || [],
               fromCache: true,
-              cacheHit: true
+              cacheHit: true,
             }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
 
@@ -1412,12 +1419,12 @@ serve(async (req) => {
           originalQuery: lastUserMessage.content,
           expandedQueries: queryExpansion.expandedQueries,
           keywords: queryExpansion.keywords,
-          contextualQuery: queryExpansion.contextualQuery.substring(0, 100) + "..."
+          contextualQuery: queryExpansion.contextualQuery.substring(0, 100) + "...",
         });
 
         // ============= STEP 2: PARALLEL 3-WAY SEARCH =============
         console.log("🔄 [Enhanced Hybrid] Step 2: Running parallel 3-way search...");
-        
+
         const [vertexResponse, qvMatches, supportCards] = await Promise.all([
           // 1. Vertex RAG query with contextual query
           (async () => {
@@ -1430,10 +1437,7 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({
                   corpusName,
-                  messages: [
-                    ...messages.slice(0, -1),
-                    { ...lastUserMessage, content: queryExpansion.contextualQuery }
-                  ],
+                  messages: [...messages.slice(0, -1), { ...lastUserMessage, content: queryExpansion.contextualQuery }],
                   topK,
                   vectorDistanceThreshold: threshold,
                 }),
@@ -1449,22 +1453,18 @@ serve(async (req) => {
               return null;
             }
           })(),
-          
+
           // 2. question_variants search with expanded queries (NEW!)
-          searchQuestionVariants(
-            lastUserMessage.content, 
-            queryExpansion.expandedQueries, 
-            supabase
-          ),
-          
+          searchQuestionVariants(lastUserMessage.content, queryExpansion.expandedQueries, supabase),
+
           // 3. Support Programs search
-          searchSupportPrograms(lastUserMessage.content, supabase)
+          searchSupportPrograms(lastUserMessage.content, supabase),
         ]);
 
         console.log(`📋 [Enhanced Hybrid] Search results:`, {
-          vertex: vertexResponse ? 'OK' : 'null',
+          vertex: vertexResponse ? "OK" : "null",
           qvMatches: qvMatches?.length || 0,
-          supportCards: supportCards.length
+          supportCards: supportCards.length,
         });
 
         // ============= STEP 3: INTELLIGENT RERANKING =============
@@ -1474,29 +1474,29 @@ serve(async (req) => {
           qvMatches || [],
           supportCards,
           queryExpansion.keywords,
-          lastUserMessage.content
+          lastUserMessage.content,
         );
 
         console.log(`📊 [Enhanced Hybrid] Reranking complete:`, {
           hasVertexContent: !!rerankedResult.vertexText,
           qvContentLength: rerankedResult.qvContext?.length || 0,
           supportCardsCount: rerankedResult.supportCards.length,
-          topSources: rerankedResult.topSources
+          topSources: rerankedResult.topSources,
         });
 
         // ============= STEP 4: BUILD RESPONSE WITH CACHING =============
-        const vertexText = rerankedResult.vertexText || '';
+        const vertexText = rerankedResult.vertexText || "";
         const noResultsInVertex = isNoResultsFoundResponse(vertexText);
         const hasQvContent = rerankedResult.qvContext && rerankedResult.qvContext.length > 50;
-        
+
         const totalTime = Date.now() - startTime;
 
         // Helper function to save cache and track analytics
         const finishWithCacheAndAnalytics = async (
-          responseText: string, 
+          responseText: string,
           responseSource: string,
           supportCardsData: any[],
-          groundingChunks?: any[]
+          groundingChunks?: any[],
         ) => {
           // Track analytics (don't await)
           trackSearchAnalytics(supabase, {
@@ -1509,15 +1509,15 @@ serve(async (req) => {
               qvBestSimilarity: qvMatches?.[0]?.similarity || undefined,
               qvMatchType: qvMatches?.[0]?.match_type || undefined,
               vertexHasResults: !noResultsInVertex,
-              supportMatchCount: supportCardsData.length
+              supportMatchCount: supportCardsData.length,
             },
             cache: { hit: false },
             queryAnalysis: {
               expanded: queryExpansion.expandedQueries.length > 0,
               expandedCount: queryExpansion.expandedQueries.length,
-              keywordsCount: queryExpansion.keywords.length
+              keywordsCount: queryExpansion.keywords.length,
             },
-            response: { source: responseSource, length: responseText.length }
+            response: { source: responseSource, length: responseText.length },
           });
 
           // Save to cache (don't await)
@@ -1532,30 +1532,35 @@ serve(async (req) => {
             searchMetadata: {
               qvMatchType: qvMatches?.[0]?.match_type,
               vertexUsed: !noResultsInVertex,
-              sources: rerankedResult.topSources
-            }
+              sources: rerankedResult.topSources,
+            },
           });
         };
 
         // Case 1: Vertex has good content
         if (!noResultsInVertex && vertexText.length > 100) {
           let finalText = vertexText;
-          
+
           // Add QV context if highly relevant
           if (hasQvContent && rerankedResult.qvSimilarity > 0.5) {
             finalText = `${vertexText}\n\n---\n\n📚 **İlgili Bilgiler:**\n${rerankedResult.qvContext}`;
           }
-          
+
           // Add support cards if available
           if (rerankedResult.supportCards.length > 0) {
             finalText = `${finalText}\n\n---\n\n📋 **Güncel Destek Programları:**`;
           }
-          
+
           console.log("✅ [Enhanced Hybrid] Returning combined Vertex + QV + Support response");
-          
+
           // Cache and track (fire and forget)
-          finishWithCacheAndAnalytics(finalText, 'vertex_combined', rerankedResult.supportCards, vertexResponse?.groundingChunks);
-          
+          finishWithCacheAndAnalytics(
+            finalText,
+            "vertex_combined",
+            rerankedResult.supportCards,
+            vertexResponse?.groundingChunks,
+          );
+
           return new Response(
             JSON.stringify({
               ...(vertexResponse || {}),
@@ -1565,10 +1570,10 @@ serve(async (req) => {
                 vertexUsed: true,
                 qvMatches: qvMatches?.length || 0,
                 supportPrograms: rerankedResult.supportCards.length,
-                queryExpanded: queryExpansion.expandedQueries.length > 0
-              }
+                queryExpanded: queryExpansion.expandedQueries.length > 0,
+              },
             }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
 
@@ -1576,11 +1581,11 @@ serve(async (req) => {
         if (noResultsInVertex && hasQvContent) {
           console.log("🔄 [Enhanced Hybrid] Vertex empty, using QV as primary source");
           let finalText = `📚 **Bilgi Bankamızdan:**\n\n${rerankedResult.qvContext}`;
-          
+
           if (rerankedResult.supportCards.length > 0) {
             finalText += `\n\n---\n\n📋 **Güncel Destek Programları:**`;
           }
-          
+
           return new Response(
             JSON.stringify({
               text: finalText,
@@ -1591,10 +1596,10 @@ serve(async (req) => {
                 vertexUsed: false,
                 qvPrimary: true,
                 qvMatches: qvMatches?.length || 0,
-                supportPrograms: rerankedResult.supportCards.length
-              }
+                supportPrograms: rerankedResult.supportCards.length,
+              },
             }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
 
@@ -1611,10 +1616,10 @@ serve(async (req) => {
               hybridSearch: {
                 vertexUsed: false,
                 qvPrimary: false,
-                supportOnly: true
-              }
+                supportOnly: true,
+              },
             }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
 
@@ -1623,7 +1628,7 @@ serve(async (req) => {
         const adaptiveResult = await searchWithAdaptiveThreshold(
           lastUserMessage.content,
           queryExpansion.expandedQueries,
-          supabase
+          supabase,
         );
 
         if (adaptiveResult && adaptiveResult.length > 0) {
@@ -1631,7 +1636,7 @@ serve(async (req) => {
           const adaptiveContext = adaptiveResult
             .map((r: any) => `**${r.canonical_question}**\n${r.canonical_answer}`)
             .join("\n\n---\n\n");
-          
+
           return new Response(
             JSON.stringify({
               text: `📚 **İlgili Bilgiler:**\n\n${adaptiveContext}`,
@@ -1640,10 +1645,10 @@ serve(async (req) => {
               groundingChunks: [],
               hybridSearch: {
                 adaptiveThreshold: true,
-                matchCount: adaptiveResult.length
-              }
+                matchCount: adaptiveResult.length,
+              },
             }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
 
@@ -1657,10 +1662,10 @@ serve(async (req) => {
             groundingChunks: [],
             noRagResults: true,
             hybridSearch: {
-              allFailed: true
-            }
+              allFailed: true,
+            },
           }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     }
@@ -1711,29 +1716,30 @@ serve(async (req) => {
     // ============= İL ADI ALGILAMA =============
     // Türkçe karakter varyasyonlarını normalize et
     const normalizeForComparison = (text: string): string => {
-      return text.toLowerCase()
-        .replace(/ı/g, 'i')
-        .replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u')
-        .replace(/ş/g, 's')
-        .replace(/ö/g, 'o')
-        .replace(/ç/g, 'c');
+      return text
+        .toLowerCase()
+        .replace(/ı/g, "i")
+        .replace(/ğ/g, "g")
+        .replace(/ü/g, "u")
+        .replace(/ş/g, "s")
+        .replace(/ö/g, "o")
+        .replace(/ç/g, "c");
     };
-    
+
     const msgNormalized = normalizeForComparison(lastUserMessage.content);
-    
+
     // İl adı var mı kontrol et
-    const hasTurkishProvince = TURKISH_PROVINCES.some(province => {
+    const hasTurkishProvince = TURKISH_PROVINCES.some((province) => {
       const provLower = province.toLowerCase();
       const provNormalized = normalizeForComparison(province);
-      
+
       // Tam il adı veya ekli hali (Samsun, Samsunda, Samsun'da vb.)
       const patterns = [
-        new RegExp(`\\b${provLower}(?:'?da|'?de|'?ta|'?te)?\\b`, 'i'),
-        new RegExp(`\\b${provNormalized}(?:'?da|'?de|'?ta|'?te)?\\b`, 'i'),
+        new RegExp(`\\b${provLower}(?:'?da|'?de|'?ta|'?te)?\\b`, "i"),
+        new RegExp(`\\b${provNormalized}(?:'?da|'?de|'?ta|'?te)?\\b`, "i"),
       ];
-      
-      return patterns.some(p => p.test(lastUserMessage.content.toLowerCase()) || p.test(msgNormalized));
+
+      return patterns.some((p) => p.test(lastUserMessage.content.toLowerCase()) || p.test(msgNormalized));
     });
 
     const isIncentiveRelated =
@@ -1749,21 +1755,21 @@ serve(async (req) => {
         lowerContent.includes("uretim") ||
         lowerContent.includes("imalat") ||
         hasNaceCode ||
-        hasTurkishProvince) &&  // NACE kodu VEYA il adı varsa incentive-related say
+        hasTurkishProvince) && // NACE kodu VEYA il adı varsa incentive-related say
       !isSupportQuery;
 
-    console.log("🔍 Incentive Detection:", { 
-      hasNaceCode, 
+    console.log("🔍 Incentive Detection:", {
+      hasNaceCode,
       hasTurkishProvince,
-      isIncentiveRelated, 
-      userMessage: lastUserMessage.content.substring(0, 100) 
+      isIncentiveRelated,
+      userMessage: lastUserMessage.content.substring(0, 100),
     });
 
     // ============= SESSION-BASED INCENTIVE QUERY KONTROLÜ =============
     // ÖNCELİKLE: SessionId varsa mevcut aktif incentive_query'yi kontrol et
     // Bu sayede ikinci/üçüncü mesajlarda isIncentiveRelated = false olsa bile akış devam eder
     let incentiveQuery: any = null;
-    
+
     if (sessionId) {
       const { data: existingActiveQuery, error: activeQueryError } = await supabase
         .from("incentive_queries")
@@ -1771,11 +1777,11 @@ serve(async (req) => {
         .eq("session_id", sessionId)
         .eq("status", "collecting")
         .maybeSingle();
-      
+
       if (activeQueryError) {
         console.error("Error checking active incentive_query:", activeQueryError);
       }
-      
+
       if (existingActiveQuery) {
         incentiveQuery = existingActiveQuery;
         console.log("📋 Found ACTIVE incentive query for session:", {
@@ -1784,7 +1790,7 @@ serve(async (req) => {
           province: incentiveQuery.province,
           district: incentiveQuery.district,
           osb_status: incentiveQuery.osb_status,
-          status: incentiveQuery.status
+          status: incentiveQuery.status,
         });
       }
     }
@@ -1792,24 +1798,21 @@ serve(async (req) => {
     // ============= SLOT-FILLING LOGIC =============
     // incentiveQuery yukarıda session-based olarak bulundu (varsa)
     // Şimdi slot-filling veya yeni query oluşturma mantığını çalıştır
-    
+
     if (incentiveQuery) {
       // ============= MEVCUT QUERY VARSA: SLOT-FILLING VEYA TOPIC CHANGE =============
       const isNewTopic = detectNewSectorQuery(lastUserMessage.content, incentiveQuery);
-      
+
       if (isNewTopic) {
         console.log("🔄 Topic change detected! Resetting incentive_query for new sector...");
-        
+
         // Eski query'yi sil
-        const { error: deleteError } = await supabase
-          .from("incentive_queries")
-          .delete()
-          .eq("id", incentiveQuery.id);
-        
+        const { error: deleteError } = await supabase.from("incentive_queries").delete().eq("id", incentiveQuery.id);
+
         if (deleteError) {
           console.error("Error deleting old incentive_query:", deleteError);
         }
-        
+
         // Yeni query oluştur
         const { sector: extractedSector, province: extractedProvince } = extractInitialSlots(lastUserMessage.content);
         const { data: newQuery, error: insertError } = await supabase
@@ -1824,14 +1827,14 @@ serve(async (req) => {
           })
           .select()
           .single();
-        
+
         if (!insertError && newQuery) {
           incentiveQuery = newQuery;
           console.log("✓ Created new incentive query for topic change:", incentiveQuery);
         } else {
           console.error("Error creating new incentive query:", insertError);
         }
-        
+
         console.log("📝 Conversation history cleared for new topic");
       } else {
         // ============= NORMAL SLOT FILLING =============
@@ -1842,7 +1845,7 @@ serve(async (req) => {
           sector: incentiveQuery.sector,
           province: incentiveQuery.province,
           district: incentiveQuery.district,
-          osb_status: incentiveQuery.osb_status
+          osb_status: incentiveQuery.osb_status,
         });
 
         // Sıralı slot doldurma mantığı
@@ -1902,7 +1905,7 @@ serve(async (req) => {
               province: incentiveQuery.province,
               district: incentiveQuery.district,
               osb_status: incentiveQuery.osb_status,
-              status: incentiveQuery.status
+              status: incentiveQuery.status,
             });
           }
         }
@@ -1912,7 +1915,7 @@ serve(async (req) => {
       // Mevcut query yok ama incentive-related bir mesaj geldi
       const { sector: initialSector, province: initialProvince } = extractInitialSlots(lastUserMessage.content);
       console.log("📊 New query - extractInitialSlots result:", { sector: initialSector, province: initialProvince });
-      
+
       const { data: newQuery, error: insertError } = await supabase
         .from("incentive_queries")
         .insert({
@@ -1978,32 +1981,41 @@ serve(async (req) => {
 **İŞLEM AKIŞI (ADIM ADIM):**
 
 ### 🔷 ADIM 1: SEKTÖR VE KAPSAM ANALİZİ
-${incentiveQuery.sector 
-  ? `✓ Sektör alındı: ${incentiveQuery.sector}
-Sektör analizini sector_search.txt dosyasından yap ve Teşvik Statüsünü belirle.` 
-  : `○ Sektör bekleniyor - Kullanıcıya sektör/NACE kodunu sor.`}
+${
+  incentiveQuery.sector
+    ? `✓ Sektör alındı: ${incentiveQuery.sector}
+Sektör analizini sector_search.txt dosyasından yap ve Teşvik Statüsünü belirle.`
+    : `○ Sektör bekleniyor - Kullanıcıya sektör/NACE kodunu sor.`
+}
 
 ### 🔷 ADIM 2: LOKASYON BELİRLEME
-${incentiveQuery.province 
-  ? `✓ İl alındı: ${incentiveQuery.province}` 
-  : incentiveQuery.sector 
-    ? `○ İl bekleniyor - Kullanıcıya: "Bu yatırımı hangi ilde yapmayı planlıyorsunuz?" sor.`
-    : `○ İl henüz sorulacak (Önce sektör)` }
-${incentiveQuery.district 
-  ? `✓ İlçe alındı: ${incentiveQuery.district}` 
-  : incentiveQuery.province 
-    ? `○ İlçe bekleniyor - Kullanıcıya ilçeyi sor.`
-    : `○ İlçe henüz sorulacak`}
-${incentiveQuery.osb_status 
-  ? `✓ OSB Durumu: ${incentiveQuery.osb_status}` 
-  : incentiveQuery.district 
-    ? `○ OSB durumu bekleniyor - "Yatırımınız Organize Sanayi Bölgesi (OSB) içinde mi dışında mı olacak?" sor.`
-    : `○ OSB henüz sorulacak`}
+${
+  incentiveQuery.province
+    ? `✓ İl alındı: ${incentiveQuery.province}`
+    : incentiveQuery.sector
+      ? `○ İl bekleniyor - Kullanıcıya: "Bu yatırımı hangi ilde yapmayı planlıyorsunuz?" sor.`
+      : `○ İl henüz sorulacak (Önce sektör)`
+}
+${
+  incentiveQuery.district
+    ? `✓ İlçe alındı: ${incentiveQuery.district}`
+    : incentiveQuery.province
+      ? `○ İlçe bekleniyor - Kullanıcıya ilçeyi sor.`
+      : `○ İlçe henüz sorulacak`
+}
+${
+  incentiveQuery.osb_status
+    ? `✓ OSB Durumu: ${incentiveQuery.osb_status}`
+    : incentiveQuery.district
+      ? `○ OSB durumu bekleniyor - "Yatırımınız Organize Sanayi Bölgesi (OSB) içinde mi dışında mı olacak?" sor.`
+      : `○ OSB henüz sorulacak`
+}
 
 **SONRAKİ HEDEF:** ${getNextSlotToFill(incentiveQuery)}
 
-${incentiveQuery.sector && incentiveQuery.province && incentiveQuery.district && incentiveQuery.osb_status
-  ? `
+${
+  incentiveQuery.sector && incentiveQuery.province && incentiveQuery.district && incentiveQuery.osb_status
+    ? `
 ### 🔷 ADIM 3: FİNAL DESTEK RAPORU
 
 Tüm bilgiler toplandı. Şimdi aşağıdaki **RAPOR ŞABLONUNU** kullanarak rapor oluştur:
@@ -2035,7 +2047,7 @@ Tüm bilgiler toplandı. Şimdi aşağıdaki **RAPOR ŞABLONUNU** kullanarak rap
 ---
 Detaylı başvuru süreci için ${incentiveQuery.province} Yatırım Destek Ofisi ile görüşmeniz faydalı olacaktır.
 `
-  : ""
+    : ""
 }
 `
       : "";
@@ -2190,10 +2202,10 @@ Sektör verilerinde "teknoloji_hamlesi" alanını MUTLAKA kontrol et ve aşağı
 - Yanıt: "Teknoloji Hamlesi Programı kapsamında yer aldığından, 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Bu kapsamda asgari yatırım tutarı 1. ve 2. Bölgeler için 15.100.000 TL, 3., 4., 5. ve 6. Bölgelerde 7.500.000 TL olmalıdır."
 
 **DURUM 2 (Hamle Değil + Yüksek Teknoloji):** "TEKNOLOJİ HAMLESİ: HAYIR" + "YÜKSEK TEKNOLOJİ: EVET" ise;
-- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az 627.450.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 627.450.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
+- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az 627.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 627.450.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
 
 **DURUM 3 (Hamle Değil + Orta-Yüksek Teknoloji):** "TEKNOLOJİ HAMLESİ: HAYIR" + "ORTA-YÜKSEK TEKNOLOJİ: EVET" ise;
-- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.254.900.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 1.254.900.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
+- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.255.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 1.254.900.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
 
 **DURUM 4 (Diğer):** Yukarıdaki şartlar sağlanmıyorsa;
 - Yanıt: "9903 sayılı Karar kapsamında öncelikli yatırım şartlarını sağlamadığından, yalnızca hedef yatırım kapsamında değerlendirilir (hedef listede yer alması kaydıyla)."
@@ -2344,12 +2356,15 @@ Bir ürün/sektör hakkında "hangi illerde" sorulduğunda:
     // Extract main keyword from user query for validation (e.g., "pektin" from "pektin hangi illerde")
     const queryKeywords = normalizedUserMessage
       .toLowerCase()
-      .replace(/hangi (il|şehir|yer|yerde|yerlerde|illerde)|nerede|nerelerde|desteklen.*|var|üretim|yatırım|yapmak|istiyorum/gi, "")
+      .replace(
+        /hangi (il|şehir|yer|yerde|yerlerde|illerde)|nerede|nerelerde|desteklen.*|var|üretim|yatırım|yapmak|istiyorum/gi,
+        "",
+      )
       .trim()
       .split(/\s+/)
       .filter((word) => word.length > 2); // Min 3 character words
 
-    const mainTopic = queryKeywords.join(' ').trim();
+    const mainTopic = queryKeywords.join(" ").trim();
     console.log("🔍 Extracted main topic for filtering:", mainTopic);
 
     // ============= GROUNDING CHUNKS FİLTRELEME =============
@@ -2562,7 +2577,7 @@ BAŞLA! 🔍
         // Feedback sonuçları için de filtreleme ve temizleme uygula
         const cleanedFeedbackText = cleanIrrelevantContent(feedbackResult.textOut, mainTopic);
         const filteredFeedbackChunks = filterGroundingChunksByTopic(feedbackResult.groundingChunks, mainTopic);
-        
+
         textOut = cleanedFeedbackText;
         groundingChunks = filteredFeedbackChunks;
         finishReason = feedbackResult.finishReason;
@@ -2600,15 +2615,15 @@ BAŞLA! 🔍
     // ============= SON TEMİZLİK VE VALİDASYON =============
     // Response döndürmeden önce son bir temizlik yap
     finalText = cleanIrrelevantContent(finalText, mainTopic);
-    
+
     // Eğer yanıt temiz değilse cache'leme (isCleanResponse kontrolü saveToCache'de yapılacak)
     const responseIsClean = isCleanResponse(finalText);
     console.log("🧹 Final response cleanliness check:", { isClean: responseIsClean });
 
     // Normal flow için de enrichment yap
-    return await enrichAndReturn(finalText, groundingChunks, storeName, GEMINI_API_KEY || "", { 
+    return await enrichAndReturn(finalText, groundingChunks, storeName, GEMINI_API_KEY || "", {
       supportCards,
-      responseValidated: responseIsClean 
+      responseValidated: responseIsClean,
     });
   } catch (error) {
     console.error("❌ Error in chat-gemini:", error);

@@ -334,7 +334,7 @@ const getSupportValues = (incentiveResult: IncentiveResult) => {
 
 interface IncentiveReportProps {
   incentiveResult: IncentiveResult;
-  importantInfos?: string[];     // Önemli bilgiler listesi
+  importantInfos?: string[]; // Önemli bilgiler listesi
 }
 
 const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, importantInfos = [] }) => {
@@ -348,40 +348,47 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
   const { region, province } = incentiveResult.location;
   const { isTarget, isMidHighTech, isHighTech, isPriority } = incentiveResult.sector;
   const naceCode = incentiveResult.sector.nace_code || "";
-  
+
   // Istanbul mining sectors check (NACE codes starting with 05, 06, 07, 08, 09)
   const miningNacePrefixes = ["05", "06", "07", "08", "09"];
   const isMiningSector = miningNacePrefixes.some((prefix) => naceCode.startsWith(prefix));
   const isIstanbulMining = province === "İstanbul" && isMiningSector;
-  
+
   // İstanbul'da madencilik sektörleri desteklenmiyor
   const showIstanbulMiningWarning = isIstanbulMining;
-  
+
   // Hedef yatırımlar için 4-5-6. bölgelerde faiz/kar payı %10 limit uyarısı
   const showInterestCapWarning = isTarget && [4, 5, 6].includes(region) && !isIstanbulMining;
-  
+
   // Build importantInfos list if not passed from parent
-  const computedImportantInfos: string[] = importantInfos.length > 0 ? importantInfos : (() => {
-    const infos: string[] = [];
-    
-    if (isTarget && province === "İstanbul" && !isIstanbulMining) {
-      infos.push("İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.");
-    }
-    
-    if (isTarget && [1, 2, 3].includes(region) && !hasSpecialProgram) {
-      infos.push("Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.");
-    }
-    
-    if (isMidHighTech && !isPriority) {
-      infos.push("Bu yatırım orta-yüksek teknoloji yatırımı niteliğindedir. Öncelikli yatırım statüsü kazanabilmesi için İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.254.900.000 TL olması gerekmektedir. Bu şartlar sağlanmadığı takdirde Hedef yatırım olarak değerlendirilir.");
-    }
-    
-    if (isHighTech && !isMidHighTech && !isPriority) {
-      infos.push("Bu yatırım yüksek teknoloji yatırımı niteliğindedir. Öncelikli yatırım statüsü kazanabilmesi için yatırım tutarının en az 627.450.000 TL olması gerekmektedir. Bu şartı sağlamadığı takdirde Hedef yatırım olarak değerlendirilir.");
-    }
-    
-    return infos;
-  })();
+  const computedImportantInfos: string[] =
+    importantInfos.length > 0
+      ? importantInfos
+      : (() => {
+          const infos: string[] = [];
+
+          if (isTarget && province === "İstanbul" && !isIstanbulMining) {
+            infos.push("İstanbul ilinde hedef yatırımlar için Vergi İndirimi Desteği uygulanmamaktadır.");
+          }
+
+          if (isTarget && [1, 2, 3].includes(region) && !hasSpecialProgram) {
+            infos.push("Hedef sektörler için Faiz/Kar Payı Desteği 1., 2. ve 3. bölgelerde uygulanmamaktadır.");
+          }
+
+          if (isMidHighTech && !isPriority) {
+            infos.push(
+              "Bu yatırım orta-yüksek teknoloji yatırımı niteliğindedir. Öncelikli yatırım statüsü kazanabilmesi için İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.255.000.000 TL olması gerekmektedir. Bu şartlar sağlanmadığı takdirde Hedef yatırım olarak değerlendirilir.",
+            );
+          }
+
+          if (isHighTech && !isMidHighTech && !isPriority) {
+            infos.push(
+              "Bu yatırım yüksek teknoloji yatırımı niteliğindedir. Öncelikli yatırım statüsü kazanabilmesi için yatırım tutarının en az 627.000.000 TL olması gerekmektedir. Bu şartı sağlamadığı takdirde Hedef yatırım olarak değerlendirilir.",
+            );
+          }
+
+          return infos;
+        })();
 
   return (
     <Document title={`Teşvik Raporu - ${incentiveResult.sector.nace_code}`}>
@@ -420,13 +427,13 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
               </View>
               <View style={styles.kunyeRow}>
                 <Text style={styles.kunyeLabel}>Min. Yatırım Tutarı</Text>
-                {(isMidHighTech || isHighTech) ? (
+                {isMidHighTech || isHighTech ? (
                   <View>
                     <Text style={styles.kunyeValue}>
                       Hedef: {incentiveResult.sector.minInvestment?.toLocaleString("tr-TR")} TL
                     </Text>
                     <Text style={[styles.kunyeValue, { color: colors.success, marginTop: 2 }]}>
-                      Öncelikli: {isMidHighTech ? "1.254.900.000 TL" : "627.450.000 TL"}
+                      Öncelikli: {isMidHighTech ? "1.255.000.000 TL" : "627.000.000 TL"}
                     </Text>
                   </View>
                 ) : (
@@ -511,8 +518,8 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
               <View style={styles.destekRow}>
                 <Text style={styles.destekLabel}>Faiz/Kâr Payı Limiti</Text>
                 <Text style={styles.destekValue}>
-                  {supportValues.target.cap !== "N/A" 
-                    ? `${parseFloat(supportValues.target.cap).toLocaleString("tr-TR")} TL` 
+                  {supportValues.target.cap !== "N/A"
+                    ? `${parseFloat(supportValues.target.cap).toLocaleString("tr-TR")} TL`
                     : "-"}
                 </Text>
               </View>
@@ -523,10 +530,10 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
           {(isPriority || isMidHighTech || isHighTech) && (
             <View style={styles.destekCard}>
               <Text style={[styles.destekCardTitle, { color: colors.success }]}>
-                {isMidHighTech 
-                  ? "Öncelikli Yatırım Destekleri (min. 1.254.900.000 TL + İstanbul dışı)"
-                  : isHighTech 
-                    ? "Öncelikli Yatırım Destekleri (min. 627.450.000 TL)"
+                {isMidHighTech
+                  ? "Öncelikli Yatırım Destekleri (min. 1.255.000.000 TL + İstanbul dışı)"
+                  : isHighTech
+                    ? "Öncelikli Yatırım Destekleri (min. 627.000.000 TL)"
                     : "Öncelikli Yatırım Destekleri"}
               </Text>
               <View style={styles.destekRow}>
@@ -604,7 +611,9 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
           <View style={styles.infoBoxOrange}>
             <Text style={styles.infoBoxOrangeTitle}>Önemli Bilgi</Text>
             {computedImportantInfos.map((info, idx) => (
-              <Text key={idx} style={[styles.conditionsText, { marginBottom: 4 }]}>• {info}</Text>
+              <Text key={idx} style={[styles.conditionsText, { marginBottom: 4 }]}>
+                • {info}
+              </Text>
             ))}
           </View>
         )}
@@ -613,9 +622,7 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
         {showIstanbulMiningWarning && (
           <View style={styles.warningBoxRed}>
             <Text style={styles.warningBoxRedTitle}>Önemli Uyarı</Text>
-            <Text style={styles.conditionsText}>
-              Seçilen sektör İstanbul ilinde desteklenmemektedir.
-            </Text>
+            <Text style={styles.conditionsText}>Seçilen sektör İstanbul ilinde desteklenmemektedir.</Text>
           </View>
         )}
 
