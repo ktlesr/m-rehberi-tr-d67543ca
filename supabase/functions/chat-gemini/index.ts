@@ -1708,6 +1708,34 @@ serve(async (req) => {
     // NACE kodu pattern'i: 10.20, 28.94.04, 2894, 10, vb.
     const hasNaceCode = /\b\d{2}\.?\d{0,2}\.?\d{0,2}\b/.test(lastUserMessage.content);
 
+    // ============= İL ADI ALGILAMA =============
+    // Türkçe karakter varyasyonlarını normalize et
+    const normalizeForComparison = (text: string): string => {
+      return text.toLowerCase()
+        .replace(/ı/g, 'i')
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c');
+    };
+    
+    const msgNormalized = normalizeForComparison(lastUserMessage.content);
+    
+    // İl adı var mı kontrol et
+    const hasTurkishProvince = TURKISH_PROVINCES.some(province => {
+      const provLower = province.toLowerCase();
+      const provNormalized = normalizeForComparison(province);
+      
+      // Tam il adı veya ekli hali (Samsun, Samsunda, Samsun'da vb.)
+      const patterns = [
+        new RegExp(`\\b${provLower}(?:'?da|'?de|'?ta|'?te)?\\b`, 'i'),
+        new RegExp(`\\b${provNormalized}(?:'?da|'?de|'?ta|'?te)?\\b`, 'i'),
+      ];
+      
+      return patterns.some(p => p.test(lastUserMessage.content.toLowerCase()) || p.test(msgNormalized));
+    });
+
     const isIncentiveRelated =
       (lowerContent.includes("teşvik") ||
         lowerContent.includes("tesvik") ||
@@ -1720,160 +1748,192 @@ serve(async (req) => {
         lowerContent.includes("üretim") ||
         lowerContent.includes("uretim") ||
         lowerContent.includes("imalat") ||
-        hasNaceCode) &&  // NACE kodu varsa da incentive-related say
+        hasNaceCode ||
+        hasTurkishProvince) &&  // NACE kodu VEYA il adı varsa incentive-related say
       !isSupportQuery;
 
     console.log("🔍 Incentive Detection:", { 
       hasNaceCode, 
+      hasTurkishProvince,
       isIncentiveRelated, 
       userMessage: lastUserMessage.content.substring(0, 100) 
     });
 
+    // ============= SESSION-BASED INCENTIVE QUERY KONTROLÜ =============
+    // ÖNCELİKLE: SessionId varsa mevcut aktif incentive_query'yi kontrol et
+    // Bu sayede ikinci/üçüncü mesajlarda isIncentiveRelated = false olsa bile akış devam eder
     let incentiveQuery: any = null;
-
-    if (isIncentiveRelated && sessionId) {
-      const { data: existingQuery, error: queryError } = await supabase
+    
+    if (sessionId) {
+      const { data: existingActiveQuery, error: activeQueryError } = await supabase
         .from("incentive_queries")
         .select()
         .eq("session_id", sessionId)
+        .eq("status", "collecting")
         .maybeSingle();
-
-      if (queryError) {
-        console.error("Error checking incentive_queries:", queryError);
+      
+      if (activeQueryError) {
+        console.error("Error checking active incentive_query:", activeQueryError);
       }
+      
+      if (existingActiveQuery) {
+        incentiveQuery = existingActiveQuery;
+        console.log("📋 Found ACTIVE incentive query for session:", {
+          id: incentiveQuery.id,
+          sector: incentiveQuery.sector,
+          province: incentiveQuery.province,
+          district: incentiveQuery.district,
+          osb_status: incentiveQuery.osb_status,
+          status: incentiveQuery.status
+        });
+      }
+    }
 
-      if (existingQuery) {
-        // ============= TOPIC CHANGE DETECTION =============
-        // Check if user is asking about a different sector/NACE code
-        const isNewTopic = detectNewSectorQuery(lastUserMessage.content, existingQuery);
+    // ============= SLOT-FILLING LOGIC =============
+    // incentiveQuery yukarıda session-based olarak bulundu (varsa)
+    // Şimdi slot-filling veya yeni query oluşturma mantığını çalıştır
+    
+    if (incentiveQuery) {
+      // ============= MEVCUT QUERY VARSA: SLOT-FILLING VEYA TOPIC CHANGE =============
+      const isNewTopic = detectNewSectorQuery(lastUserMessage.content, incentiveQuery);
+      
+      if (isNewTopic) {
+        console.log("🔄 Topic change detected! Resetting incentive_query for new sector...");
         
-        if (isNewTopic) {
-          console.log("🔄 Topic change detected! Resetting incentive_query for new sector...");
-          
-          // Delete the old query
-          const { error: deleteError } = await supabase
-            .from("incentive_queries")
-            .delete()
-            .eq("id", existingQuery.id);
-          
-          if (deleteError) {
-            console.error("Error deleting old incentive_query:", deleteError);
-          }
-          
-          // Create a new query with the new sector (and province if found in message)
-          const { sector: extractedSector, province: extractedProvince } = extractInitialSlots(lastUserMessage.content);
-          const { data: newQuery, error: insertError } = await supabase
-            .from("incentive_queries")
-            .insert({
-              session_id: sessionId,
-              status: "collecting",
-              sector: extractedSector || lastUserMessage.content,
-              province: extractedProvince, // İl de bulunmuşsa doldur
-              district: null,
-              osb_status: null,
-            })
-            .select()
-            .single();
-          
-          if (!insertError && newQuery) {
-            incentiveQuery = newQuery;
-            console.log("✓ Created new incentive query for topic change:", incentiveQuery);
-          } else {
-            console.error("Error creating new incentive query:", insertError);
-          }
-          
-          // Also filter conversation history to only include the last message
-          // This prevents the AI from referencing old sector context
-          // Note: Can't reassign const messages, so we'll just log that we should clear history
-          // The conversation history clearing will be handled by the AI context
-          console.log("📝 Conversation history cleared for new topic");
-        } else {
-          // Continue with existing query (normal slot filling)
-          incentiveQuery = existingQuery;
-          console.log("✓ Found existing incentive query:", incentiveQuery);
-
-          const userContent = lastUserMessage.content;
-          let updated = false;
-
-          // Note: The slot filling logic below is sequential and prone to the "greedy" problem.
-          // It's left as is to match your original structure, but the prompt fixes
-          // and history cleanup should make the chatbot's *output* cleaner.
-          if (!incentiveQuery.sector) {
-            // İlk slot doldurulurken hem sektör hem il çıkar
-            const { sector: extractedSector, province: extractedProvince } = extractInitialSlots(userContent);
-            incentiveQuery.sector = extractedSector || userContent;
-            if (extractedProvince && !incentiveQuery.province) {
-              incentiveQuery.province = extractedProvince;
-            }
-            updated = true;
-          } else if (!incentiveQuery.province) {
-            // İl slotu için önce extractInitialSlots dene, sonra cleanProvince
-            const { province: extractedProvince } = extractInitialSlots(userContent);
-            const province = extractedProvince || cleanProvince(userContent);
-            incentiveQuery.province = province;
-            updated = true;
-          } else if (!incentiveQuery.district) {
-            const district = cleanDistrict(userContent);
-            incentiveQuery.district = district;
-            updated = true;
-          } else if (!incentiveQuery.osb_status) {
-            const osbStatus = parseOsbStatus(userContent);
-            if (osbStatus) {
-              incentiveQuery.osb_status = osbStatus;
-              updated = true;
-            }
-          }
-
-          if (updated && incentiveQuery.id) {
-            const allFilled =
-              incentiveQuery.sector && incentiveQuery.province && incentiveQuery.district && incentiveQuery.osb_status;
-            const newStatus = allFilled ? "complete" : "collecting";
-
-            const { error: updateError } = await supabase
-              .from("incentive_queries")
-              .update({
-                sector: incentiveQuery.sector,
-                province: incentiveQuery.province,
-                district: incentiveQuery.district,
-                osb_status: incentiveQuery.osb_status,
-                status: newStatus,
-              })
-              .eq("id", incentiveQuery.id);
-
-            if (updateError) {
-              console.error("Error updating incentive_queries:", updateError);
-            } else {
-              incentiveQuery.status = newStatus;
-              console.log("✓ Updated incentive query:", incentiveQuery);
-            }
-          }
+        // Eski query'yi sil
+        const { error: deleteError } = await supabase
+          .from("incentive_queries")
+          .delete()
+          .eq("id", incentiveQuery.id);
+        
+        if (deleteError) {
+          console.error("Error deleting old incentive_query:", deleteError);
         }
-      } else {
-        // İlk mesajdan sektör ve il bilgisini çıkar
-        const { sector: initialSector, province: initialProvince } = extractInitialSlots(lastUserMessage.content);
-        console.log("📊 New query - extractInitialSlots result:", { sector: initialSector, province: initialProvince });
         
+        // Yeni query oluştur
+        const { sector: extractedSector, province: extractedProvince } = extractInitialSlots(lastUserMessage.content);
         const { data: newQuery, error: insertError } = await supabase
           .from("incentive_queries")
           .insert({
             session_id: sessionId,
             status: "collecting",
-            sector: initialSector,      // İlk mesajdan çıkarılan sektör
-            province: initialProvince,  // İlk mesajdan çıkarılan il
+            sector: extractedSector || lastUserMessage.content,
+            province: extractedProvince,
             district: null,
             osb_status: null,
           })
           .select()
           .single();
-
+        
         if (!insertError && newQuery) {
           incentiveQuery = newQuery;
-          console.log("✓ Started new incentive query with initial slots:", incentiveQuery);
+          console.log("✓ Created new incentive query for topic change:", incentiveQuery);
         } else {
-          console.error("Error starting incentive query:", insertError);
+          console.error("Error creating new incentive query:", insertError);
+        }
+        
+        console.log("📝 Conversation history cleared for new topic");
+      } else {
+        // ============= NORMAL SLOT FILLING =============
+        const userContent = lastUserMessage.content;
+        let updated = false;
+
+        console.log("🔄 Slot-filling: Current slots:", {
+          sector: incentiveQuery.sector,
+          province: incentiveQuery.province,
+          district: incentiveQuery.district,
+          osb_status: incentiveQuery.osb_status
+        });
+
+        // Sıralı slot doldurma mantığı
+        if (!incentiveQuery.sector) {
+          // İlk slot doldurulurken hem sektör hem il çıkar
+          const { sector: extractedSector, province: extractedProvince } = extractInitialSlots(userContent);
+          incentiveQuery.sector = extractedSector || userContent;
+          if (extractedProvince && !incentiveQuery.province) {
+            incentiveQuery.province = extractedProvince;
+          }
+          updated = true;
+          console.log("📥 Filled SECTOR slot:", incentiveQuery.sector);
+        } else if (!incentiveQuery.province) {
+          // İl slotu için önce extractInitialSlots dene, sonra cleanProvince
+          const { province: extractedProvince } = extractInitialSlots(userContent);
+          const province = extractedProvince || cleanProvince(userContent);
+          incentiveQuery.province = province;
+          updated = true;
+          console.log("📥 Filled PROVINCE slot:", incentiveQuery.province);
+        } else if (!incentiveQuery.district) {
+          const district = cleanDistrict(userContent);
+          incentiveQuery.district = district;
+          updated = true;
+          console.log("📥 Filled DISTRICT slot:", incentiveQuery.district);
+        } else if (!incentiveQuery.osb_status) {
+          const osbStatus = parseOsbStatus(userContent);
+          if (osbStatus) {
+            incentiveQuery.osb_status = osbStatus;
+            updated = true;
+            console.log("📥 Filled OSB_STATUS slot:", incentiveQuery.osb_status);
+          }
+        }
+
+        if (updated && incentiveQuery.id) {
+          const allFilled =
+            incentiveQuery.sector && incentiveQuery.province && incentiveQuery.district && incentiveQuery.osb_status;
+          const newStatus = allFilled ? "complete" : "collecting";
+
+          const { error: updateError } = await supabase
+            .from("incentive_queries")
+            .update({
+              sector: incentiveQuery.sector,
+              province: incentiveQuery.province,
+              district: incentiveQuery.district,
+              osb_status: incentiveQuery.osb_status,
+              status: newStatus,
+            })
+            .eq("id", incentiveQuery.id);
+
+          if (updateError) {
+            console.error("Error updating incentive_queries:", updateError);
+          } else {
+            incentiveQuery.status = newStatus;
+            console.log("✓ Updated incentive query:", {
+              id: incentiveQuery.id,
+              sector: incentiveQuery.sector,
+              province: incentiveQuery.province,
+              district: incentiveQuery.district,
+              osb_status: incentiveQuery.osb_status,
+              status: incentiveQuery.status
+            });
+          }
         }
       }
+    } else if (isIncentiveRelated && sessionId) {
+      // ============= YENİ QUERY OLUŞTUR =============
+      // Mevcut query yok ama incentive-related bir mesaj geldi
+      const { sector: initialSector, province: initialProvince } = extractInitialSlots(lastUserMessage.content);
+      console.log("📊 New query - extractInitialSlots result:", { sector: initialSector, province: initialProvince });
+      
+      const { data: newQuery, error: insertError } = await supabase
+        .from("incentive_queries")
+        .insert({
+          session_id: sessionId,
+          status: "collecting",
+          sector: initialSector,
+          province: initialProvince,
+          district: null,
+          osb_status: null,
+        })
+        .select()
+        .single();
+
+      if (!insertError && newQuery) {
+        incentiveQuery = newQuery;
+        console.log("✓ Started new incentive query with initial slots:", incentiveQuery);
+      } else {
+        console.error("Error starting incentive query:", insertError);
+      }
     } else if (isIncentiveRelated && !sessionId) {
+      // Session olmadan incentive query (in-memory)
       incentiveQuery = {
         id: null,
         session_id: null,
