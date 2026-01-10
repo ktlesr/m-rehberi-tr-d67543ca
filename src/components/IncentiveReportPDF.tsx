@@ -531,9 +531,9 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             <View style={styles.destekCard}>
               <Text style={[styles.destekCardTitle, { color: colors.success }]}>
                 {isMidHighTech
-                  ? "Öncelikli Yatırım Destekleri (min. 1.255.000.000 TL + İstanbul dışı)"
+                  ? "Öncelikli Yatırım Destekleri"
                   : isHighTech
-                    ? "Öncelikli Yatırım Destekleri (min. 627.000.000 TL)"
+                    ? "Öncelikli Yatırım Destekleri"
                     : "Öncelikli Yatırım Destekleri"}
               </Text>
               <View style={styles.destekRow}>
