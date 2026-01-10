@@ -48,6 +48,8 @@ export interface IncentiveResult {
     isPriority: boolean;
     isHighTech: boolean;
     isMidHighTech: boolean;
+    isTechInitiative?: boolean;  // Teknoloji Hamlesi
+    investmentStatusExplanation?: string;  // Explanation of investment status
     conditions: string;
     minInvestment: number;
   };

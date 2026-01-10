@@ -3,13 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Target, Star, Zap, Cpu } from 'lucide-react';
+import { Search, Target, Star, Zap, Cpu, Rocket } from 'lucide-react';
 import { SectorSearchData } from '@/types/database';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { isRegion6Province } from '@/utils/regionUtils';
 import { useSearchAnalytics } from '@/hooks/useSearchAnalytics';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
+import { determineInvestmentStatus, getStatusBadges } from '@/utils/investmentStatusHelper';
 
 interface SectorSearchStepProps {
   selectedSector: SectorSearchData | null;
@@ -185,42 +186,70 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
   // Check if current province is in Region 6
   const isProvince6 = selectedProvince && isRegion6Province(selectedProvince);
 
-  // Helper function to render badges with Region 6 logic
+  // Helper function to render badges with hierarchical investment status logic
   const renderBadges = (result: SectorSearchData, isSmall: boolean = false) => {
     const badgeSize = isSmall ? "text-xs" : "text-sm";
     const iconSize = isSmall ? "h-2.5 w-2.5" : "h-3 w-3";
     
-    return (
-      <div className="flex gap-2 flex-wrap">
-        {/* For Region 6 provinces, show Öncelikli instead of Hedef */}
-        {isProvince6 ? (
+    // For Region 6 provinces, always show Öncelikli (special rule)
+    if (isProvince6) {
+      return (
+        <div className="flex gap-2 flex-wrap">
           <Badge className={`bg-green-500 hover:bg-green-600 text-white ${badgeSize} flex items-center gap-1`}>
             <Star className={iconSize} />
             {isSmall ? "Öncelikli" : "Öncelikli Yatırım"}
           </Badge>
-        ) : (
-          <>
-            {result.hedef_yatirim && (
-              <Badge className={`bg-blue-500 hover:bg-blue-600 text-white ${badgeSize} flex items-center gap-1`}>
-                <Target className={iconSize} />
-                {isSmall ? "Hedef" : "Hedef Yatırım"}
-              </Badge>
-            )}
-            {result.oncelikli_yatirim && (
-              <Badge className={`bg-green-500 hover:bg-green-600 text-white ${badgeSize} flex items-center gap-1`}>
-                <Star className={iconSize} />
-                {isSmall ? "Öncelikli" : "Öncelikli Yatırım"}
-              </Badge>
-            )}
-          </>
+        </div>
+      );
+    }
+    
+    // Determine investment status using hierarchical logic
+    const investmentStatus = determineInvestmentStatus({
+      teknoloji_hamlesi: result.teknoloji_hamlesi,
+      yuksek_teknoloji: result.yuksek_teknoloji,
+      orta_yuksek_teknoloji: result.orta_yuksek_teknoloji,
+      hedef_yatirim: result.hedef_yatirim,
+      oncelikli_yatirim: result.oncelikli_yatirim
+    });
+    
+    const badges = getStatusBadges(investmentStatus);
+    
+    return (
+      <div className="flex gap-2 flex-wrap">
+        {/* Teknoloji Hamlesi Badge - Highest priority */}
+        {badges.showTechInitiative && (
+          <Badge className={`bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white ${badgeSize} flex items-center gap-1`}>
+            <Rocket className={iconSize} />
+            {isSmall ? "Tek. Hamlesi" : "Teknoloji Hamlesi"}
+          </Badge>
         )}
-        {result.yuksek_teknoloji && (
+        
+        {/* Öncelikli Badge */}
+        {badges.showPriority && (
+          <Badge className={`bg-green-500 hover:bg-green-600 text-white ${badgeSize} flex items-center gap-1`}>
+            <Star className={iconSize} />
+            {isSmall ? "Öncelikli" : "Öncelikli Yatırım"}
+          </Badge>
+        )}
+        
+        {/* Hedef Badge (only if not priority) */}
+        {badges.showTarget && (
+          <Badge className={`bg-blue-500 hover:bg-blue-600 text-white ${badgeSize} flex items-center gap-1`}>
+            <Target className={iconSize} />
+            {isSmall ? "Hedef" : "Hedef Yatırım"}
+          </Badge>
+        )}
+        
+        {/* Yüksek Teknoloji informatif badge */}
+        {badges.showHighTech && (
           <Badge className={`bg-orange-500 hover:bg-orange-600 text-white ${badgeSize} flex items-center gap-1`}>
             <Zap className={iconSize} />
             {isSmall ? "Yüksek Tek." : "Yüksek Teknoloji"}
           </Badge>
         )}
-        {result.orta_yuksek_teknoloji && (
+        
+        {/* Orta-Yüksek Teknoloji informatif badge */}
+        {badges.showMidHighTech && (
           <Badge className={`bg-purple-500 hover:bg-purple-600 text-white ${badgeSize} flex items-center gap-1`}>
             <Cpu className={iconSize} />
             {isSmall ? "Orta-Yüksek Tek." : "Orta-Yüksek Teknoloji"}

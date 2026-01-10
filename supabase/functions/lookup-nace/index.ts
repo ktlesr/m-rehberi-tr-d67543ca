@@ -13,6 +13,7 @@ interface SectorRow {
   oncelikli_yatirim: boolean;
   yuksek_teknoloji: boolean;
   orta_yuksek_teknoloji: boolean;
+  teknoloji_hamlesi: string | null;
   sartlar: string | null;
   bolge_1: number | null;
   bolge_2: number | null;
@@ -34,25 +35,47 @@ function normalizeNaceCode(code: string): string {
   return code.trim().replace(/^C/, '');
 }
 
-// Format Turkish output per specifications
+// Format Turkish output per specifications with hierarchical investment status logic
 function formatTurkishOutput(row: SectorRow): string {
   const lines: string[] = [];
   
   // Line 1: NACE code and sector name
   lines.push(`${row.nace_kodu} – ${row.sektor}`);
   
-  // Line 2-5: Boolean flags (only if TRUE)
-  if (row.hedef_yatirim) lines.push("hedef yatırımdır");
-  if (row.oncelikli_yatirim) lines.push("öncelikli yatırımdır");
-  if (row.yuksek_teknoloji) lines.push("Yüksek teknoloji yatırımdır");
-  if (row.orta_yuksek_teknoloji) lines.push("Orta-Yüksek teknoloji yatırımdır");
+  // Check teknoloji_hamlesi status
+  const isTechHamlesi = row.teknoloji_hamlesi?.toUpperCase().startsWith('EVET');
   
-  // Line 6: Conditions (if present)
+  // Apply hierarchical investment status logic
+  if (isTechHamlesi) {
+    // DURUM 1: Teknoloji Hamlesi - Always Priority (override)
+    lines.push("🚀 Teknoloji Hamlesi Programı kapsamındadır");
+    lines.push("✅ Öncelikli yatırım statüsündedir (9903 sayılı Karar)");
+    if (row.teknoloji_hamlesi && row.teknoloji_hamlesi !== 'EVET') {
+      lines.push(`Detay: ${row.teknoloji_hamlesi}`);
+    }
+    lines.push("ℹ️ Asgari yatırım tutarı: 1. ve 2. Bölgeler için 15.100.000 TL, 3.-6. Bölgeler için 7.500.000 TL");
+  } else if (row.yuksek_teknoloji) {
+    // DURUM 2: Hamle Değil + Yüksek Teknoloji
+    lines.push("⚡ Yüksek teknoloji yatırımıdır");
+    lines.push("💰 Yatırım tutarı min. 627.450.000 TL ise: Öncelikli yatırım");
+    lines.push("📊 Altında kalırsa: Hedef yatırım olarak değerlendirilir");
+  } else if (row.orta_yuksek_teknoloji) {
+    // DURUM 3: Hamle Değil + Orta-Yüksek Teknoloji
+    lines.push("🔧 Orta-Yüksek teknoloji yatırımıdır");
+    lines.push("💰 İstanbul dışı + min. 1.254.900.000 TL ise: Öncelikli yatırım");
+    lines.push("📊 Şartlar sağlanmazsa: Hedef yatırım olarak değerlendirilir");
+  } else if (row.hedef_yatirim) {
+    // DURUM 4: Sadece Hedef
+    lines.push("🎯 Hedef yatırımdır");
+    lines.push("ℹ️ 9903 sayılı Karar kapsamında öncelikli yatırım şartlarını sağlamamaktadır");
+  }
+  
+  // Line: Conditions (if present)
   if (row.sartlar && row.sartlar.trim()) {
     lines.push(`Koşullar: ${row.sartlar}`);
   }
   
-  // Line 7: Regional minimums (only include regions with values)
+  // Line: Regional minimums (only include regions with values)
   const regions: string[] = [];
   if (row.bolge_1) regions.push(`1. bölge için ${row.bolge_1.toLocaleString('tr-TR')} TL`);
   if (row.bolge_2) regions.push(`2. bölge için ${row.bolge_2.toLocaleString('tr-TR')} TL`);
