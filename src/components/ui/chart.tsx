@@ -65,6 +65,21 @@ const ChartContainer = React.forwardRef<
 })
 ChartContainer.displayName = "Chart"
 
+/**
+ * SECURITY NOTE: ChartStyle uses dangerouslySetInnerHTML for CSS variable injection.
+ * 
+ * XSS PROTECTION: The CSS content is controlled and comes from developer-defined ChartConfig,
+ * not from user input. The config is typically defined in component code, not from external sources.
+ * 
+ * SAFE USAGE:
+ * - 'id' is generated via React.useId() - safe, controlled string
+ * - 'key' comes from Object.entries on developer-defined config - safe
+ * - 'color' values come from ChartConfig defined in application code - safe
+ * 
+ * DO NOT pass user-controlled values to ChartConfig color properties without validation.
+ * If user-controlled colors are needed, validate with regex: /^#[0-9A-Fa-f]{6}$/ or
+ * /^(rgb|hsl)a?\([^)]+\)$/ for rgb/hsl values.
+ */
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
     ([_, config]) => config.theme || config.color
