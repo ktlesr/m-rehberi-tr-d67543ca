@@ -191,7 +191,20 @@ const StandaloneFormLayout: React.FC<StandaloneFormLayoutProps> = ({
 
           {/* Main Content Area */}
           <div className="flex-grow px-8 py-10 md:px-16">
-            {/* Custom styles for form fields */}
+            {/* 
+             * SECURITY NOTE: dangerouslySetInnerHTML is used here for CSS injection.
+             * 
+             * XSS PROTECTION: All color values (accentColor, bgColor) are validated through
+             * the sanitizeColor() function which enforces strict hex color format (#RRGGBB).
+             * The accentRgba() function only outputs controlled rgba() values from validated hex.
+             * 
+             * DO NOT add user-controlled strings to this CSS without proper sanitization.
+             * If user-controlled CSS is ever needed, use DOMPurify or a CSS sanitization library.
+             * 
+             * Safe values used here:
+             * - accentColor: Validated hex color via sanitizeColor()
+             * - accentRgba(): Computed from validated accentColor, outputs only rgba values
+             */}
             <style dangerouslySetInnerHTML={{
               __html: `
                 .standalone-form-content .form-section-header {
