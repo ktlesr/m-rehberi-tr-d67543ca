@@ -71,7 +71,8 @@ const TZYSupplierApplication = () => {
   // Storage key for form persistence
   const storageKey = `tzy_supplier_form_${on_request_id}_${product_id}`;
 
-  // Save form data to localStorage
+  // Save form data to localStorage (excluding most sensitive fields)
+  // Only store non-sensitive business info for draft persistence
   const saveFormData = () => {
     if (!on_request_id || !product_id) return;
     
@@ -82,8 +83,22 @@ const TZYSupplierApplication = () => {
       type: file.type
     }));
     
+    // Only save non-sensitive business fields for form persistence
     const dataToSave = {
-      formData,
+      formData: {
+        vergi_kimlik_no: formData.vergi_kimlik_no,
+        firma_adi: formData.firma_adi,
+        iletisim_kisisi: formData.iletisim_kisisi,
+        unvan: formData.unvan,
+        firma_olcegi: formData.firma_olcegi,
+        telefon: formData.telefon,
+        e_posta: formData.e_posta,
+        firma_websitesi: formData.firma_websitesi,
+        il: formData.il,
+        minimum_yerlilik_orani: formData.minimum_yerlilik_orani,
+        tedarikci_deneyim_suresi: formData.tedarikci_deneyim_suresi,
+        notlar: formData.notlar,
+      },
       files: fileData,
       timestamp: Date.now()
     };
@@ -101,8 +116,8 @@ const TZYSupplierApplication = () => {
       
       const { formData, files: savedFiles, timestamp } = JSON.parse(savedData);
       
-      // Don't restore data older than 24 hours
-      if (Date.now() - timestamp > 24 * 60 * 60 * 1000) {
+      // Don't restore data older than 30 minutes (changed from 24 hours for security)
+      if (Date.now() - timestamp > 30 * 60 * 1000) {
         localStorage.removeItem(storageKey);
         return;
       }
@@ -185,6 +200,16 @@ const TZYSupplierApplication = () => {
     };
 
     fetchProductInfo();
+    
+    // Clear sensitive data on window/tab close
+    const handleBeforeUnload = () => {
+      if (storageKey) {
+        localStorage.removeItem(storageKey);
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [product_id, toast]);
 
   // Save form data on every change
