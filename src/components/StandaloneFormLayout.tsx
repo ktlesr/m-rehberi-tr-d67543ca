@@ -8,13 +8,25 @@ interface StandaloneFormLayoutProps {
   children: React.ReactNode;
 }
 
+// Strict hex color validation to prevent CSS injection
+const isValidHexColor = (color: string): boolean => {
+  return /^#[0-9A-Fa-f]{6}$/.test(color);
+};
+
+// Sanitize color value - returns default if invalid
+const sanitizeColor = (color: string | undefined, defaultColor: string): string => {
+  if (!color) return defaultColor;
+  return isValidHexColor(color) ? color : defaultColor;
+};
+
 const StandaloneFormLayout: React.FC<StandaloneFormLayoutProps> = ({
   branding,
   formName,
   children,
 }) => {
-  const accentColor = branding.accent_color || '#0d9488'; // teal-600
-  const bgColor = branding.background_color || '#f3f4f6'; // gray-100
+  // Sanitize colors with strict hex validation
+  const accentColor = sanitizeColor(branding.accent_color, '#0d9488'); // teal-600
+  const bgColor = sanitizeColor(branding.background_color, '#f3f4f6'); // gray-100
   const title = branding.header_title || formName;
   const subtitle = branding.header_subtitle || 'TEMPLATE';
   const companyName = branding.company_name || 'COMPANY NAME';
@@ -27,9 +39,9 @@ const StandaloneFormLayout: React.FC<StandaloneFormLayoutProps> = ({
     day: 'numeric',
   });
 
-  // Convert hex to RGB for gradient
+  // Convert hex to RGB for gradient (input already validated)
   const hexToRgb = (hex: string) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    const result = /^#([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
       ? {
           r: parseInt(result[1], 16),

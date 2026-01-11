@@ -67,16 +67,35 @@ const TZYOTG = () => {
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
-        // Set form values
+        
+        // Check if data is older than 30 minutes - auto-clear stale data
+        const timestamp = parsedData.timestamp;
+        if (timestamp && Date.now() - timestamp > 30 * 60 * 1000) {
+          sessionStorage.removeItem('tzy_form_data');
+          return;
+        }
+        
+        // Set form values (only non-sensitive fields for persistence)
         Object.keys(parsedData).forEach(key => {
-          if (key !== 'files' && parsedData[key]) {
+          if (key !== 'files' && key !== 'timestamp' && parsedData[key]) {
             form.setValue(key as keyof FormData, parsedData[key]);
           }
         });
       } catch (error) {
         console.error('Error loading saved form data:', error);
+        sessionStorage.removeItem('tzy_form_data');
       }
     }
+    
+    // Clear sensitive data on window/tab close
+    const handleBeforeUnload = () => {
+      sessionStorage.removeItem('tzy_form_data');
+      sessionStorage.removeItem('tzy_submission_success');
+      sessionStorage.removeItem('tzy_submission_error');
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [form]);
 
   const watchTalepIcerigi = form.watch('talep_icerigi');
@@ -213,12 +232,27 @@ const TZYOTG = () => {
     }
   };
 
-  // Save form data to sessionStorage
+  // Save form data to sessionStorage (only non-sensitive fields for draft persistence)
+  // Note: Email and phone are included for form UX but cleared on successful submission
   const saveFormData = (data: FormData) => {
     sessionStorage.setItem('tzy_form_data', JSON.stringify({
-      ...data,
-      files: files.map(f => ({ name: f.name, size: f.size }))
+      vergi_kimlik_no: data.vergi_kimlik_no,
+      firma_adi: data.firma_adi,
+      iletisim_kisisi: data.iletisim_kisisi,
+      unvan: data.unvan,
+      telefon: data.telefon,
+      e_posta: data.e_posta,
+      talep_icerigi: data.talep_icerigi,
+      files: files.map(f => ({ name: f.name, size: f.size })),
+      timestamp: Date.now() // Add timestamp for auto-expiry
     }));
+  };
+  
+  // Clear all sensitive session data
+  const clearSessionData = () => {
+    sessionStorage.removeItem('tzy_form_data');
+    sessionStorage.removeItem('tzy_submission_success');
+    sessionStorage.removeItem('tzy_submission_error');
   };
 
   // Form submission
@@ -304,7 +338,10 @@ const TZYOTG = () => {
         // Don't fail the whole process if email fails
       }
 
-      // Mark success in session storage
+      // Clear sensitive form data immediately after successful submission
+      clearSessionData();
+      
+      // Store only non-sensitive success info briefly for success page
       sessionStorage.setItem('tzy_submission_success', JSON.stringify({
         requestId: insertData.id,
         timestamp: new Date().toISOString()
