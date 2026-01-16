@@ -37,6 +37,7 @@ import { useChatbotStats } from "@/hooks/useChatbotStats";
 import { useChatbotSettings } from "@/hooks/useChatbotSettings";
 import { SupportProgramCard, type SupportProgramCardData } from "@/components/chat/SupportProgramCard";
 import { extractFollowUpQuestion } from "@/utils/followUpQuestionParser";
+import { normalizeMarkdownContent } from "@/utils/markdownNormalizer";
 
 interface Message {
   role: "user" | "assistant";
@@ -194,8 +195,12 @@ const markdownComponents = {
 };
 
 // Markdown içeriğini düzgün formatlama için ön işleme
+
 const preprocessMarkdown = (content: string): string => {
-  return content
+  // İLK ADIM: Merkezi normalizer ile bozuk formatları düzelt
+  const normalized = normalizeMarkdownContent(content);
+  
+  return normalized
     // Bold başlık içeren liste öğelerinden bullet'ı kaldır (* **Label:** veya - **Label:**)
     .replace(/^[\*\-]\s+(\*\*[^*]+:\*\*)/gm, '$1')
     .replace(/\n[\*\-]\s+(\*\*[^*]+:\*\*)/g, '\n\n$1')
