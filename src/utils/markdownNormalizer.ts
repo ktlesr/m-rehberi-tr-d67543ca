@@ -9,6 +9,7 @@
  * Satır kırılmalarıyla bölünmüş bold tag'leri birleştirir
  * Örnek: "**Teknoloji Hamlesi\n\nProgramı:**" → "**Teknoloji Hamlesi Programı:**"
  */
+// =================== SPLIT BOLD TAG FIXES ===================
 const fixSplitBoldTags = (content: string): string => {
   let result = content;
   
@@ -38,37 +39,117 @@ const fixSplitBoldTags = (content: string): string => {
   return result;
 };
 
-/**
- * Orphan (açık kalmış veya yalnız) bold işaretlerini temizler
- */
-const cleanOrphanBoldMarkers = (content: string): string => {
-  let result = content;
+// =================== CLOSING-ONLY BOLD REPAIR ===================
+// Örnek: "Makine Desteği:** Birim fiyatı" -> "**Makine Desteği:** Birim fiyatı"
+const repairClosingOnlyBold = (content: string): string => {
+  // Liste öğesi başındaki "* Text:**" veya "- Text:**" kalıbını yakala
+  let result = content.replace(/^([\*\-]\s+)([^*\n:]{2,60}):\*\*/gm, '$1**$2:**');
   
-  // Satır başındaki yalnız "**" (sonrasında harf/kelime yok veya sadece boşluk)
-  result = result.replace(/^\*\*\s*$/gm, '');
+  // Satır başındaki "Text:**" (açılış olmadan kapanış var)
+  result = result.replace(/^([^*\n:]{2,60}):\*\*\s/gm, '**$1:** ');
   
-  // Satır sonundaki yalnız "**" 
-  result = result.replace(/\s+\*\*\s*$/gm, '');
-  
-  // "**" ile başlayıp "**" ile kapanmayan satırlar (kısa olanlar)
-  // Örnek: "**Başlık" (kapatma yok) - sadece 3-30 karakterlik olanlar
-  result = result.replace(/^\*\*([^*:\n]{3,30})$/gm, (match, text) => {
-    // Eğer sonraki satırda devam ediyorsa dokunma
-    return text.trim();
-  });
-  
-  // Satırın ortasında yalnız "**" (etrafında boşluk var)
-  result = result.replace(/\s\*\*\s(?!\S)/g, ' ');
-  
-  // "text:**" sonundaki orphan ** (kapatılmamış)
-  result = result.replace(/([^*]):\*\*(?!\s*\S)/g, '$1:');
+  // Satır ortasındaki kapanış-only: " Text:**" -> " **Text:**"
+  result = result.replace(/\s([^*\n\s:]{2,40}):\*\*\s/g, ' **$1:** ');
   
   return result;
 };
 
-/**
- * Liste formatlarını normalize eder
- */
+// =================== OPENING-ONLY BOLD CLEANUP ===================
+// Örnek: "**faiz oranının 20 puanı" (kapanış yok) -> "faiz oranının 20 puanı"
+const cleanOpeningOnlyBold = (content: string): string => {
+  const lines = content.split('\n');
+  const fixedLines = lines.map(line => {
+    // Satırda "**" sayısını say
+    const matches = line.match(/\*\*/g);
+    if (!matches) return line;
+    
+    // Tek ** varsa (orphan), kaldır
+    if (matches.length === 1) {
+      // Satır başındaki orphan açılış
+      if (line.match(/^\*\*[^*]/)) {
+        return line.replace(/^\*\*\s*/, '');
+      }
+      // Satır ortasındaki orphan (boşluk + **)
+      if (line.match(/\s\*\*[^*]/)) {
+        return line.replace(/\s\*\*([^*])/, ' $1');
+      }
+      // Satır sonundaki orphan kapanış (:** sonrası değilse)
+      if (line.match(/[^:]\*\*$/)) {
+        return line.replace(/\*\*$/, '');
+      }
+    }
+    
+    return line;
+  });
+  
+  return fixedLines.join('\n');
+};
+
+// =================== LIST CONTINUATION FIXER ===================
+// Liste öğesinden sonra gelen "devam" satırlarını düzgün bağla
+const fixListContinuation = (content: string): string => {
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let lastWasListItem = false;
+  let lastWasEmpty = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    
+    // Bu satır list item mi?
+    const isListItem = /^[\*\-]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed);
+    // Bu satır heading mi?
+    const isHeading = /^#{1,6}\s/.test(trimmed) || /^\*\*[^*]+:\*\*/.test(trimmed);
+    // Boş satır mı?
+    const isEmpty = trimmed === '';
+    
+    if (isEmpty) {
+      lastWasEmpty = true;
+      result.push(line);
+      continue;
+    }
+    
+    // Önceki satır list item idi ve şimdi continuation satırı var
+    if (lastWasListItem && lastWasEmpty && !isListItem && !isHeading && trimmed.length > 0) {
+      // Boş satırı kaldır (son eklenen boş satır)
+      if (result.length > 0 && result[result.length - 1].trim() === '') {
+        result.pop();
+      }
+      // Continuation satırını indent et
+      result.push(`  ${trimmed}`);
+    } else {
+      result.push(line);
+    }
+    
+    lastWasListItem = isListItem;
+    lastWasEmpty = isEmpty;
+  }
+  
+  return result.join('\n');
+};
+
+// =================== BOLD HEADER FIXES ===================
+const fixBoldHeaders = (content: string): string => {
+  return content
+    // "**Text :** value" → "**Text:** value" (: öncesi boşluk)
+    .replace(/\*\*([^*]+)\s+:\*\*/g, '**$1:**')
+    // "**Text: **value" → "**Text:** value" (kapanıştan önce boşluk)
+    .replace(/\*\*([^*]+):\s+\*\*/g, '**$1:** ');
+};
+
+// =================== ORPHAN BOLD MARKER CLEANUP ===================
+const cleanOrphanBoldMarkers = (content: string): string => {
+  return content
+    // Satır başındaki yalnız "**" (sonrasında kelime yok veya : ile bitmez)
+    .replace(/^\*\*\s*$/gm, '')
+    // Satır sonundaki yalnız "**" 
+    .replace(/\s+\*\*\s*$/gm, '')
+    // Çift ** ** arasındaki boşluk
+    .replace(/\*\*\s+\*\*/g, '');
+};
+
+// =================== LIST FORMAT NORMALIZATION ===================
 const normalizeListFormats = (content: string): string => {
   return content
     // Gemini'nin "*   " formatını düzelt (asterisk + 2+ boşluk)
@@ -94,33 +175,14 @@ const normalizeListFormats = (content: string): string => {
     .replace(/\n[\*\-]\s*[\*\-]\s+/g, '\n* ');
 };
 
-/**
- * Boşlukları ve satır kırılmalarını temizler
- */
+// =================== WHITESPACE CLEANUP ===================
 const cleanWhitespace = (content: string): string => {
   return content
-    // 3+ ardışık satır kırılmasını 2'ye indir
     .replace(/\n{3,}/g, '\n\n')
-    // Satır başı/sonu boşluklarını temizle
     .trim();
 };
 
-/**
- * Bold başlıkları düzeltir (: işareti içerenler)
- */
-const fixBoldHeaders = (content: string): string => {
-  return content
-    // "**text: **" → "**text:** " (boşluk kapatmadan önce)
-    .replace(/\*\*([^*]+?):\s*\*\*/g, '**$1:** ')
-    
-    // "**text:**value" → "**text:** value" (iki nokta sonrası boşluk yok)
-    .replace(/\*\*([^*]+):\*\*(\S)/g, '**$1:** $2');
-};
-
-/**
- * Ana normalleştirme fonksiyonu
- * Tüm temizleme işlemlerini sırayla uygular
- */
+// =================== MAIN NORMALIZER ===================
 export const normalizeMarkdownContent = (content: string): string => {
   if (!content) return '';
   
@@ -129,16 +191,25 @@ export const normalizeMarkdownContent = (content: string): string => {
   // ADIM 1: Bozuk bold tag'leri düzelt (en kritik)
   result = fixSplitBoldTags(result);
   
-  // ADIM 2: Bold başlık formatlarını düzelt
+  // ADIM 2: Sadece kapanış olan bold'ları onar ("Text:**" -> "**Text:**")
+  result = repairClosingOnlyBold(result);
+  
+  // ADIM 3: Sadece açılış olan bold'ları temizle ("**text" -> "text")
+  result = cleanOpeningOnlyBold(result);
+  
+  // ADIM 4: Bold başlık formatlarını düzelt
   result = fixBoldHeaders(result);
   
-  // ADIM 3: Orphan bold işaretlerini temizle
+  // ADIM 5: Orphan bold işaretlerini temizle
   result = cleanOrphanBoldMarkers(result);
   
-  // ADIM 4: Liste formatlarını normalize et
+  // ADIM 6: Liste formatlarını normalize et
   result = normalizeListFormats(result);
   
-  // ADIM 5: Boşlukları temizle
+  // ADIM 7: Liste continuation'ları düzelt
+  result = fixListContinuation(result);
+  
+  // ADIM 8: Boşlukları temizle
   result = cleanWhitespace(result);
   
   return result;
