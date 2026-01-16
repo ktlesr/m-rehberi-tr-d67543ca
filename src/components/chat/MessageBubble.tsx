@@ -6,37 +6,12 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { SupportProgramCard, SupportProgramCardData } from "./SupportProgramCard";
 import { FollowUpQuestionCard } from "./FollowUpQuestionCard";
 import { extractFollowUpQuestion } from "@/utils/followUpQuestionParser";
-
-// Ham markdown formatlarını standart hale getir (Gemini vb. farklı formatları normalize et)
-const normalizeRawMarkdown = (content: string): string => {
-  return content
-    // 1. Gemini'nin "*   " formatını düzelt (asterisk + 2+ boşluk)
-    .replace(/^\*\s{2,}/gm, '* ')
-    .replace(/\n\*\s{2,}/g, '\n* ')
-    
-    // 2. Ham bullet karakterlerini (•, ◦, ▪, ●) temizle → standart markdown
-    .replace(/^[•◦▪●]\s*/gm, '* ')
-    .replace(/\n[•◦▪●]\s*/g, '\n* ')
-    
-    // 3. Çift bullet kalıplarını temizle (* • veya • *)
-    .replace(/^\*\s*[•◦▪●]\s*/gm, '* ')
-    .replace(/^[•◦▪●]\s*\*\s*/gm, '* ')
-    .replace(/\n\*\s*[•◦▪●]\s*/g, '\n* ')
-    .replace(/\n[•◦▪●]\s*\*\s*/g, '\n* ')
-    
-    // 4. Tire formatını da normalize et (- + 2+ boşluk)
-    .replace(/^-\s{2,}/gm, '- ')
-    .replace(/\n-\s{2,}/g, '\n- ')
-    
-    // 5. Satır başındaki "* *" veya "- -" çift işaret kalıplarını temizle
-    .replace(/^[\*\-]\s*[\*\-]\s+/gm, '* ')
-    .replace(/\n[\*\-]\s*[\*\-]\s+/g, '\n* ');
-};
+import { normalizeMarkdownContent } from "@/utils/markdownNormalizer";
 
 // Markdown içeriğini düzgün formatlama için ön işleme
 const preprocessMarkdown = (content: string): string => {
-  // İLK ADIM: Ham formatları normalize et
-  const normalized = normalizeRawMarkdown(content);
+  // İLK ADIM: Merkezi normalizer ile bozuk formatları düzelt
+  const normalized = normalizeMarkdownContent(content);
   
   return (
     normalized
