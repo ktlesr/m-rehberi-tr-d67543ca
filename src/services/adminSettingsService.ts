@@ -276,7 +276,7 @@ export const adminSettingsService = {
     }
   },
 
-  async getChatbotRagMode(): Promise<'gemini_file_search' | 'custom_rag' | 'vertex_rag_corpora'> {
+  async getChatbotRagMode(): Promise<'gemini_file_search' | 'custom_rag' | 'tesviksor_api'> {
     const { data, error } = await supabase
       .from('admin_settings')
       .select('setting_value_text')
@@ -288,10 +288,16 @@ export const adminSettingsService = {
       return 'gemini_file_search';
     }
 
-    return (data?.setting_value_text as any) || 'gemini_file_search';
+    // Handle legacy 'vertex_rag_corpora' value
+    const mode = data?.setting_value_text;
+    if (mode === 'vertex_rag_corpora') {
+      return 'tesviksor_api';
+    }
+
+    return (mode as 'gemini_file_search' | 'custom_rag' | 'tesviksor_api') || 'gemini_file_search';
   },
 
-  async setChatbotRagMode(mode: 'gemini_file_search' | 'custom_rag' | 'vertex_rag_corpora'): Promise<void> {
+  async setChatbotRagMode(mode: 'gemini_file_search' | 'custom_rag' | 'tesviksor_api'): Promise<void> {
     const { error } = await supabase
       .from('admin_settings')
       .upsert({
@@ -299,7 +305,7 @@ export const adminSettingsService = {
         category: 'chatbot',
         setting_value: 0,
         setting_value_text: mode,
-        description: 'Chatbot RAG mode: gemini_file_search, custom_rag, or vertex_rag_corpora'
+        description: 'Chatbot RAG mode: gemini_file_search, custom_rag, or tesviksor_api'
       }, { onConflict: 'setting_key' });
 
     if (error) {
