@@ -1646,55 +1646,18 @@ serve(async (req) => {
         throw new Error("No user message found");
       }
 
-      // ============= TEŞVİK AKIŞI BYPASS - İNTERAKTİF MOD =============
-      // Eğer aktif bir teşvik sorgusu varsa veya teşvik ile ilgili bir sorgu ise
-      // Vertex RAG'ı bypass edip direkt File Search (Gemini) akışına git
-      const lowerContent = lastUserMessage.content.toLowerCase();
-      const isIncentiveQuery = 
-        (lowerContent.includes("teşvik") ||
-         lowerContent.includes("tesvik") ||
-         lowerContent.includes("hesapla") ||
-         lowerContent.includes("yatırım") ||
-         lowerContent.includes("yatirim") ||
-         lowerContent.includes("sektör") ||
-         lowerContent.includes("sektor") ||
-         lowerContent.includes("üretim") ||
-         lowerContent.includes("uretim") ||
-         lowerContent.includes("imalat") ||
-         /\b\d{2}\.?\d{0,2}\.?\d{0,2}\b/.test(lastUserMessage.content) || // NACE kodu
-         TURKISH_PROVINCES.some(p => lowerContent.includes(p.toLowerCase()))); // İl adı
-      
-      // Session'da aktif teşvik sorgusu var mı kontrol et
-      let hasActiveIncentiveQuery = false;
-      if (sessionId) {
-        const { data: existingQuery } = await supabase
-          .from("incentive_queries")
-          .select("id")
-          .eq("session_id", sessionId)
-          .eq("status", "collecting")
-          .maybeSingle();
-        
-        hasActiveIncentiveQuery = !!existingQuery;
-      }
-      
-      if (isIncentiveQuery || hasActiveIncentiveQuery) {
-        console.log("🔄 INCENTIVE BYPASS: Skipping Vertex RAG, going to File Search flow for interactive mode");
-        console.log("   - isIncentiveQuery:", isIncentiveQuery);
-        console.log("   - hasActiveIncentiveQuery:", hasActiveIncentiveQuery);
-        // Bu bloktan çıkıp aşağıdaki File Search akışına devam et
-        // (ragMode kontrolü dışına çıkacağız)
-      } else {
-        // Normal Vertex RAG akışı
-        // Get corpus settings first
-        const { data: vertexCorpusData } = await supabase
-          .from("admin_settings")
-          .select("setting_value_text")
-          .eq("setting_key", "active_vertex_corpus")
-          .single();
+      // ============= VERTEX RAG AKIŞI (BYPASS YOK) =============
+      // Admin panelde Vertex AI seçiliyse, tüm sorgular buradan geçer
+      // Get corpus settings first
+      const { data: vertexCorpusData } = await supabase
+        .from("admin_settings")
+        .select("setting_value_text")
+        .eq("setting_key", "active_vertex_corpus")
+        .single();
 
-        const corpusName = vertexCorpusData?.setting_value_text;
+      const corpusName = vertexCorpusData?.setting_value_text;
 
-        if (corpusName) {
+      if (corpusName) {
         console.log("🔍 Using Enhanced Vertex RAG Corpus:", corpusName);
 
         // ============= STEP 0: CHECK CACHE FIRST =============
@@ -2018,8 +1981,7 @@ serve(async (req) => {
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
-        }
-      } // else block end (non-incentive queries go through Vertex RAG)
+      }
     } // ragMode === "vertex_rag_corpora" block end
 
     // Default: Use Gemini File Search (existing flow)
