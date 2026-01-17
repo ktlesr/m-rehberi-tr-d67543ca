@@ -122,13 +122,28 @@ function deepParseJsonStrings(obj: any, isLeafValue = false): any {
   
   if (typeof obj === 'object') {
     const result: any = {};
-    // Leaf string alanları belirleme: bunlar text içerik olup parse edilmemeli
-    const leafKeys = ['summary', 'content', 'text', 'label', 'value', 'question', 'questionText', 'placeholder'];
-    
+
+    // Leaf string alanları: bunlar text içerik olup parse edilmemeli
+    // Not: top-level "content" alanı (StructuredContent) JSON string gelebilir, parse edilmelidir.
+    const leafKeys = ['summary', 'text', 'label', 'value', 'question', 'questionText', 'placeholder'];
+    const sectionTypes = new Set<SectionType>([
+      'paragraph',
+      'list',
+      'key-value',
+      'table',
+      'warning',
+      'info',
+      'success',
+    ]);
+
     for (const key of Object.keys(obj)) {
-      const isLeaf = leafKeys.includes(key) && typeof obj[key] === 'string';
-      result[key] = deepParseJsonStrings(obj[key], isLeaf);
+      const val = (obj as any)[key];
+      const isLeafTextKey = leafKeys.includes(key) && typeof val === 'string';
+      const isSectionContent = key === 'content' && typeof val === 'string' && typeof (obj as any).type === 'string' && sectionTypes.has((obj as any).type);
+      const isLeaf = isLeafTextKey || isSectionContent;
+      result[key] = deepParseJsonStrings(val, isLeaf);
     }
+
     return result;
   }
   
@@ -154,7 +169,20 @@ export function parseAPIResponse(data: any): StructuredAPIResponse {
   }
 
   // Nested JSON string'leri çöz (content: "{...}" durumu)
-  const normalized = deepParseJsonStrings(data);
+  const normalized: any = deepParseJsonStrings(data);
+
+  // type=structured olup content JSON string geldiyse (en sık sorun), özellikle parse et
+  if (normalized?.type === 'structured' && typeof normalized.content === 'string') {
+    const trimmed = normalized.content.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsedContent = JSON.parse(trimmed);
+        normalized.content = deepParseJsonStrings(parsedContent, false);
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   // Eğer data.type === 'structured' ve content.sections varsa
   if (normalized?.type === 'structured' && normalized?.content?.sections) {
