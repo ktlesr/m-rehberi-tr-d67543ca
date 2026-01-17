@@ -364,7 +364,58 @@ export function MessageBubble({
               {parsedStructured.interaction && onInteractiveSubmit && (
                 <InteractiveInput 
                   config={parsedStructured.interaction} 
-                  onSubmit={onInteractiveSubmit}
+                  onSubmit={(value) => {
+                    // Context kaybını önlemek için progress bilgisini mesaja dahil et
+                    const progress = parsedStructured.progress;
+                    const field = parsedStructured.interaction?.field;
+                    
+                    // Field label'ları
+                    const fieldLabels: Record<string, string> = {
+                      'province': 'İl',
+                      'district': 'İlçe', 
+                      'sector': 'Sektör',
+                      'osb_status': 'OSB Durumu'
+                    };
+                    
+                    // Seçilen değerin label'ını bul
+                    const selectedOption = parsedStructured.interaction?.options?.find(opt => opt.value === value);
+                    const displayValue = selectedOption?.label || value;
+                    
+                    // Progress context'i oluştur
+                    let contextParts: string[] = [];
+                    
+                    if (progress?.sector) {
+                      contextParts.push(`Sektör: ${progress.sector}`);
+                    }
+                    if (progress?.province && field !== 'province') {
+                      contextParts.push(`İl: ${progress.province}`);
+                    }
+                    if (progress?.district && field !== 'district') {
+                      contextParts.push(`İlçe: ${progress.district}`);
+                    }
+                    if (progress?.osb_status && field !== 'osb_status') {
+                      const osbLabel = progress.osb_status === 'inside' ? 'OSB İçinde' : 'OSB Dışında';
+                      contextParts.push(`OSB: ${osbLabel}`);
+                    }
+                    
+                    // Yeni seçimi ekle
+                    const fieldLabel = fieldLabels[field || ''] || field;
+                    
+                    // OSB durumu için özel format
+                    let finalValue: string;
+                    if (field === 'osb_status') {
+                      const osbDisplayValue = value === 'inside' ? 'OSB İçinde' : 'OSB Dışında';
+                      finalValue = contextParts.length > 0 
+                        ? `${fieldLabel}: ${osbDisplayValue} [${contextParts.join(', ')}]`
+                        : osbDisplayValue;
+                    } else {
+                      finalValue = contextParts.length > 0 
+                        ? `${fieldLabel}: ${displayValue} [${contextParts.join(', ')}]`
+                        : displayValue;
+                    }
+                    
+                    onInteractiveSubmit(finalValue);
+                  }}
                   disabled={interactiveDisabled}
                 />
               )}
