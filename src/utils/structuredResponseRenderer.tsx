@@ -296,12 +296,28 @@ interface StructuredResponseRendererProps {
 }
 
 export function StructuredResponseRenderer({ response, className }: StructuredResponseRendererProps) {
-  if (response.type === 'markdown' || typeof response.content === 'string') {
-    // Markdown olarak render et - bu component bunu handle etmemeli
+  // Handle string content - render as simple text
+  if (typeof response.content === 'string') {
+    return (
+      <div className={cn('space-y-4', className)}>
+        <p className="text-sm font-medium text-foreground leading-relaxed">
+          {response.content}
+        </p>
+      </div>
+    );
+  }
+
+  // Handle markdown type - should be handled elsewhere
+  if (response.type === 'markdown') {
     return null;
   }
 
   const content = response.content as StructuredContent;
+
+  // Handle case where content is null/undefined
+  if (!content) {
+    return null;
+  }
 
   return (
     <div className={cn('space-y-4', className)}>
