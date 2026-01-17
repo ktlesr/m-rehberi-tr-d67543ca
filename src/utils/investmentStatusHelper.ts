@@ -6,6 +6,8 @@
  * orta_yüksek_teknoloji, and hedef_yatirim flags.
  */
 
+import { investmentThresholdsService, InvestmentThreshold } from '@/services/investmentThresholdsService';
+
 export type InvestmentStatus =
   | "TEKNOLOJI_HAMLESI"
   | "YUKSEK_TEKNOLOJI_ONCELIKLI"
@@ -41,9 +43,39 @@ export interface SectorDataForStatus {
   oncelikli_yatirim: boolean;
 }
 
-// Minimum investment thresholds for priority status
-const MIN_HIGH_TECH_INVESTMENT = 627_000_000; // 627.000.000 TL
-const MIN_MID_HIGH_TECH_INVESTMENT = 1_255_000_000; // 1.255.000.000 TL
+// Default fallback thresholds (will be overridden by DB values)
+const DEFAULT_MIN_HIGH_TECH_INVESTMENT = 627_000_000; // 627.000.000 TL
+const DEFAULT_MIN_MID_HIGH_TECH_INVESTMENT = 1_255_000_000; // 1.255.000.000 TL
+const DEFAULT_MIN_REGION_1_2 = 15_100_000;
+const DEFAULT_MIN_REGION_3_6 = 7_500_000;
+
+// Cached thresholds for sync access
+let cachedThresholds: InvestmentThreshold | null = null;
+
+/**
+ * Initialize thresholds from database (call this early in app lifecycle)
+ */
+export async function initializeThresholds(): Promise<InvestmentThreshold | null> {
+  cachedThresholds = await investmentThresholdsService.getActiveThresholds();
+  return cachedThresholds;
+}
+
+/**
+ * Get current thresholds (sync - uses cached values)
+ */
+export function getCurrentThresholds(): {
+  minHighTech: number;
+  minMidHighTech: number;
+  minRegion12: number;
+  minRegion36: number;
+} {
+  return {
+    minHighTech: cachedThresholds?.min_high_tech_priority ?? DEFAULT_MIN_HIGH_TECH_INVESTMENT,
+    minMidHighTech: cachedThresholds?.min_mid_high_tech_priority ?? DEFAULT_MIN_MID_HIGH_TECH_INVESTMENT,
+    minRegion12: cachedThresholds?.min_investment_region_1_2 ?? DEFAULT_MIN_REGION_1_2,
+    minRegion36: cachedThresholds?.min_investment_region_3_6 ?? DEFAULT_MIN_REGION_3_6,
+  };
+}
 
 /**
  * Determines investment status according to the legal hierarchy (mevzuat hiyerarşisi)
@@ -63,6 +95,9 @@ export function determineInvestmentStatus(
   investmentAmount?: number,
   province?: string,
 ): InvestmentStatusResult {
+  // Get current thresholds (use cached values)
+  const thresholds = getCurrentThresholds();
+  
   // Check if teknoloji_hamlesi is "EVET" (case-insensitive)
   const isTeknolojHamlesi = sectorData.teknoloji_hamlesi?.toUpperCase().startsWith("EVET") || false;
   const isHighTech = sectorData.yuksek_teknoloji || false;
@@ -76,6 +111,9 @@ export function determineInvestmentStatus(
     province?.toLocaleLowerCase("tr-TR").includes("istanbul") ||
     false;
 
+  // Format currency for explanations
+  const formatCurrency = (val: number) => new Intl.NumberFormat('tr-TR').format(val);
+
   // DURUM 1: Teknoloji Hamlesi - Always Priority (override)
   if (isTeknolojHamlesi) {
     return {
@@ -85,13 +123,13 @@ export function determineInvestmentStatus(
       isTechInitiative: true,
       isHighTech,
       isMidHighTech,
-      explanation: `Teknoloji Hamlesi Programı kapsamında yer aldığından, 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Bu kapsamda asgari yatırım tutarı 1. ve 2. Bölgeler için 15.100.000 TL, 3., 4., 5. ve 6. Bölgelerde 7.500.000 TL olmalıdır.`,
+      explanation: `Teknoloji Hamlesi Programı kapsamında yer aldığından, 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Bu kapsamda asgari yatırım tutarı 1. ve 2. Bölgeler için ${formatCurrency(thresholds.minRegion12)} TL, 3., 4., 5. ve 6. Bölgelerde ${formatCurrency(thresholds.minRegion36)} TL olmalıdır.`,
     };
   }
 
   // DURUM 2: Hamle Değil + Yüksek Teknoloji
   if (isHighTech) {
-    const meetsPriorityRequirement = investmentAmount !== undefined && investmentAmount >= MIN_HIGH_TECH_INVESTMENT;
+    const meetsPriorityRequirement = investmentAmount !== undefined && investmentAmount >= thresholds.minHighTech;
 
     return {
       status: meetsPriorityRequirement ? "YUKSEK_TEKNOLOJI_ONCELIKLI" : "YUKSEK_TEKNOLOJI_HEDEF",
@@ -100,19 +138,19 @@ export function determineInvestmentStatus(
       isTechInitiative: false,
       isHighTech: true,
       isMidHighTech: false,
-      minInvestmentRequirement: MIN_HIGH_TECH_INVESTMENT,
+      minInvestmentRequirement: thresholds.minHighTech,
       minTargetInvestmentByRegion: {
-        regions12: 15_100_000, // 1. ve 2. Bölge için
-        regions3456: 7_500_000, // 3., 4., 5., 6. Bölge için
+        regions12: thresholds.minRegion12,
+        regions3456: thresholds.minRegion36,
       },
-      explanation: `Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az 627.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 627.000.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir.`,
+      explanation: `Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az ${formatCurrency(thresholds.minHighTech)} TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az ${formatCurrency(thresholds.minHighTech)} TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir.`,
     };
   }
 
   // DURUM 3: Hamle Değil + Orta-Yüksek Teknoloji
   if (isMidHighTech) {
     const meetsPriorityRequirement =
-      !isIstanbul && investmentAmount !== undefined && investmentAmount >= MIN_MID_HIGH_TECH_INVESTMENT;
+      !isIstanbul && investmentAmount !== undefined && investmentAmount >= thresholds.minMidHighTech;
 
     return {
       status: meetsPriorityRequirement ? "ORTA_YUKSEK_TEKNOLOJI_ONCELIKLI" : "ORTA_YUKSEK_TEKNOLOJI_HEDEF",
@@ -121,13 +159,13 @@ export function determineInvestmentStatus(
       isTechInitiative: false,
       isHighTech: false,
       isMidHighTech: true,
-      minInvestmentRequirement: MIN_MID_HIGH_TECH_INVESTMENT,
+      minInvestmentRequirement: thresholds.minMidHighTech,
       minTargetInvestmentByRegion: {
-        regions12: 15_100_000, // 1. ve 2. Bölge için
-        regions3456: 7_500_000, // 3., 4., 5., 6. Bölge için
+        regions12: thresholds.minRegion12,
+        regions3456: thresholds.minRegion36,
       },
       requiresNonIstanbul: true,
-      explanation: `Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.255.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 1.255.000.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir.`,
+      explanation: `Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az ${formatCurrency(thresholds.minMidHighTech)} TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az ${formatCurrency(thresholds.minMidHighTech)} TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir.`,
     };
   }
 

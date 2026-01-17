@@ -1340,6 +1340,78 @@ export type Database = {
         }
         Relationships: []
       }
+      investment_thresholds: {
+        Row: {
+          completion_expert_fee: number | null
+          created_at: string | null
+          effective_from: string
+          id: string
+          is_active: boolean | null
+          min_financial_leasing: number | null
+          min_high_tech_priority: number
+          min_investment_region_1_2: number
+          min_investment_region_3_6: number
+          min_machinery_support: number | null
+          min_mid_high_tech_priority: number
+          min_priority_cloud: number | null
+          min_priority_high_tech: number | null
+          min_priority_mid_high_tech: number | null
+          min_strategic_green_digital: number | null
+          min_strategic_high_tech: number | null
+          min_strategic_other: number | null
+          notes: string | null
+          revaluation_rate: number | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          completion_expert_fee?: number | null
+          created_at?: string | null
+          effective_from: string
+          id?: string
+          is_active?: boolean | null
+          min_financial_leasing?: number | null
+          min_high_tech_priority: number
+          min_investment_region_1_2: number
+          min_investment_region_3_6: number
+          min_machinery_support?: number | null
+          min_mid_high_tech_priority: number
+          min_priority_cloud?: number | null
+          min_priority_high_tech?: number | null
+          min_priority_mid_high_tech?: number | null
+          min_strategic_green_digital?: number | null
+          min_strategic_high_tech?: number | null
+          min_strategic_other?: number | null
+          notes?: string | null
+          revaluation_rate?: number | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          completion_expert_fee?: number | null
+          created_at?: string | null
+          effective_from?: string
+          id?: string
+          is_active?: boolean | null
+          min_financial_leasing?: number | null
+          min_high_tech_priority?: number
+          min_investment_region_1_2?: number
+          min_investment_region_3_6?: number
+          min_machinery_support?: number | null
+          min_mid_high_tech_priority?: number
+          min_priority_cloud?: number | null
+          min_priority_high_tech?: number | null
+          min_priority_mid_high_tech?: number | null
+          min_strategic_green_digital?: number | null
+          min_strategic_high_tech?: number | null
+          min_strategic_other?: number | null
+          notes?: string | null
+          revaluation_rate?: number | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
       investments_by_province: {
         Row: {
           created_at: string | null

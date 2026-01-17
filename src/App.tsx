@@ -30,6 +30,7 @@ import {
   LazyAdminKnowledgeBase,
   LazyAdminFormBuilder,
   LazyAdminQnaSettings,
+  LazyAdminYdoSettings,
   LazyAdminFormBuilderEdit,
   LazyAdminFormBuilderSubmissions,
   LazyTZYPreRequestList,
@@ -308,6 +309,13 @@ const App = () => {
                       <ProtectedAdminRoute>
                         <Suspense fallback={<PageLoadingFallback />}>
                           <LazyAdminQnaSettings />
+                        </Suspense>
+                      </ProtectedAdminRoute>
+                    } />
+                    <Route path="/admin/settings/ydo" element={
+                      <ProtectedAdminRoute>
+                        <Suspense fallback={<PageLoadingFallback />}>
+                          <LazyAdminYdoSettings />
                         </Suspense>
                       </ProtectedAdminRoute>
                     } />
