@@ -63,7 +63,8 @@ function normalizeMarkdownForResponse(text: string): string {
 
 // Cache schema version - increment this when response format changes
 // v3: Updated with 2026 investment thresholds
-const CACHE_SCHEMA_VERSION = 3;
+// v4: Fixed session auto-create and isIncentiveRelated logic for floating widget
+const CACHE_SCHEMA_VERSION = 4;
 
 // Patterns that indicate broken/malformed markdown in cache
 const BROKEN_CACHE_PATTERNS = [
@@ -1979,21 +1980,22 @@ serve(async (req) => {
       return patterns.some((p) => p.test(lastUserMessage.content.toLowerCase()) || p.test(msgNormalized));
     });
 
+    // KRİTİK FIX: hasNaceCode veya hasTurkishProvince varsa, isSupportQuery'den bağımsız olarak true
+    // Bu sayede NACE kodu algılandığında incentive akışı mutlaka başlar
     const isIncentiveRelated =
-      (lowerContent.includes("teşvik") ||
+      hasNaceCode || // NACE kodu varsa MUTLAKA incentive-related
+      hasTurkishProvince || // İl adı varsa MUTLAKA incentive-related
+      ((lowerContent.includes("teşvik") ||
         lowerContent.includes("tesvik") ||
         lowerContent.includes("hesapla") ||
         lowerContent.includes("yatırım") ||
         lowerContent.includes("yatirim") ||
-        lowerContent.includes("destek") ||
         lowerContent.includes("sektör") ||
         lowerContent.includes("sektor") ||
         lowerContent.includes("üretim") ||
         lowerContent.includes("uretim") ||
-        lowerContent.includes("imalat") ||
-        hasNaceCode ||
-        hasTurkishProvince) && // NACE kodu VEYA il adı varsa incentive-related say
-      !isSupportQuery;
+        lowerContent.includes("imalat")) &&
+       !isSupportQuery); // destek kelimesi kontrol dışı bırakıldı, çünkü çakışma yaratıyordu
 
     console.log("🔍 Incentive Detection:", {
       hasNaceCode,
@@ -2001,6 +2003,34 @@ serve(async (req) => {
       isIncentiveRelated,
       userMessage: lastUserMessage.content.substring(0, 100),
     });
+
+    // ============= SESSION AUTO-CREATE MEKANİZMASI =============
+    // Floating widget'tan gelen session_id, chat_sessions tablosunda olmayabilir
+    // Bu durumda otomatik olarak session oluştur (foreign key hatasını önle)
+    if (sessionId) {
+      const { data: existingSession, error: sessionCheckError } = await supabase
+        .from("chat_sessions")
+        .select("id")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+      if (sessionCheckError) {
+        console.error("Error checking session:", sessionCheckError);
+      }
+
+      if (!existingSession) {
+        // Session yoksa oluştur (anonymous user için)
+        const { error: sessionCreateError } = await supabase
+          .from("chat_sessions")
+          .insert({ id: sessionId, user_id: null });
+
+        if (sessionCreateError) {
+          console.error("Error creating session:", sessionCreateError);
+        } else {
+          console.log("✓ Auto-created chat_session for floating widget:", sessionId);
+        }
+      }
+    }
 
     // ============= SESSION-BASED INCENTIVE QUERY KONTROLÜ =============
     // ÖNCELİKLE: SessionId varsa mevcut aktif incentive_query'yi kontrol et
