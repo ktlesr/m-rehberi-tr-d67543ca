@@ -93,18 +93,22 @@ export interface StructuredAPIResponse {
 /**
  * Nested JSON string'leri recursive olarak parse et
  * Örn: content: "{\"summary\":...}" → content: {summary:...}
+ * NOT: Leaf string değerleri (summary, section.content gibi) parse etme - bunlar text olarak kalmalı
  */
-function deepParseJsonStrings(obj: any): any {
+function deepParseJsonStrings(obj: any, isLeafValue = false): any {
   if (obj === null || obj === undefined) return obj;
   
   if (typeof obj === 'string') {
+    // Leaf değerler (summary, content text gibi) parse edilmemeli
+    if (isLeafValue) return obj;
+    
     const trimmed = obj.trim();
-    // JSON gibi görünüyor mu?
+    // JSON object/array gibi görünüyor mu?
     if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
         (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
       try {
         const parsed = JSON.parse(trimmed);
-        return deepParseJsonStrings(parsed); // Recursive parse
+        return deepParseJsonStrings(parsed, false); // Recursive parse
       } catch {
         return obj; // Parse başarısız, string olarak bırak
       }
@@ -113,13 +117,17 @@ function deepParseJsonStrings(obj: any): any {
   }
   
   if (Array.isArray(obj)) {
-    return obj.map(deepParseJsonStrings);
+    return obj.map(item => deepParseJsonStrings(item, false));
   }
   
   if (typeof obj === 'object') {
     const result: any = {};
+    // Leaf string alanları belirleme: bunlar text içerik olup parse edilmemeli
+    const leafKeys = ['summary', 'content', 'text', 'label', 'value', 'question', 'questionText', 'placeholder'];
+    
     for (const key of Object.keys(obj)) {
-      result[key] = deepParseJsonStrings(obj[key]);
+      const isLeaf = leafKeys.includes(key) && typeof obj[key] === 'string';
+      result[key] = deepParseJsonStrings(obj[key], isLeaf);
     }
     return result;
   }
@@ -227,6 +235,13 @@ interface SectionRendererProps {
 }
 
 function SectionRenderer({ section, index }: SectionRendererProps) {
+  // Helper: Ensure value is string for ReactMarkdown
+  const ensureString = (val: any): string => {
+    if (typeof val === 'string') return val;
+    if (val === null || val === undefined) return '';
+    return JSON.stringify(val);
+  };
+
   // Markdown components for inline rendering
   const inlineMarkdownComponents = {
     p: ({ children }: any) => <span>{children}</span>,
@@ -240,12 +255,15 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
   };
 
   const renderContent = () => {
+    // Ensure section.content is always a string
+    const contentText = ensureString(section.content);
+    
     switch (section.type) {
       case 'paragraph':
         return (
           <div className="text-sm text-muted-foreground leading-relaxed">
             <ReactMarkdown components={inlineMarkdownComponents}>
-              {section.content || ''}
+              {contentText}
             </ReactMarkdown>
           </div>
         );
@@ -313,7 +331,7 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
           <div className="flex gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
             <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              {section.content}
+              {contentText}
             </p>
           </div>
         );
@@ -323,7 +341,7 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
           <div className="flex gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
             <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              {section.content}
+              {contentText}
             </p>
           </div>
         );
@@ -333,7 +351,7 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
           <div className="flex gap-3 p-3 rounded-lg bg-green-500/10 border border-green-500/30">
             <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-green-800 dark:text-green-200">
-              {section.content}
+              {contentText}
             </p>
           </div>
         );
@@ -341,7 +359,7 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
       default:
         return (
           <p className="text-sm text-muted-foreground">
-            {section.content}
+            {contentText}
           </p>
         );
     }
@@ -365,6 +383,13 @@ interface StructuredResponseRendererProps {
 }
 
 export function StructuredResponseRenderer({ response, className }: StructuredResponseRendererProps) {
+  // Helper: Ensure value is string for ReactMarkdown
+  const ensureString = (val: any): string => {
+    if (typeof val === 'string') return val;
+    if (val === null || val === undefined) return '';
+    return JSON.stringify(val);
+  };
+
   // Markdown components for summary rendering
   const summaryMarkdownComponents = {
     p: ({ children }: any) => <span>{children}</span>,
@@ -405,13 +430,16 @@ export function StructuredResponseRenderer({ response, className }: StructuredRe
     return null;
   }
 
+  // Ensure summary is a string
+  const summaryText = ensureString(content.summary);
+
   return (
     <div className={cn('space-y-4', className)}>
       {/* Summary */}
-      {content.summary && (
+      {summaryText && (
         <div className="text-sm font-medium text-foreground leading-relaxed">
           <ReactMarkdown components={summaryMarkdownComponents}>
-            {content.summary}
+            {summaryText}
           </ReactMarkdown>
         </div>
       )}
