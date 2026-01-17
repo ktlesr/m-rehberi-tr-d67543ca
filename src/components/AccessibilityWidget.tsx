@@ -232,7 +232,7 @@ const AccessibilityWidget = () => {
         aria-expanded={isOpen}
         aria-controls="accessibility-panel"
       >
-        <AccessibilityIcon size={28} className="text-primary-foreground" />
+        <AccessibilityIcon size={40} className="text-primary-foreground" />
       </button>
 
       {/* Overlay */}
