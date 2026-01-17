@@ -5,10 +5,36 @@
  * Özellikle bozuk bold tag'leri, satır kırılmaları ve liste formatlarını düzeltir.
  */
 
-/**
- * Satır kırılmalarıyla bölünmüş bold tag'leri birleştirir
- * Örnek: "**Teknoloji Hamlesi\n\nProgramı:**" → "**Teknoloji Hamlesi Programı:**"
- */
+// =================== MULTI-LINE LIST BOLD REPAIR ===================
+// Pattern: "• Text:\n**continuation" → "• **Text:** continuation"
+const fixMultilineListBold = (content: string): string => {
+  let result = content;
+  
+  // Pattern 1: Liste öğesi "Text:\n**devam" → "**Text:** devam"
+  result = result.replace(/^([•\*\-]\s+)([^*\n:]{2,60}):\s*\n+\*\*([^*\n]+)/gm, 
+    (match, listMarker, title, continuation) => {
+      return `${listMarker}**${title.trim()}:** ${continuation.trim()}`;
+    });
+  
+  // Pattern 2: "Başlık:\n**içerik**" → "**Başlık:** içerik"
+  result = result.replace(/^([^•\*\-\n][^:\n]{2,50}):\s*\n+\*\*([^*\n]+)\*\*\s*/gm,
+    (match, title, content) => {
+      return `**${title.trim()}:** ${content.trim()} `;
+    });
+  
+  // Pattern 3: Liste sonrası satır başı "**devam" (orphan opening)
+  result = result.replace(/^([•\*\-]\s+[^\n]+)\n+\*\*([^*:\n]+)(?!\*\*)/gm,
+    (match, listItem, orphanContent) => {
+      // Eğer liste item : ile bitiyorsa, bold'u kaldır
+      if (listItem.trim().endsWith(':')) {
+        return `${listItem}\n${orphanContent.trim()}`;
+      }
+      return match;
+    });
+  
+  return result;
+};
+
 // =================== SPLIT BOLD TAG FIXES ===================
 const fixSplitBoldTags = (content: string): string => {
   let result = content;
@@ -42,14 +68,19 @@ const fixSplitBoldTags = (content: string): string => {
 // =================== CLOSING-ONLY BOLD REPAIR ===================
 // Örnek: "Makine Desteği:** Birim fiyatı" -> "**Makine Desteği:** Birim fiyatı"
 const repairClosingOnlyBold = (content: string): string => {
+  let result = content;
+  
   // Liste öğesi başındaki "* Text:**" veya "- Text:**" kalıbını yakala
-  let result = content.replace(/^([\*\-]\s+)([^*\n:]{2,60}):\*\*/gm, '$1**$2:**');
+  result = result.replace(/^([\*\-•]\s+)([^*\n:]{2,60}):\*\*/gm, '$1**$2:**');
   
   // Satır başındaki "Text:**" (açılış olmadan kapanış var)
   result = result.replace(/^([^*\n:]{2,60}):\*\*\s/gm, '**$1:** ');
   
   // Satır ortasındaki kapanış-only: " Text:**" -> " **Text:**"
   result = result.replace(/\s([^*\n\s:]{2,40}):\*\*\s/g, ' **$1:** ');
+  
+  // Pattern: "Desteği:** " gibi Türkçe karakterli başlıklar
+  result = result.replace(/([A-ZİÜÖŞÇĞa-zıüöşçğ]{2,}):\*\*\s+/g, '**$1:** ');
   
   return result;
 };
@@ -58,29 +89,44 @@ const repairClosingOnlyBold = (content: string): string => {
 // Örnek: "**faiz oranının 20 puanı" (kapanış yok) -> "faiz oranının 20 puanı"
 const cleanOpeningOnlyBold = (content: string): string => {
   const lines = content.split('\n');
-  const fixedLines = lines.map(line => {
-    // Satırda "**" sayısını say
+  const fixedLines: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
     const matches = line.match(/\*\*/g);
-    if (!matches) return line;
     
-    // Tek ** varsa (orphan), kaldır
+    if (!matches) {
+      fixedLines.push(line);
+      continue;
+    }
+    
+    // Tek ** varsa (orphan)
     if (matches.length === 1) {
+      // Bir önceki satıra bak - liste item + : ile mi bitiyor?
+      const prevLine = i > 0 ? fixedLines[fixedLines.length - 1] : '';
+      const prevEndsWithColon = prevLine.trim().endsWith(':');
+      
       // Satır başındaki orphan açılış
       if (line.match(/^\*\*[^*]/)) {
-        return line.replace(/^\*\*\s*/, '');
+        // Önceki satır : ile bitiyorsa, bu devam satırı - ** kaldır
+        if (prevEndsWithColon) {
+          line = line.replace(/^\*\*\s*/, '');
+        } else {
+          line = line.replace(/^\*\*\s*/, '');
+        }
       }
       // Satır ortasındaki orphan (boşluk + **)
-      if (line.match(/\s\*\*[^*]/)) {
-        return line.replace(/\s\*\*([^*])/, ' $1');
+      else if (line.match(/\s\*\*[^*]/)) {
+        line = line.replace(/\s\*\*([^*])/, ' $1');
       }
       // Satır sonundaki orphan kapanış (:** sonrası değilse)
-      if (line.match(/[^:]\*\*$/)) {
-        return line.replace(/\*\*$/, '');
+      else if (line.match(/[^:]\*\*$/)) {
+        line = line.replace(/\*\*$/, '');
       }
     }
     
-    return line;
-  });
+    fixedLines.push(line);
+  }
   
   return fixedLines.join('\n');
 };
@@ -90,40 +136,77 @@ const cleanOpeningOnlyBold = (content: string): string => {
 const fixListContinuation = (content: string): string => {
   const lines = content.split('\n');
   const result: string[] = [];
-  let lastWasListItem = false;
-  let lastWasEmpty = false;
+  let lastListItemIndex = -1;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
     
     // Bu satır list item mi?
-    const isListItem = /^[\*\-]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed);
+    const isListItem = /^[\*\-•]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed);
     // Bu satır heading mi?
     const isHeading = /^#{1,6}\s/.test(trimmed) || /^\*\*[^*]+:\*\*/.test(trimmed);
     // Boş satır mı?
     const isEmpty = trimmed === '';
     
-    if (isEmpty) {
-      lastWasEmpty = true;
+    if (isListItem) {
+      lastListItemIndex = result.length;
       result.push(line);
       continue;
     }
     
-    // Önceki satır list item idi ve şimdi continuation satırı var
-    if (lastWasListItem && lastWasEmpty && !isListItem && !isHeading && trimmed.length > 0) {
-      // Boş satırı kaldır (son eklenen boş satır)
-      if (result.length > 0 && result[result.length - 1].trim() === '') {
-        result.pop();
-      }
-      // Continuation satırını indent et
-      result.push(`  ${trimmed}`);
-    } else {
+    if (isEmpty) {
       result.push(line);
+      continue;
     }
     
-    lastWasListItem = isListItem;
-    lastWasEmpty = isEmpty;
+    // Bu satır bir önceki liste öğesinin devamı olabilir mi?
+    // Koşullar: önceki satır boş, ondan önceki list item, bu satır heading değil
+    if (lastListItemIndex >= 0 && !isHeading && trimmed.length > 0) {
+      // Son boş olmayan satırdan bu yana kaç boş satır var?
+      let emptyCount = 0;
+      for (let j = result.length - 1; j >= 0 && result[j].trim() === ''; j--) {
+        emptyCount++;
+      }
+      
+      // 1 boş satır varsa ve son list item : ile bitiyorsa → continuation
+      if (emptyCount === 1 && lastListItemIndex === result.length - 2) {
+        const lastListItem = result[lastListItemIndex];
+        if (lastListItem.trim().endsWith(':')) {
+          // Boş satırı kaldır
+          result.pop();
+          // Continuation satırını indent et
+          result.push(`  ${trimmed}`);
+          continue;
+        }
+      }
+    }
+    
+    result.push(line);
+  }
+  
+  return result.join('\n');
+};
+
+// =================== CONTEXT-AWARE BOLD REPAIR ===================
+// 2-3 satırlık pencere ile bozuk bold'ları tespit et
+const contextAwareBoldRepair = (content: string): string => {
+  const lines = content.split('\n');
+  const result: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    const prevLine = i > 0 ? result[result.length - 1] : '';
+    
+    // Pattern: Önceki satır "Text:" ile bitiyor, bu satır "**devam" ile başlıyor
+    if (prevLine.trim().match(/[^*]:\s*$/) && line.match(/^\s*\*\*[^*]/)) {
+      // Önceki satıra bold ekle ve bu satırdaki ** kaldır
+      const cleanedPrev = prevLine.replace(/([^*\s]+):\s*$/, '**$1:**');
+      result[result.length - 1] = cleanedPrev;
+      line = line.replace(/^\s*\*\*/, '');
+    }
+    
+    result.push(line);
   }
   
   return result.join('\n');
@@ -188,28 +271,34 @@ export const normalizeMarkdownContent = (content: string): string => {
   
   let result = content;
   
-  // ADIM 1: Bozuk bold tag'leri düzelt (en kritik)
+  // ADIM 1: Çok satırlı liste bold'larını düzelt (en kritik - yeni)
+  result = fixMultilineListBold(result);
+  
+  // ADIM 2: Bozuk split bold tag'leri düzelt
   result = fixSplitBoldTags(result);
   
-  // ADIM 2: Sadece kapanış olan bold'ları onar ("Text:**" -> "**Text:**")
+  // ADIM 3: Context-aware bold onarımı (2 satırlık pencere)
+  result = contextAwareBoldRepair(result);
+  
+  // ADIM 4: Sadece kapanış olan bold'ları onar ("Text:**" -> "**Text:**")
   result = repairClosingOnlyBold(result);
   
-  // ADIM 3: Sadece açılış olan bold'ları temizle ("**text" -> "text")
+  // ADIM 5: Sadece açılış olan bold'ları temizle ("**text" -> "text")
   result = cleanOpeningOnlyBold(result);
   
-  // ADIM 4: Bold başlık formatlarını düzelt
+  // ADIM 6: Bold başlık formatlarını düzelt
   result = fixBoldHeaders(result);
   
-  // ADIM 5: Orphan bold işaretlerini temizle
+  // ADIM 7: Orphan bold işaretlerini temizle
   result = cleanOrphanBoldMarkers(result);
   
-  // ADIM 6: Liste formatlarını normalize et
+  // ADIM 8: Liste formatlarını normalize et
   result = normalizeListFormats(result);
   
-  // ADIM 7: Liste continuation'ları düzelt
+  // ADIM 9: Liste continuation'ları düzelt
   result = fixListContinuation(result);
   
-  // ADIM 8: Boşlukları temizle
+  // ADIM 10: Boşlukları temizle
   result = cleanWhitespace(result);
   
   return result;
@@ -222,25 +311,45 @@ export const normalizeMarkdownContentDebug = (content: string): { result: string
   const changes: string[] = [];
   let result = content;
   
+  const step0 = fixMultilineListBold(result);
+  if (step0 !== result) changes.push('fixMultilineListBold');
+  result = step0;
+  
   const step1 = fixSplitBoldTags(result);
   if (step1 !== result) changes.push('fixSplitBoldTags');
   result = step1;
   
-  const step2 = fixBoldHeaders(result);
-  if (step2 !== result) changes.push('fixBoldHeaders');
+  const step1b = contextAwareBoldRepair(result);
+  if (step1b !== result) changes.push('contextAwareBoldRepair');
+  result = step1b;
+  
+  const step2 = repairClosingOnlyBold(result);
+  if (step2 !== result) changes.push('repairClosingOnlyBold');
   result = step2;
   
-  const step3 = cleanOrphanBoldMarkers(result);
-  if (step3 !== result) changes.push('cleanOrphanBoldMarkers');
+  const step3 = cleanOpeningOnlyBold(result);
+  if (step3 !== result) changes.push('cleanOpeningOnlyBold');
   result = step3;
   
-  const step4 = normalizeListFormats(result);
-  if (step4 !== result) changes.push('normalizeListFormats');
+  const step4 = fixBoldHeaders(result);
+  if (step4 !== result) changes.push('fixBoldHeaders');
   result = step4;
   
-  const step5 = cleanWhitespace(result);
-  if (step5 !== result) changes.push('cleanWhitespace');
+  const step5 = cleanOrphanBoldMarkers(result);
+  if (step5 !== result) changes.push('cleanOrphanBoldMarkers');
   result = step5;
+  
+  const step6 = normalizeListFormats(result);
+  if (step6 !== result) changes.push('normalizeListFormats');
+  result = step6;
+  
+  const step7 = fixListContinuation(result);
+  if (step7 !== result) changes.push('fixListContinuation');
+  result = step7;
+  
+  const step8 = cleanWhitespace(result);
+  if (step8 !== result) changes.push('cleanWhitespace');
+  result = step8;
   
   return { result, changes };
 };

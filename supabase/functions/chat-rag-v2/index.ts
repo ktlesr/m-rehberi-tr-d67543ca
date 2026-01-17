@@ -51,6 +51,44 @@ function hasRealQuestion(text: string): boolean {
   return hasQuestion || hasBusiness;
 }
 
+// =================== COMPARISON QUESTION DETECTION ===================
+function isComparisonQuestion(text: string): boolean {
+  const lowerText = text.toLowerCase();
+  
+  const comparisonPatterns = [
+    /en\s+(bonkör|avantajlı|iyi|kapsamlı|cömert|büyük|yüksek)/i,
+    /hangi\s+teşvik\s+(daha|en)\s+(iyi|avantajlı|kapsamlı)/i,
+    /karşılaştır/i,
+    /fark(lar)?ı\s+nedir/i,
+    /hangisi\s+daha/i,
+    /en\s+fazla\s+(destek|teşvik|avantaj)/i,
+    /en\s+çok\s+(destek|teşvik|fayda)/i,
+    /hangi\s+sistem\s+(daha|en)/i,
+    /tüm\s+teşvik(ler)?/i,
+    /bütün\s+destek(ler)?/i,
+  ];
+  
+  return comparisonPatterns.some(p => p.test(lowerText));
+}
+
+function getComparisonInstruction(): string {
+  return `
+
+KARŞILAŞTIRMA SORUSU TESPİT EDİLDİ.
+
+Bu soru tüm teşvik sistemlerinin karşılaştırılmasını gerektiriyor. Lütfen aşağıdaki TÜM teşvik sistemlerini değerlendir ve karşılaştır:
+
+1. **Genel Teşvik Sistemi**: Tüm yatırımlara uygulanan temel destekler
+2. **Bölgesel Teşvik Sistemi** (1-6. Bölgeler): Yatırım yapılacak ilin bölgesine göre değişen destekler
+3. **Öncelikli Yatırımlar**: Belirli sektörlere sağlanan özel destekler
+4. **Stratejik Yatırımlar**: Yüksek teknolojili ve ithalat bağımlılığını azaltan yatırımlar
+5. **Proje Bazlı Devlet Yardımı** (9903 sayılı Karar): En kapsamlı teşvik paketi
+6. **Teknoloji Hamlesi Programı (HIT-30)**: Yüksek teknolojili üretim yatırımları
+7. **Yerel Kalkınma Hamlesi Programı**: Bölgesel kalkınmaya yönelik yatırımlar
+
+Her bir teşvik sisteminin sunduğu avantajları (vergi indirimi, SGK desteği, faiz desteği, yatırım yeri tahsisi, vb.) karşılaştırmalı olarak açıkla. Hangi durumlarda hangi teşvikin daha avantajlı olduğunu belirt.`;
+}
+
 function isCasualMessage(text: string): boolean {
   const casual = text.toLowerCase().trim();
   
@@ -107,14 +145,15 @@ async function generateEmbedding(text: string): Promise<number[]> {
 async function generateResponse(
   context: string, 
   conversationHistory: Array<{role: string, content: string}>,
-  matchedQuestions: string[] = []
+  matchedQuestions: string[] = [],
+  isComparison: boolean = false
 ): Promise<string> {
   const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableApiKey) {
     throw new Error("LOVABLE_API_KEY is not configured");
   }
 
-  const systemPrompt = `Sen Türkiye'deki yatırım teşvikleri konusunda uzman bir AI Yatırım Destek Uzmanısın. Görevin, kullanıcıların sorularına verilen bilgi bankası içeriğine dayanarak doğru ve yardımcı yanıtlar vermektir.
+  let systemPrompt = `Sen Türkiye'deki yatırım teşvikleri konusunda uzman bir AI Yatırım Destek Uzmanısın. Görevin, kullanıcıların sorularına verilen bilgi bankası içeriğine dayanarak doğru ve yardımcı yanıtlar vermektir.
 
 Kişilik ve davranış:
 - Kullanıcılar selamlaştığında veya "nasılsın?" diye sorduğunda samimi ve dostça karşılık ver
@@ -136,6 +175,12 @@ Kişilik ve davranış:
 8. Eğer yanıt "HIT-30", "HİT-30", "hit30", "hit-30" hakkındaysa, cevabın sonuna aşağıdaki işareti *aynen* ekle:
    Başvuru ve detaylı bilgi için [badge: HIT-30|https://hit30.sanayi.gov.tr]
    Bu işareti metin içinde HTML'e dönüştürmeye çalışma; sadece bu işareti yaz`;
+
+  // Karşılaştırma sorusu için ek talimat ekle
+  if (isComparison) {
+    systemPrompt += getComparisonInstruction();
+    console.log("Comparison question detected - adding comparison instruction");
+  }
 
   // Build messages array
   const messages = [{ role: "system", content: systemPrompt }];
@@ -231,7 +276,7 @@ serve(async (req) => {
       console.log("RAG-V2: Detected casual message, skipping RAG search");
       
       // Generate conversational response without RAG
-      const answer = await generateResponse("", messages, []);
+      const answer = await generateResponse("", messages, [], false);
       
       return new Response(
         JSON.stringify({
@@ -313,7 +358,7 @@ serve(async (req) => {
         if (adaptiveMatches && adaptiveMatches.length > 0) {
           console.log(`Found ${adaptiveMatches.length} matches at threshold ${threshold}`);
           // Use these matches instead
-          return processMatches(adaptiveMatches, messages, question, { adaptiveThreshold: threshold });
+          return processMatches(adaptiveMatches, messages, question, { adaptiveThreshold: threshold }, isComparisonQuestion(question));
         }
       }
       
@@ -334,7 +379,7 @@ serve(async (req) => {
       );
     }
 
-    return processMatches(matches, messages, question, {});
+    return processMatches(matches, messages, question, {}, isComparisonQuestion(question));
   } catch (error) {
     console.error("Error in chat-rag-v2 function:", error);
     console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
@@ -357,7 +402,8 @@ async function processMatches(
   matches: any[], 
   messages: any[], 
   question: string,
-  debugInfo: Record<string, any>
+  debugInfo: Record<string, any>,
+  isComparison: boolean = false
 ) {
     // Extract matched questions including variants
     const matchedQuestions: string[] = [];
@@ -377,12 +423,14 @@ async function processMatches(
       .join("\n\n---\n\n");
 
     console.log("Context built from", matches.length, "variant groups");
+    console.log("Is comparison question:", isComparison);
 
     // Generate AI response with conversation history
     const answer = await generateResponse(
       context,
       messages,
       matchedQuestions.slice(0, 5), // Top 5 similar questions
+      isComparison
     );
 
     // Append badge if relevant
@@ -411,6 +459,7 @@ async function processMatches(
         }, {} as Record<string, number>),
         variantCount: matchedQuestions.length,
         systemVersion: "v2-enhanced",
+        isComparisonQuestion: isComparison,
         ...debugInfo
       },
       }),
