@@ -23,6 +23,42 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
+// ============= MARKDOWN NORMALIZATION FOR API RESPONSES =============
+
+// Normalize markdown before returning to frontend
+function normalizeMarkdownForResponse(text: string): string {
+  if (!text) return '';
+  
+  let result = text;
+  
+  // Fix 1: "*   \n\n**Label:**" → "* **Label:**" (boş satırlı liste item)
+  result = result.replace(/\*\s*\n+\n*\*\*([^*\n:]+):\*\*/g, '* **$1:**');
+  
+  // Fix 2: "* \n\n**Label:" → "* **Label:**" (kapanış eksik)
+  result = result.replace(/\*\s*\n+\n*\*\*([^*\n:]+):/g, '* **$1:**');
+  
+  // Fix 3: Satır başında yalnız "* " ve sonraki satırda "**Label:**"
+  result = result.replace(/^\*\s+\n\n\*\*([^*]+):\*\*/gm, '* **$1:**');
+  
+  // Fix 4: "Kütahya:**" → "**Kütahya:**" (eksik açılış)
+  result = result.replace(/^(\*\s+)([A-ZÇĞİÖŞÜa-zçğıöşü][^*\n:]+?):\*\*/gm, '$1**$2:**');
+  
+  // Fix 5: "**Bilecik:" → "**Bilecik:**" (eksik kapanış sonrası boşluk)
+  result = result.replace(/\*\*([A-ZÇĞİÖŞÜ][^*\n:]+):\s+(?!\*\*)/g, '**$1:** ');
+  
+  // Fix 6: Liste içindeki "*   \n\n" boş pattern'i temizle
+  result = result.replace(/\*\s+\n\n(?=\*\*)/g, '* ');
+  
+  // Fix 7: Çift yıldızlı madde işareti ("*   *") düzelt
+  result = result.replace(/^\*\s+\*\s+/gm, '* ');
+  result = result.replace(/\n\*\s+\*\s+/g, '\n* ');
+  
+  // Fix 8: 3+ ardışık boş satırı 2'ye indir
+  result = result.replace(/\n{3,}/g, '\n\n');
+  
+  return result.trim();
+}
+
 // ============= CACHING AND ANALYTICS HELPER FUNCTIONS =============
 
 // Normalize and hash query for caching
@@ -1390,9 +1426,16 @@ serve(async (req) => {
             response: { source: "cache", length: cachedResponse.response_text?.length || 0 },
           });
 
+          // CRITICAL: Normalize markdown from cache before returning
+          const normalizedCacheText = normalizeMarkdownForResponse(cachedResponse.response_text || '');
+          console.log('📝 Cache response normalized:', { 
+            originalLength: cachedResponse.response_text?.length, 
+            normalizedLength: normalizedCacheText.length 
+          });
+
           return new Response(
             JSON.stringify({
-              text: cachedResponse.response_text,
+              text: normalizedCacheText,
               groundingChunks: cachedResponse.grounding_chunks || [],
               supportCards: cachedResponse.support_cards || [],
               sources: cachedResponse.search_metadata?.sources || [],
@@ -2709,8 +2752,15 @@ async function enrichAndReturn(
 
   console.log("=== Enrichment Complete ===");
 
+  // CRITICAL: Normalize markdown before returning to frontend
+  const normalizedText = normalizeMarkdownForResponse(textOut);
+  console.log('📝 Response text normalized:', { 
+    originalLength: textOut.length, 
+    normalizedLength: normalizedText.length 
+  });
+
   const result = {
-    text: textOut,
+    text: normalizedText,
     groundingChunks: enrichedChunks,
     ...extraFlags,
   };
