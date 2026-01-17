@@ -88,6 +88,7 @@ const bottomNavigation = [
       { name: 'Teşvik Hesaplama Ayarları', href: '/admin/settings/incentive-calculation' },
       { name: 'Menü Görünürlük Ayarları', href: '/admin/settings/menu-visibility' },
       { name: 'Soru-Cevap Ayarları', href: '/admin/settings/qna' },
+      { name: 'YDO Yönetimi', href: '/admin/settings/ydo' },
     ]
   },
   { name: 'Profilim', href: '/profile', icon: User },
