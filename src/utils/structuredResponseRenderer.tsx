@@ -182,15 +182,22 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
         );
 
       case 'list':
-        const listItems = section.items as string[];
         return (
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm">
-            {listItems?.map((item, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary/60 mt-2 flex-shrink-0" />
-                <span className="text-foreground">{item}</span>
-              </li>
-            ))}
+            {section.items?.map((item, i) => {
+              // Handle both string[] and KeyValueItem[] formats
+              const displayText = typeof item === 'string' 
+                ? item 
+                : (item as KeyValueItem).label 
+                  ? `${(item as KeyValueItem).label}: ${(item as KeyValueItem).value}`
+                  : String(item);
+              return (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60 mt-2 flex-shrink-0" />
+                  <span className="text-foreground">{displayText}</span>
+                </li>
+              );
+            })}
           </ul>
         );
 
