@@ -243,11 +243,14 @@ function MessageBubble({ message, showSources }: { message: Message; showSources
       .trim();
   };
 
-  const rawContent = showSources ? message.content : cleanCitations(message.content);
+  const baseContent = message.content;
 
-  // Yapılandırılmış (structured) yanıt olup olmadığını kontrol et
-  const structuredResponse = !isUser ? tryParseStructuredContent(rawContent) : null;
-  const isStructured = structuredResponse?.type === 'structured';
+  // Yapılandırılmış (structured) yanıt olup olmadığını kontrol et (citations temizlemeden)
+  const structuredResponse = !isUser ? tryParseStructuredContent(baseContent) : null;
+  const isStructured = structuredResponse?.type === "structured";
+
+  // Markdown ise kaynak gösterimini ayara göre temizle
+  const rawContent = isStructured ? baseContent : showSources ? baseContent : cleanCitations(baseContent);
 
   // Takip sorusunu ayır (sadece markdown asistan mesajları için)
   const { mainContent, followUpQuestion } = isUser || isStructured
@@ -373,12 +376,12 @@ function MessageBubble({ message, showSources }: { message: Message; showSources
 
 export function AIChatbot() {
   const location = useLocation();
+  const shouldHide = location.pathname === "/chat" || location.pathname.startsWith("/admin");
+  if (shouldHide) return null;
+  return <AIChatbotInner />;
+}
 
-  // Hide chatbot on the /chat page and admin routes
-  if (location.pathname === "/chat" || location.pathname.startsWith("/admin")) {
-    return null;
-  }
-
+function AIChatbotInner() {
   const [isOpen, setIsOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => generateUUID());
@@ -683,7 +686,47 @@ export function AIChatbot() {
         return;
       }
 
-      if (!data || !data.text || data.text.trim().length === 0) {
+      const fullResponseText = typeof data?.text === "string" ? data.text : "";
+
+      // Structured response mı? (chat sayfasındaki mantıkla aynı)
+      let isStructuredResponse =
+        data?.type === "structured" ||
+        (typeof data?.content === "object" &&
+          data?.content !== null &&
+          Array.isArray((data as any).content?.sections));
+
+      // data.text bir JSON string dönebiliyor; onu da dene
+      if (!isStructuredResponse && fullResponseText) {
+        const parsed = tryParseStructuredContent(fullResponseText);
+        if (parsed?.type === "structured") {
+          isStructuredResponse = true;
+        }
+      }
+
+      // Structured responses: streaming yok, direkt render
+      if (isStructuredResponse) {
+        const assistantId = generateUUID();
+        const structuredPayload = fullResponseText?.trim() ? fullResponseText : JSON.stringify(data);
+
+        const assistantMsg: Message = {
+          id: assistantId,
+          role: "assistant",
+          content: structuredPayload,
+          supportCards: data?.supportCards || [],
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+        await saveMessage(assistantMsg, currentSessionId);
+
+        trackAssistantMessage("floating_widget");
+        loadChatSessions();
+
+        setIsStreaming(false);
+        return;
+      }
+
+      // Markdown response boşsa fallback
+      if (!fullResponseText || fullResponseText.trim().length === 0) {
         console.error("Invalid or empty response data:", data);
 
         let fallbackMessage = "Yanıt alınamadı. Lütfen tekrar deneyin.";
@@ -732,8 +775,7 @@ export function AIChatbot() {
 
       // Simulate typing effect
       setIsStreaming(true);
-      const fullResponse = data.text;
-      const words = fullResponse.split(" ");
+      const words = fullResponseText.split(" ");
       let currentText = "";
 
       // Add empty message first (preserve support cards while streaming)
@@ -757,7 +799,7 @@ export function AIChatbot() {
       const finalAssistantMsg: Message = {
         id: assistantId,
         role: "assistant",
-        content: fullResponse,
+        content: fullResponseText,
         supportCards: data.supportCards || [],
       };
       setMessages((prev) => prev.map((msg) => (msg.id === assistantId ? finalAssistantMsg : msg)));
