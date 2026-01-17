@@ -1781,6 +1781,49 @@ serve(async (req) => {
           supportCards: supportCards.length,
         });
 
+        // ============= STRUCTURED RESPONSE BYPASS =============
+        // api.tesviksor.com structured JSON döndürürse, doğrudan ilet
+        if (vertexResponse?.type === "structured" || 
+            (vertexResponse?.content && typeof vertexResponse.content === "object" && vertexResponse.content.sections)) {
+          console.log("✅ [TeşvikSor API] Structured response detected, passing through directly");
+          
+          const totalTime = Date.now() - startTime;
+          
+          // Track analytics for structured response
+          trackSearchAnalytics(supabase, {
+            sessionId,
+            query: lastUserMessage.content,
+            queryHash,
+            timings: { total: totalTime },
+            results: {
+              qvMatchCount: 0,
+              vertexHasResults: true,
+              supportMatchCount: supportCards.length,
+            },
+            cache: { hit: false },
+            queryAnalysis: {
+              expanded: false,
+              expandedCount: 0,
+              keywordsCount: 0,
+            },
+            response: { source: "tesviksor_api_structured", length: JSON.stringify(vertexResponse).length },
+          });
+          
+          return new Response(
+            JSON.stringify({
+              ...vertexResponse,
+              supportCards: supportCards || [],
+              hybridSearch: {
+                structuredPassthrough: true,
+                supportPrograms: supportCards?.length || 0,
+                processingTime: totalTime,
+              },
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        // ============= STRUCTURED BYPASS END =============
+
         // ============= STEP 3: INTELLIGENT RERANKING =============
         console.log("🎯 [Enhanced Hybrid] Step 3: Reranking results...");
         const rerankedResult = rerankResults(
