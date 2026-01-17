@@ -74,6 +74,7 @@ import TZYSupplierApplicationError from "./pages/TZYSupplierApplicationError";
 // Lazy load heavy components
 const AccessibilityWidget = lazy(() => import("@/components/AccessibilityWidget"));
 const ReadingGuide = lazy(() => import("@/components/ReadingGuide"));
+const ReadingMask = lazy(() => import("@/components/ReadingMask"));
 const AIChatbot = lazy(() => import("@/components/AIChatbot").then(m => ({ default: m.AIChatbot })));
 
 const queryClient = new QueryClient({
@@ -102,6 +103,7 @@ const App = () => {
                   <Suspense fallback={null}>
                     <AccessibilityWidget />
                     <ReadingGuide />
+                    <ReadingMask />
                     <AIChatbot />
                   </Suspense>
                   <Routes>
