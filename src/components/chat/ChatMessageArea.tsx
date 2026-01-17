@@ -203,6 +203,7 @@ export function ChatMessageArea({
                 supportCards={isLoading && index === messages.length - 1 ? undefined : message.supportCards}
                 structuredResponse={message.structuredResponse}
                 onInteractiveSubmit={onInteractiveSubmit}
+                interactiveDisabled={isLoading || index !== messages.length - 1}
                 onRegenerate={
                   message.role === "assistant" && index === messages.length - 1
                     ? () => onRegenerateMessage?.(index)
