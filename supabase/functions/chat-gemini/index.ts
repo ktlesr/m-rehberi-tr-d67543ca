@@ -64,7 +64,8 @@ function normalizeMarkdownForResponse(text: string): string {
 // Cache schema version - increment this when response format changes
 // v3: Updated with 2026 investment thresholds
 // v4: Fixed session auto-create and isIncentiveRelated logic for floating widget
-const CACHE_SCHEMA_VERSION = 4;
+// v5: Added verified region info from DB, structured response for incentive flow
+const CACHE_SCHEMA_VERSION = 5;
 
 // Patterns that indicate broken/malformed markdown in cache
 const BROKEN_CACHE_PATTERNS = [
@@ -2227,6 +2228,30 @@ serve(async (req) => {
       .maybeSingle();
     
     console.log("📊 Active year thresholds loaded:", activeYearThresholds?.year, activeYearThresholds ? "✓" : "❌");
+
+    // ============= BÖLGE BİLGİSİNİ VERİTABANINDAN DOĞRULA =============
+    // AI'nın bölge numarasını tahmin etmesini engellemek için DB'den kesin bilgi çek
+    let verifiedRegionInfo = "";
+    if (incentiveQuery?.province) {
+      const { data: regionData, error: regionError } = await supabase
+        .from("province_region_map")
+        .select("region_number")
+        .ilike("province_name", incentiveQuery.province)
+        .maybeSingle();
+      
+      if (regionError) {
+        console.error("Error fetching region from DB:", regionError);
+      } else if (regionData) {
+        verifiedRegionInfo = `
+⚠️ VERİTABANI DOĞRULAMASI (KESİN BİLGİ - DEĞİŞTİRİLEMEZ):
+${incentiveQuery.province} = ${regionData.region_number}. Bölge
+Bu bilgi veritabanından alınmıştır. ASLA farklı bir bölge numarası yazma!
+`;
+        console.log(`✓ Verified region from DB: ${incentiveQuery.province} = ${regionData.region_number}. Bölge`);
+      } else {
+        console.log(`⚠️ No region data found for province: ${incentiveQuery.province}`);
+      }
+    }
     
     // Helper function for currency formatting in system prompt
     const formatCurrency = (val: number) => new Intl.NumberFormat('tr-TR').format(val);
@@ -2257,6 +2282,8 @@ serve(async (req) => {
 **DURUM:** Şu an yatırımcıdan eksik bilgileri topluyorsun.
 **MEVCUT İLERLEME:** ${getSlotFillingStatus(incentiveQuery)}
 
+${verifiedRegionInfo}
+
 **İŞLEM AKIŞI (ADIM ADIM):**
 
 ### 🔷 ADIM 1: SEKTÖR VE KAPSAM ANALİZİ
@@ -2270,7 +2297,7 @@ Sektör analizini sector_search.txt dosyasından yap ve Teşvik Statüsünü bel
 ### 🔷 ADIM 2: LOKASYON BELİRLEME
 ${
   incentiveQuery.province
-    ? `✓ İl alındı: ${incentiveQuery.province}`
+    ? `✓ İl alındı: ${incentiveQuery.province}${verifiedRegionInfo ? '' : ' (Bölge numarasını il_bolge.jsonl dosyasından MUTLAKA kontrol et!)'}`
     : incentiveQuery.sector
       ? `○ İl bekleniyor - Kullanıcıya: "Bu yatırımı hangi ilde yapmayı planlıyorsunuz?" sor.`
       : `○ İl henüz sorulacak (Önce sektör)`
@@ -2917,6 +2944,8 @@ BAŞLA! 🔍
           enhancedViaFeedbackLoop: true,
           supportCards,
           responseValidated: isCleanResponse(textOut),
+          incentiveQuery: incentiveQuery,
+          verifiedRegionInfo: verifiedRegionInfo,
         });
         return finalWithFeedback;
       }
@@ -2969,6 +2998,8 @@ BAŞLA! 🔍
     return await enrichAndReturn(finalText, groundingChunks, storeName, GEMINI_API_KEY || "", {
       supportCards,
       responseValidated: responseIsClean,
+      incentiveQuery: incentiveQuery,
+      verifiedRegionInfo: verifiedRegionInfo,
     });
   } catch (error) {
     console.error("❌ Error in chat-gemini:", error);
@@ -3061,6 +3092,86 @@ async function enrichAndReturn(
     normalizedLength: normalizedText.length 
   });
 
+  // ============= STRUCTURED RESPONSE FOR INCENTIVE FLOW =============
+  // Check if incentiveQuery is provided and in collecting status
+  const incentiveQuery = extraFlags.incentiveQuery;
+  if (incentiveQuery && incentiveQuery.status === 'collecting') {
+    // Determine which field is next to fill
+    let nextField = '';
+    let questionText = '';
+    let inputType = 'search';
+    let options: any[] | undefined = undefined;
+
+    if (!incentiveQuery.sector) {
+      nextField = 'sector';
+      questionText = 'Hangi sektörde yatırım yapmayı planlıyorsunuz? (NACE kodu veya ürün/faaliyet adı girebilirsiniz)';
+    } else if (!incentiveQuery.province) {
+      nextField = 'province';
+      questionText = 'Bu yatırımı hangi ilde gerçekleştireceksiniz?';
+    } else if (!incentiveQuery.district) {
+      nextField = 'district';
+      questionText = `${incentiveQuery.province} ilinde hangi ilçede yatırım yapacaksınız?`;
+    } else if (!incentiveQuery.osb_status) {
+      nextField = 'osb_status';
+      questionText = 'Yatırımınız Organize Sanayi Bölgesi (OSB) içinde mi olacak?';
+      inputType = 'radio';
+      options = [
+        { value: 'osb_icinde', label: 'OSB İçinde' },
+        { value: 'osb_disinda', label: 'OSB Dışında' }
+      ];
+    }
+
+    // Build progress object
+    const filledSlots = [
+      incentiveQuery.sector,
+      incentiveQuery.province,
+      incentiveQuery.district,
+      incentiveQuery.osb_status
+    ].filter(Boolean).length;
+
+    const structuredResponse = {
+      type: "structured",
+      mode: "interactive",
+      content: {
+        summary: normalizedText,
+        sections: []
+      },
+      progress: {
+        sector: incentiveQuery.sector || null,
+        sector_nace: incentiveQuery.sector_nace || null,
+        province: incentiveQuery.province || null,
+        district: incentiveQuery.district || null,
+        osb_status: incentiveQuery.osb_status || null,
+        currentStep: filledSlots + 1,
+        totalSteps: 5,
+        completed: false
+      },
+      interaction: nextField ? {
+        field: nextField,
+        questionText: questionText,
+        inputType: inputType,
+        options: options
+      } : undefined,
+      groundingChunks: enrichedChunks,
+      // Include verified region info if available
+      verifiedRegionInfo: extraFlags.verifiedRegionInfo || null,
+      // Spread any other flags (supportCards, etc.)
+      supportCards: extraFlags.supportCards || [],
+      responseValidated: extraFlags.responseValidated || false
+    };
+
+    console.log('📊 Returning STRUCTURED response for incentive flow:', {
+      currentStep: filledSlots + 1,
+      nextField,
+      hasVerifiedRegion: !!extraFlags.verifiedRegionInfo
+    });
+
+    return new Response(JSON.stringify(structuredResponse), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Standard response (non-incentive or complete incentive)
   const result = {
     text: normalizedText,
     groundingChunks: enrichedChunks,
