@@ -942,7 +942,7 @@ function AIChatbotInner() {
       {/* Chat Modal */}
       {isOpen && (
         <Card
-          className={`fixed ${isMobile ? "top-16 left-0 right-0 bottom-0" : "bottom-6 right-6 w-[480px] max-h-[90vh] h-[768px]"} shadow-2xl z-[100] flex ${showHistory ? "flex-row" : "flex-col"} border-2 animate-in slide-in-from-bottom-5 duration-300`}
+          className={`fixed ${isMobile ? "top-16 left-0 right-0 bottom-0" : "top-4 bottom-4 right-6 w-[480px]"} shadow-2xl z-[100] flex ${showHistory ? "flex-row" : "flex-col"} border-2 animate-in slide-in-from-bottom-5 duration-300`}
         >
           {/* Chat History Sidebar */}
           {showHistory && (
