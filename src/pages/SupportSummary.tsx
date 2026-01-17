@@ -9,12 +9,12 @@ import StandardHero from '@/components/StandardHero';
 import SupportSummaryCard from '@/components/SupportSummaryCard';
 import { SupportProgram } from '@/types/support';
 import { SupportProgramSummary } from '@/types/supportSummary';
+import SupportSummaryPDF from '@/components/SupportSummaryPDF';
 
-// Lazy load PDF components
+// Lazy load only PDFDownloadLink
 const PDFDownloadLink = lazy(() => 
   import('@react-pdf/renderer').then(module => ({ default: module.PDFDownloadLink }))
 );
-const SupportSummaryPDF = lazy(() => import('@/components/SupportSummaryPDF'));
 
 const SupportSummary = () => {
   const { id } = useParams<{ id: string }>();
