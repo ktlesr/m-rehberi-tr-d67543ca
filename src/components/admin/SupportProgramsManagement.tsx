@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { SupportProgram } from '@/types/support';
 import { uploadProgramFiles, deleteFileFromStorage } from '@/utils/fileUpload';
+import { generateAndUploadSummaryPDF } from '@/utils/summaryPdfGenerator';
 import { Target } from 'lucide-react';
 
 type AdminView = 'list' | 'create' | 'edit' | 'clone';
@@ -122,6 +123,24 @@ export const SupportProgramsManagement = ({ triggerCreate }: SupportProgramsMana
               console.error('Error saving summary:', summaryError);
             } else {
               console.log('Summary data updated successfully');
+              
+              // Generate and upload PDF
+              const pdfUrl = await generateAndUploadSummaryPDF(
+                data.id,
+                data.title,
+                data.institutionName || null,
+                data.institutionLogo || null,
+                data.summaryData
+              );
+              
+              // Update summary with PDF URL
+              if (pdfUrl) {
+                await supabase
+                  .from('support_program_summaries')
+                  .update({ summary_pdf_url: pdfUrl })
+                  .eq('support_program_id', data.id);
+                console.log('Summary PDF URL saved:', pdfUrl);
+              }
             }
           } catch (summaryError) {
             console.error('Error saving summary data:', summaryError);
@@ -189,6 +208,24 @@ export const SupportProgramsManagement = ({ triggerCreate }: SupportProgramsMana
               console.error('Error saving summary:', summaryError);
             } else {
               console.log('Summary data saved successfully');
+              
+              // Generate and upload PDF for new programs too
+              const pdfUrl = await generateAndUploadSummaryPDF(
+                programData.id,
+                data.title,
+                data.institutionName || null,
+                data.institutionLogo || null,
+                data.summaryData
+              );
+              
+              // Update summary with PDF URL
+              if (pdfUrl) {
+                await supabase
+                  .from('support_program_summaries')
+                  .update({ summary_pdf_url: pdfUrl })
+                  .eq('support_program_id', programData.id);
+                console.log('Summary PDF URL saved:', pdfUrl);
+              }
             }
           } catch (summaryError) {
             console.error('Error saving summary data:', summaryError);

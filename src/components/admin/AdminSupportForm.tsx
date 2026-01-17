@@ -273,6 +273,9 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
       return;
     }
 
+    // Get the selected institution details for PDF generation
+    const selectedInstitution = institutions.find(i => i.id === parseInt(formData.institution_id));
+    
     const submitData = {
       ...formData,
       institution_id: parseInt(formData.institution_id),
@@ -281,6 +284,8 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
       id: editingProgram?.id, // Include ID for updates
       existingFiles: existingFiles, // Include existing files for reference
       summaryData: summaryData, // Include summary data for saving
+      institutionName: selectedInstitution?.name || null, // For PDF generation
+      institutionLogo: (selectedInstitution as any)?.logo_url || null, // For PDF generation
     };
 
     onSubmit(submitData);

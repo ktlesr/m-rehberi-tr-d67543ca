@@ -19,6 +19,15 @@ export interface Tag {
   created_at: string;
 }
 
+export interface SupportProgramSummary {
+  who_can_apply: string | null;
+  supported_areas: string | null;
+  application_period: string | null;
+  application_location: string | null;
+  application_url: string | null;
+  summary_pdf_url: string | null;
+}
+
 export interface SupportProgram {
   id: string;
   institution_id: number;
@@ -32,6 +41,7 @@ export interface SupportProgram {
   institution?: Institution;
   tags: Tag[];
   files: FileAttachment[];
+  summary?: SupportProgramSummary | null;
 }
 
 export interface SupportProgramTag {
