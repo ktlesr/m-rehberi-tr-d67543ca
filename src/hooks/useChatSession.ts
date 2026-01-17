@@ -2,6 +2,12 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateUUID } from "@/lib/uuid";
 import { User } from "@supabase/supabase-js";
+import type { 
+  StructuredAPIResponse, 
+  InteractionConfig, 
+  ProgressConfig,
+  FollowUpConfig 
+} from "@/utils/structuredResponseRenderer";
 
 const LOCAL_STORAGE_KEY = "tesviksor_chat_sessions";
 
@@ -41,6 +47,11 @@ export interface ChatMessage {
     enrichedFileName?: string | null;
   }>;
   supportCards?: SupportProgramCardData[];
+  // Structured response fields
+  structuredResponse?: StructuredAPIResponse;
+  interaction?: InteractionConfig;
+  progress?: ProgressConfig;
+  followUp?: FollowUpConfig;
 }
 
 export interface ChatSession {

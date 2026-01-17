@@ -7,6 +7,14 @@ import { SupportProgramCard, SupportProgramCardData } from "./SupportProgramCard
 import { FollowUpQuestionCard } from "./FollowUpQuestionCard";
 import { extractFollowUpQuestion } from "@/utils/followUpQuestionParser";
 import { normalizeMarkdownContent } from "@/utils/markdownNormalizer";
+import { 
+  tryParseStructuredContent, 
+  StructuredResponseRenderer,
+  FollowUpRenderer,
+  ProgressRenderer,
+  type StructuredAPIResponse 
+} from "@/utils/structuredResponseRenderer";
+import { InteractiveInput } from "./InteractiveInput";
 
 // Markdown içeriğini düzgün formatlama için ön işleme
 const preprocessMarkdown = (content: string): string => {
@@ -122,6 +130,9 @@ interface MessageBubbleProps {
     index?: number;
   }>;
   supportCards?: SupportProgramCardData[];
+  // Structured response props
+  structuredResponse?: StructuredAPIResponse;
+  onInteractiveSubmit?: (value: string) => void;
 }
 
 export function MessageBubble({
@@ -132,9 +143,14 @@ export function MessageBubble({
   children,
   sources,
   supportCards,
+  structuredResponse,
+  onInteractiveSubmit,
 }: MessageBubbleProps) {
   const isUser = role === "user";
-
+  
+  // Structured response'u parse etmeyi dene (prop olarak gelmemişse content'ten)
+  const parsedStructured = structuredResponse || (!isUser ? tryParseStructuredContent(content) : null);
+  const isStructuredMode = parsedStructured?.type === 'structured';
   // Takip sorusunu ve destek programı bildirimini ana içerikten ayır
   const { mainContent, followUpQuestion, supportCardsNotice } = isUser
     ? { mainContent: content, followUpQuestion: null, supportCardsNotice: null }
@@ -324,7 +340,32 @@ export function MessageBubble({
           {/* Metin */}
           {isUser ? (
             <p className="whitespace-pre-wrap text-sm break-words">{content}</p>
+          ) : isStructuredMode && parsedStructured ? (
+            // Structured JSON Response - Markdown parsing sorunu yok
+            <div className="space-y-4">
+              {/* Progress Badge (varsa) */}
+              {parsedStructured.progress && (
+                <ProgressRenderer progress={parsedStructured.progress} />
+              )}
+              
+              {/* Structured Content */}
+              <StructuredResponseRenderer response={parsedStructured} />
+              
+              {/* Interactive Input (varsa) */}
+              {parsedStructured.interaction && onInteractiveSubmit && (
+                <InteractiveInput 
+                  config={parsedStructured.interaction} 
+                  onSubmit={onInteractiveSubmit}
+                />
+              )}
+              
+              {/* Follow-up (varsa ve interaction yoksa) */}
+              {parsedStructured.followUp && !parsedStructured.interaction && (
+                <FollowUpRenderer followUp={parsedStructured.followUp} />
+              )}
+            </div>
           ) : (
+            // Fallback: Markdown rendering
             <div className="prose prose-sm max-w-none dark:prose-invert break-words">
               {renderContentWithCitations()}
             </div>
@@ -333,8 +374,8 @@ export function MessageBubble({
           {/* Ek içerik (progress, ekstra info vs.) */}
           {children}
 
-          {/* Takip Sorusu Kartı (soru veya bildirim varsa göster) */}
-          {!isUser && (followUpQuestion || supportCardsNotice) && (
+          {/* Takip Sorusu Kartı - sadece markdown modunda göster */}
+          {!isUser && !isStructuredMode && (followUpQuestion || supportCardsNotice) && (
             <FollowUpQuestionCard 
               question={followUpQuestion}
               supportCardsNotice={supportCardsNotice}
