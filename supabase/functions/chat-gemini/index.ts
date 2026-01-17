@@ -65,7 +65,8 @@ function normalizeMarkdownForResponse(text: string): string {
 // v3: Updated with 2026 investment thresholds
 // v4: Fixed session auto-create and isIncentiveRelated logic for floating widget
 // v5: Added verified region info from DB, structured response for incentive flow
-const CACHE_SCHEMA_VERSION = 5;
+// v6: Fixed NACE pattern recognition (4-digit codes), province slot validation, self-healing
+const CACHE_SCHEMA_VERSION = 6;
 
 // Patterns that indicate broken/malformed markdown in cache
 const BROKEN_CACHE_PATTERNS = [
@@ -442,17 +443,33 @@ function detectNewSectorQuery(userMessage: string, existingQuery: any): boolean 
 
   const message = userMessage.toLowerCase();
 
-  // NACE code pattern: XX.XX or XX.XX.XX
-  const nacePattern = /\b(\d{2}(?:\.\d{2}){1,2})\b/g;
-  const messageNaceCodes = [...message.matchAll(nacePattern)].map((m) => m[1]);
+  // NACE code patterns: XX.XX, XX.XX.XX, or XXXX (4-digit flat format like 1330, 1420)
+  const nacePatternDotted = /\b(\d{2}(?:\.\d{2}){1,2})\b/g;
+  const nacePatternFlat = /\b(\d{4})\b/g;
+  
+  // Collect all NACE codes from message (both formats)
+  const dottedCodes = [...message.matchAll(nacePatternDotted)].map((m) => m[1]);
+  const flatCodes = [...message.matchAll(nacePatternFlat)].map((m) => m[1]);
+  const messageNaceCodes = [...dottedCodes, ...flatCodes];
 
   // If message contains a NACE code, check if it's different from existing
   if (messageNaceCodes.length > 0) {
-    const existingNaceMatch = existingQuery.sector.match(nacePattern);
-    const existingNace = existingNaceMatch ? existingNaceMatch[0] : null;
+    // Normalize existing sector's NACE code for comparison
+    const existingDottedMatch = existingQuery.sector.match(nacePatternDotted);
+    const existingFlatMatch = existingQuery.sector.match(nacePatternFlat);
+    const existingNace = existingDottedMatch ? existingDottedMatch[0] : 
+                         (existingFlatMatch ? existingFlatMatch[0] : null);
+    
+    // Normalize both to comparable format (remove dots for comparison)
+    const normalizeNace = (code: string) => code.replace(/\./g, "");
+    const existingNormalized = existingNace ? normalizeNace(existingNace) : null;
 
     // If any NACE code in message is different from existing, it's a new topic
-    const hasNewNace = messageNaceCodes.some((code) => code !== existingNace);
+    const hasNewNace = messageNaceCodes.some((code) => {
+      const normalized = normalizeNace(code);
+      return normalized !== existingNormalized;
+    });
+    
     if (hasNewNace) {
       console.log(`🔄 New NACE code detected: ${messageNaceCodes.join(", ")} (existing: ${existingNace})`);
       return true;
@@ -1010,6 +1027,81 @@ const cleanDistrict = (text: string): string => {
   const cleaned = text.trim();
   if (!cleaned) return text.trim();
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+};
+
+// ============= İL EŞLEŞTIRME VE DOĞRULAMA FONKSİYONU =============
+// Kullanıcı girdisini TURKISH_PROVINCES listesiyle eşleştirir
+// NACE kodları veya sayısal girdileri reddeder
+const matchProvince = (text: string): string | null => {
+  if (!text || text.trim().length === 0) return null;
+  
+  const normalized = text
+    .toLowerCase()
+    .trim()
+    // Türkçe karakterleri normalleştir
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    // Ek'leri temizle
+    .replace(/'?da$/i, "")
+    .replace(/'?de$/i, "")
+    .replace(/'?ta$/i, "")
+    .replace(/'?te$/i, "")
+    .replace(/\s+ili$/i, "")
+    .replace(/\s+ilinde$/i, "")
+    .trim();
+  
+  // NACE kodu gibi görünüyorsa kesinlikle il değil
+  if (/^\d{2,4}$/.test(normalized) || /^\d{2}\.\d{2}/.test(normalized)) {
+    console.log("⚠️ matchProvince: Input looks like NACE code, rejecting:", text);
+    return null;
+  }
+  
+  // Sayı içeriyorsa muhtemelen il değil (örn: "1330 destekleniyor mu")
+  if (/\d/.test(text)) {
+    console.log("⚠️ matchProvince: Input contains numbers, rejecting:", text);
+    return null;
+  }
+  
+  // Çok uzun girdiler il olamaz (genellikle tam cümle)
+  if (text.trim().split(/\s+/).length > 4) {
+    console.log("⚠️ matchProvince: Input too long to be a province name, rejecting:", text);
+    return null;
+  }
+  
+  // TURKISH_PROVINCES ile eşleştir
+  for (const province of TURKISH_PROVINCES) {
+    const normalizedProvince = province
+      .toLowerCase()
+      .replace(/ı/g, "i")
+      .replace(/ğ/g, "g")
+      .replace(/ü/g, "u")
+      .replace(/ş/g, "s")
+      .replace(/ö/g, "o")
+      .replace(/ç/g, "c");
+    
+    // Tam eşleşme veya normalize edilmiş hallerle eşleşme
+    if (normalized === normalizedProvince) {
+      console.log("✓ matchProvince: Exact match", text, "->", province);
+      return province;
+    }
+    
+    // Kısmi eşleşme (ama sadece kelime başında)
+    if (normalized.startsWith(normalizedProvince) || normalizedProvince.startsWith(normalized)) {
+      // En az 3 karakter eşleşmeli
+      const matchLen = Math.min(normalized.length, normalizedProvince.length);
+      if (matchLen >= 3) {
+        console.log("✓ matchProvince: Partial match", text, "->", province);
+        return province;
+      }
+    }
+  }
+  
+  console.log("⚠️ matchProvince: No match found for:", text);
+  return null;
 };
 
 const parseOsbStatus = (text: string): "İÇİ" | "DIŞI" | null => {
@@ -2073,6 +2165,22 @@ serve(async (req) => {
 
       if (existingActiveQuery) {
         incentiveQuery = existingActiveQuery;
+        
+        // ============= SELF-HEAL: Bozuk province değerlerini temizle =============
+        // Eğer province geçersiz bir değer içeriyorsa (NACE kodu gibi) otomatik temizle
+        if (incentiveQuery.province && !TURKISH_PROVINCES.includes(incentiveQuery.province)) {
+          console.log("⚠️ Self-healing: Invalid province detected, clearing:", incentiveQuery.province);
+          incentiveQuery.province = null;
+          
+          // DB'yi de güncelle
+          await supabase
+            .from("incentive_queries")
+            .update({ province: null })
+            .eq("id", incentiveQuery.id);
+            
+          console.log("✓ Self-heal complete: province set to null");
+        }
+        
         console.log("📋 Found ACTIVE incentive query for session:", {
           id: incentiveQuery.id,
           sector: incentiveQuery.sector,
@@ -2148,12 +2256,25 @@ serve(async (req) => {
           updated = true;
           console.log("📥 Filled SECTOR slot:", incentiveQuery.sector);
         } else if (!incentiveQuery.province) {
-          // İl slotu için önce extractInitialSlots dene, sonra cleanProvince
+          // İl slotu için önce extractInitialSlots dene, sonra matchProvince ile doğrula
           const { province: extractedProvince } = extractInitialSlots(userContent);
-          const province = extractedProvince || cleanProvince(userContent);
-          incentiveQuery.province = province;
-          updated = true;
-          console.log("📥 Filled PROVINCE slot:", incentiveQuery.province);
+          
+          // matchProvince ile doğrula - NACE kodları veya geçersiz girdileri reddeder
+          let matchedProvince = extractedProvince;
+          if (!matchedProvince) {
+            matchedProvince = matchProvince(userContent);
+          }
+          
+          // SADECE geçerli bir il bulunduysa kaydet
+          if (matchedProvince) {
+            incentiveQuery.province = matchedProvince;
+            updated = true;
+            console.log("📥 Filled PROVINCE slot:", incentiveQuery.province);
+          } else {
+            // İl bulunamadı - slot boş kalacak, AI tekrar soracak
+            console.log("⚠️ Province not matched, slot remains empty. Input was:", userContent);
+            // updated = false olarak kalır, slot doldurulmaz
+          }
         } else if (!incentiveQuery.district) {
           const district = cleanDistrict(userContent);
           incentiveQuery.district = district;
