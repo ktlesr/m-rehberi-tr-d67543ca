@@ -15,6 +15,7 @@ interface ChatMessageAreaProps {
   isGeneratingQuestions?: boolean;
   activeSessionId?: string | null;
   onRegenerateMessage?: (index: number) => void;
+  onInteractiveSubmit?: (value: string) => void;
 }
 
 // Typing dots animation
@@ -34,6 +35,7 @@ export function ChatMessageArea({
   isGeneratingQuestions,
   activeSessionId,
   onRegenerateMessage,
+  onInteractiveSubmit,
 }: ChatMessageAreaProps) {
   const { showSources } = useChatbotSettings();
   const [incentiveProgress, setIncentiveProgress] = useState<any>(null);
@@ -199,6 +201,8 @@ export function ChatMessageArea({
                 timestamp={message.timestamp}
                 sources={displaySources}
                 supportCards={isLoading && index === messages.length - 1 ? undefined : message.supportCards}
+                structuredResponse={message.structuredResponse}
+                onInteractiveSubmit={onInteractiveSubmit}
                 onRegenerate={
                   message.role === "assistant" && index === messages.length - 1
                     ? () => onRegenerateMessage?.(index)
