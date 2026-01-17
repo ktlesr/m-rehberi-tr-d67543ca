@@ -9,6 +9,18 @@ interface AccessibilitySettings {
   wordSpacing: 'normal' | 'wide' | 'wider';
   largeCursor: boolean;
   readingGuide: boolean;
+  // Yeni özellikler
+  screenReader: boolean;
+  readSelectedText: boolean;
+  readOnHover: boolean;
+  hideImages: boolean;
+  alignTextLeft: boolean;
+  readingMask: boolean;
+  dyslexiaFriendly: boolean;
+  blueLightFilter: boolean;
+  desaturation: boolean;
+  lowSaturation: boolean;
+  highSaturation: boolean;
 }
 
 interface AccessibilityContextType {
@@ -26,6 +38,18 @@ const defaultSettings: AccessibilitySettings = {
   wordSpacing: 'normal',
   largeCursor: false,
   readingGuide: false,
+  // Yeni özellikler - varsayılan kapalı
+  screenReader: false,
+  readSelectedText: false,
+  readOnHover: false,
+  hideImages: false,
+  alignTextLeft: false,
+  readingMask: false,
+  dyslexiaFriendly: false,
+  blueLightFilter: false,
+  desaturation: false,
+  lowSaturation: false,
+  highSaturation: false,
 };
 
 const AccessibilityContext = createContext<AccessibilityContextType | undefined>(undefined);
@@ -72,6 +96,15 @@ export const AccessibilityProvider = ({ children }: { children: ReactNode }) => 
     
     // Reading guide
     root.classList.toggle('reading-guide-active', settings.readingGuide);
+    
+    // Yeni özellikler
+    root.classList.toggle('hide-images', settings.hideImages);
+    root.classList.toggle('align-text-left', settings.alignTextLeft);
+    root.classList.toggle('dyslexia-friendly', settings.dyslexiaFriendly);
+    root.classList.toggle('blue-light-filter', settings.blueLightFilter);
+    root.classList.toggle('desaturation', settings.desaturation);
+    root.classList.toggle('low-saturation', settings.lowSaturation);
+    root.classList.toggle('high-saturation', settings.highSaturation);
     
     // Save to localStorage
     localStorage.setItem('accessibility-settings', JSON.stringify(settings));
