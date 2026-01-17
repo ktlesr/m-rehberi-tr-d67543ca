@@ -26,7 +26,9 @@ import {
   AlertTriangle,
   Calendar,
   TrendingUp,
-  Settings2
+  Settings2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 // Threshold field configuration
@@ -80,6 +82,7 @@ export default function AdminYdoSettings() {
   const [thresholds, setThresholds] = useState<InvestmentThreshold[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   
   // New year dialog state
   const [showNewYearDialog, setShowNewYearDialog] = useState(false);
@@ -89,6 +92,10 @@ export default function AdminYdoSettings() {
   const [calculatedThresholds, setCalculatedThresholds] = useState<Partial<InvestmentThreshold> | null>(null);
   const [editableThresholds, setEditableThresholds] = useState<Record<ThresholdKey, string>>({} as Record<ThresholdKey, string>);
   const [notes, setNotes] = useState<string>('');
+  
+  function toggleExpand(id: string) {
+    setExpandedId(prev => prev === id ? null : id);
+  }
 
   // Load thresholds on mount
   useEffect(() => {
@@ -249,7 +256,8 @@ export default function AdminYdoSettings() {
               <Skeleton className="h-24 w-full" />
             </CardContent>
           ) : activeThreshold ? (
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Asgari Yatırım Tutarları */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-background rounded-lg">
                   <div className="text-xs text-muted-foreground mb-1">1-2. Bölge</div>
@@ -268,8 +276,48 @@ export default function AdminYdoSettings() {
                   <div className="font-semibold">{formatCurrency(activeThreshold.min_mid_high_tech_priority)} TL</div>
                 </div>
               </div>
+              
+              {/* Destek Üst Limitleri Özeti */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">Destek Üst Limitleri</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="text-center p-2 bg-background rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">Faiz - Teknoloji/Yerel</div>
+                    <div className="font-medium text-sm">{formatCurrency(activeThreshold.max_interest_support_tech_local)} TL</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">Faiz - Stratejik</div>
+                    <div className="font-medium text-sm">{formatCurrency(activeThreshold.max_interest_support_strategic)} TL</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">Faiz - Öncelikli</div>
+                    <div className="font-medium text-sm">{formatCurrency(activeThreshold.max_interest_support_priority)} TL</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">Faiz - Hedef</div>
+                    <div className="font-medium text-sm">{formatCurrency(activeThreshold.max_interest_support_target)} TL</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">Makine - Teknoloji/Yerel</div>
+                    <div className="font-medium text-sm">{formatCurrency(activeThreshold.max_machinery_support_tech_local)} TL</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">Makine - Stratejik</div>
+                    <div className="font-medium text-sm">{formatCurrency(activeThreshold.max_machinery_support_strategic)} TL</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">Ek Faiz - Türkiye Yüzyılı</div>
+                    <div className="font-medium text-sm">{formatCurrency(activeThreshold.max_extra_interest_turkey_century)} TL</div>
+                  </div>
+                  <div className="text-center p-2 bg-background rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">Ek Faiz - Öncelikli</div>
+                    <div className="font-medium text-sm">{formatCurrency(activeThreshold.max_extra_interest_priority)} TL</div>
+                  </div>
+                </div>
+              </div>
+              
               {activeThreshold.revaluation_rate && (
-                <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground border-t pt-4">
                   <TrendingUp className="h-4 w-4" />
                   <span>YDO: %{activeThreshold.revaluation_rate}</span>
                   <span className="mx-2">|</span>
@@ -329,69 +377,135 @@ export default function AdminYdoSettings() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12"></TableHead>
                       <TableHead className="w-20">Yıl</TableHead>
                       <TableHead>YDO</TableHead>
                       <TableHead className="text-right">1-2. Bölge</TableHead>
                       <TableHead className="text-right">3-6. Bölge</TableHead>
-                      <TableHead className="text-right">Yüksek Tek.</TableHead>
-                      <TableHead className="text-right">Orta-Yüksek Tek.</TableHead>
                       <TableHead>Durum</TableHead>
                       <TableHead className="text-right">İşlemler</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {thresholds.map((t) => (
-                      <TableRow key={t.id} className={t.is_active ? 'bg-primary/5' : ''}>
-                        <TableCell className="font-medium">{t.year}</TableCell>
-                        <TableCell>
-                          {t.revaluation_rate ? `%${t.revaluation_rate}` : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(t.min_investment_region_1_2)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(t.min_investment_region_3_6)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(t.min_high_tech_priority)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatCurrency(t.min_mid_high_tech_priority)}
-                        </TableCell>
-                        <TableCell>
-                          {t.is_active ? (
-                            <Badge variant="default" className="gap-1">
-                              <Check className="h-3 w-3" /> Aktif
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">Pasif</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            {!t.is_active && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleSetActiveYear(t.year)}
-                              >
-                                <Star className="h-3 w-3 mr-1" />
-                                Aktif Yap
-                              </Button>
+                      <React.Fragment key={t.id}>
+                        <TableRow className={t.is_active ? 'bg-primary/5' : ''}>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleExpand(t.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              {expandedId === t.id ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium">{t.year}</TableCell>
+                          <TableCell>
+                            {t.revaluation_rate ? `%${t.revaluation_rate}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {formatCurrency(t.min_investment_region_1_2)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm">
+                            {formatCurrency(t.min_investment_region_3_6)}
+                          </TableCell>
+                          <TableCell>
+                            {t.is_active ? (
+                              <Badge variant="default" className="gap-1">
+                                <Check className="h-3 w-3" /> Aktif
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">Pasif</Badge>
                             )}
-                            {!t.is_active && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteYear(t.id, t.year)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              {!t.is_active && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSetActiveYear(t.year)}
+                                >
+                                  <Star className="h-3 w-3 mr-1" />
+                                  Aktif Yap
+                                </Button>
+                              )}
+                              {!t.is_active && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteYear(t.id, t.year)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {/* Expanded Detail Row */}
+                        {expandedId === t.id && (
+                          <TableRow className="bg-muted/30 hover:bg-muted/30">
+                            <TableCell colSpan={7} className="p-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {/* Asgari Yatırım Tutarları */}
+                                <div className="space-y-2">
+                                  <h5 className="font-medium text-sm border-b pb-1">Asgari Yatırım Tutarları</h5>
+                                  <ul className="text-sm space-y-1">
+                                    <li className="flex justify-between"><span className="text-muted-foreground">1-2. Bölge:</span> <span className="font-mono">{formatCurrency(t.min_investment_region_1_2)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">3-6. Bölge:</span> <span className="font-mono">{formatCurrency(t.min_investment_region_3_6)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Yüksek Tek.:</span> <span className="font-mono">{formatCurrency(t.min_high_tech_priority)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Orta-Yüksek:</span> <span className="font-mono">{formatCurrency(t.min_mid_high_tech_priority)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Stratejik Y.T.:</span> <span className="font-mono">{formatCurrency(t.min_strategic_high_tech)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Stratejik Diğer:</span> <span className="font-mono">{formatCurrency(t.min_strategic_other)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Yeşil/Dijital:</span> <span className="font-mono">{formatCurrency(t.min_strategic_green_digital)} TL</span></li>
+                                  </ul>
+                                </div>
+                                
+                                {/* Faiz Desteği Üst Limitleri */}
+                                <div className="space-y-2">
+                                  <h5 className="font-medium text-sm border-b pb-1">Faiz Desteği Üst Limitleri</h5>
+                                  <ul className="text-sm space-y-1">
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Teknoloji/Yerel:</span> <span className="font-mono">{formatCurrency(t.max_interest_support_tech_local)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Stratejik:</span> <span className="font-mono">{formatCurrency(t.max_interest_support_strategic)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Öncelikli:</span> <span className="font-mono">{formatCurrency(t.max_interest_support_priority)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Hedef:</span> <span className="font-mono">{formatCurrency(t.max_interest_support_target)} TL</span></li>
+                                  </ul>
+                                </div>
+                                
+                                {/* Makine Desteği Üst Limitleri */}
+                                <div className="space-y-2">
+                                  <h5 className="font-medium text-sm border-b pb-1">Makine Desteği Üst Limitleri</h5>
+                                  <ul className="text-sm space-y-1">
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Teknoloji/Yerel:</span> <span className="font-mono">{formatCurrency(t.max_machinery_support_tech_local)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Stratejik:</span> <span className="font-mono">{formatCurrency(t.max_machinery_support_strategic)} TL</span></li>
+                                  </ul>
+                                </div>
+                                
+                                {/* Ek Faiz Desteği Üst Limitleri */}
+                                <div className="space-y-2">
+                                  <h5 className="font-medium text-sm border-b pb-1">Ek Faiz Desteği (Yeni Firmalar)</h5>
+                                  <ul className="text-sm space-y-1">
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Türkiye Yüzyılı:</span> <span className="font-mono">{formatCurrency(t.max_extra_interest_turkey_century)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Öncelikli:</span> <span className="font-mono">{formatCurrency(t.max_extra_interest_priority)} TL</span></li>
+                                    <li className="flex justify-between"><span className="text-muted-foreground">Hedef:</span> <span className="font-mono">{formatCurrency(t.max_extra_interest_target)} TL</span></li>
+                                  </ul>
+                                </div>
+                              </div>
+                              {t.notes && (
+                                <div className="mt-3 pt-3 border-t text-sm text-muted-foreground">
+                                  <span className="font-medium">Not:</span> {t.notes}
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
