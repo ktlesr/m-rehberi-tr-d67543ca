@@ -283,19 +283,14 @@ const normalizeListFormats = (content: string): string => {
 const fixBrokenBoldPatterns = (content: string): string => {
   let result = content;
   
-  // PATTERN 0 (KRİTİK): "**Konusu:" → "**Konusu:**" (tek kelime, eksik kapanış)
-  // Bu pattern "**Yatırım **Konusu:" gibi bozuk yapıların düzeltilmesi için
-  result = result.replace(/\*\*([A-ZÇĞİÖŞÜa-zçğıöşü][A-ZÇĞİÖŞÜa-zçğıöşüı]+):\s+/g, (match, word, offset, str) => {
-    // Öncesinde "**" var mı kontrol et (nested bold durumu)
-    const before = str.substring(Math.max(0, offset - 3), offset);
-    if (before.includes('**')) {
-      // Önceki bold'u kapat ve yenisini aç
-      return `**${word}:** `;
-    }
-    return `**${word}:** `;
-  });
+  // PATTERN -1 (EN KRİTİK): "**İlgili NACE **Kodları:" → "**İlgili NACE Kodları:**"
+  // "**Text1 **Text2:" kalıbı - orta yıldızları kaldır ve sona kapanış ekle
+  result = result.replace(/\*\*([^*\n]+?)\s+\*\*([^*\n:]+?):\s*/g, '**$1 $2:** ');
   
-  // PATTERN 0.5: "**Text **Label:" → "**Text Label:**" (boşluklu split)
+  // PATTERN 0 (KRİTİK): "**Konusu:" → "**Konusu:**" (tek kelime, eksik kapanış)
+  result = result.replace(/\*\*([A-ZÇĞİÖŞÜa-zçğıöşü][A-ZÇĞİÖŞÜa-zçğıöşüı]+):\s+/g, '**$1:** ');
+  
+  // PATTERN 0.5: "**Text **Label:" → "**Text Label:**" (boşluklu split - backup)
   result = result.replace(/\*\*([^*\n:]+?)\s+\*\*([^*\n:]+?):/g, '**$1 $2:**');
   
   // Pattern 1: "Kütahya:**" → "**Kütahya:**" (eksik açılış)

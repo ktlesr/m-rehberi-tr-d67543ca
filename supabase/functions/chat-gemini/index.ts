@@ -2519,7 +2519,8 @@ Yukarıdaki BÖLÜM 2'deki SABİT TABLOLARI kullanarak raporu doldur.
 ⚠️ **KRİTİK KURAL - ASGARİ YATIRIM TUTARI:**
 - Tüm bölgelerin asgari tutarlarını listeleme! 
 - Sadece yatırımın yapılacağı ilin bölgesine göre tek tutar yaz
-- Örnek: Konya 5. Bölge ise → Asgari Tutar: ${activeYearThresholds?.min_investment_region_3_6 ? formatCurrency(activeYearThresholds.min_investment_region_3_6) : '7.500.000'} TL
+- Örnek: Şanlıurfa 6. Bölge ise → Asgari Tutar: ${activeYearThresholds?.min_investment_region_3_6 ? formatCurrency(activeYearThresholds.min_investment_region_3_6) : '7.500.000'} TL
+- ⚠️ BÖLGE NUMARALARINI ASLA EZBERDEN YAZMA! Her zaman il_bolge.jsonl dosyasından doğru bölge numarasını kontrol et.
 
 \`\`\`
 **Yatırım Konusu:** [Sektör Adı]
