@@ -120,14 +120,24 @@ export function useChatSession(user: User | null) {
 
           if (messagesError) throw messagesError;
 
-          const messages: ChatMessage[] = (messagesData || []).map((msg: any) => ({
-            role: msg.role,
-            content: msg.content,
-            timestamp: new Date(msg.created_at).getTime(),
-            sources: msg.sources,
-            groundingChunks: msg.grounding_chunks,
-            supportCards: msg.support_cards,
-          }));
+          const { tryParseStructuredContent } = await import("@/utils/structuredResponseRenderer");
+          
+          const messages: ChatMessage[] = (messagesData || []).map((msg: any) => {
+            // Try to parse structured response from content for assistant messages
+            const parsedStructured = msg.role === 'assistant' 
+              ? tryParseStructuredContent(msg.content) 
+              : null;
+            
+            return {
+              role: msg.role,
+              content: msg.content,
+              timestamp: new Date(msg.created_at).getTime(),
+              sources: msg.sources,
+              groundingChunks: msg.grounding_chunks,
+              supportCards: msg.support_cards,
+              structuredResponse: parsedStructured || undefined,
+            };
+          });
 
           const title =
             messages.length > 0 && messages[0]?.content
@@ -375,14 +385,20 @@ export function useChatSession(user: User | null) {
 
         // For structured responses: render immediately without streaming
         if (isStructuredResponse && parsedStructuredResponse) {
-          // Extract summary text from structured content for display
-          const summaryText = typeof parsedStructuredResponse.content === 'object' 
-            ? (parsedStructuredResponse.content as any)?.summary || ''
-            : parsedStructuredResponse.content || '';
+          // Save full structured JSON as content for persistence
+          const structuredJsonString = JSON.stringify({
+            type: parsedStructuredResponse.type,
+            mode: parsedStructuredResponse.mode,
+            content: parsedStructuredResponse.content,
+            interaction: parsedStructuredResponse.interaction,
+            progress: parsedStructuredResponse.progress,
+            followUp: parsedStructuredResponse.followUp,
+            sources: parsedStructuredResponse.sources,
+          });
           
           const assistantMessage: ChatMessage = {
             role: "assistant",
-            content: summaryText || fullResponse || JSON.stringify(data),
+            content: structuredJsonString, // Store full JSON for reload parsing
             timestamp: Date.now(),
             sources: data.sources,
             groundingChunks: data.groundingChunks,
@@ -398,7 +414,7 @@ export function useChatSession(user: User | null) {
             await supabase.from("chat_messages").insert({
               session_id: sessionId,
               role: "assistant",
-              content: assistantMessage.content,
+              content: structuredJsonString, // Save full structured JSON
               sources: data.sources,
               grounding_chunks: data.groundingChunks,
               support_cards: data.supportCards,
