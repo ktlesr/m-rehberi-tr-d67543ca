@@ -149,7 +149,9 @@ export function MessageBubble({
   const isUser = role === "user";
   
   // Structured response'u parse etmeyi dene (prop olarak gelmemişse content'ten)
-  const parsedStructured = structuredResponse || (!isUser ? tryParseStructuredContent(content) : null);
+  // __METADATA__ ayırıcısını temizle - JSON parse için gerekli
+  const cleanedContent = content.split('__METADATA__')[0].trim();
+  const parsedStructured = structuredResponse || (!isUser ? tryParseStructuredContent(cleanedContent) : null);
   const isStructuredMode = parsedStructured?.type === 'structured';
   // Takip sorusunu ve destek programı bildirimini ana içerikten ayır
   const { mainContent, followUpQuestion, supportCardsNotice } = isUser

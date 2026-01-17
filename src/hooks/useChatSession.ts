@@ -341,7 +341,7 @@ export function useChatSession(user: User | null) {
 
         if (error) throw error;
 
-        const fullResponse = data.text;
+        const fullResponse = data.text || '';
         
         // Check if response is structured JSON - skip streaming for structured responses
         // Also check if text contains ```json block with structured content
@@ -375,9 +375,14 @@ export function useChatSession(user: User | null) {
 
         // For structured responses: render immediately without streaming
         if (isStructuredResponse && parsedStructuredResponse) {
+          // Extract summary text from structured content for display
+          const summaryText = typeof parsedStructuredResponse.content === 'object' 
+            ? (parsedStructuredResponse.content as any)?.summary || ''
+            : parsedStructuredResponse.content || '';
+          
           const assistantMessage: ChatMessage = {
             role: "assistant",
-            content: fullResponse || JSON.stringify(data),
+            content: summaryText || fullResponse || JSON.stringify(data),
             timestamp: Date.now(),
             sources: data.sources,
             groundingChunks: data.groundingChunks,
