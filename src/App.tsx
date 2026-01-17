@@ -58,6 +58,7 @@ import AnnouncementDetail from "./pages/AnnouncementDetail";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 import ProgramDetails from "./pages/ProgramDetails";
+import SupportSummary from "./pages/SupportSummary";
 import PublicForm from "./pages/PublicForm";
 import Legislation from "./pages/Legislation";
 import QNA from "./pages/QNA";
@@ -113,6 +114,7 @@ const App = () => {
                     <Route path="/duyuru/:id" element={<AnnouncementDetail />} />
                     <Route path="/mevzuat" element={<Legislation />} />
                     <Route path="/program/:id" element={<ProgramDetails />} />
+                    <Route path="/program/:id/ozet" element={<SupportSummary />} />
                     <Route path="/form/:slug" element={<PublicForm />} />
                     <Route path="/kullanim-kosullari" element={<TermsOfUse />} />
                     <Route path="/gizlilik" element={<PrivacyPolicy />} />

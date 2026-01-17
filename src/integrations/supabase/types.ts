@@ -2465,6 +2465,53 @@ export type Database = {
           },
         ]
       }
+      support_program_summaries: {
+        Row: {
+          application_location: string | null
+          application_period: string | null
+          application_url: string | null
+          created_at: string | null
+          id: string
+          summary_pdf_url: string | null
+          support_program_id: string | null
+          supported_areas: string | null
+          updated_at: string | null
+          who_can_apply: string | null
+        }
+        Insert: {
+          application_location?: string | null
+          application_period?: string | null
+          application_url?: string | null
+          created_at?: string | null
+          id?: string
+          summary_pdf_url?: string | null
+          support_program_id?: string | null
+          supported_areas?: string | null
+          updated_at?: string | null
+          who_can_apply?: string | null
+        }
+        Update: {
+          application_location?: string | null
+          application_period?: string | null
+          application_url?: string | null
+          created_at?: string | null
+          id?: string
+          summary_pdf_url?: string | null
+          support_program_id?: string | null
+          supported_areas?: string | null
+          updated_at?: string | null
+          who_can_apply?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_program_summaries_support_program_id_fkey"
+            columns: ["support_program_id"]
+            isOneToOne: true
+            referencedRelation: "support_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_program_tags: {
         Row: {
           created_at: string | null

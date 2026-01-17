@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Institution, Tag, TagCategory, SupportProgram, FileAttachment } from '@/types/support';
 import { DraggableFileList } from './DraggableFileList';
 import { AIEvidencePanel } from './AIEvidencePanel';
-import { FieldEvidence, FieldIssue, MissingTag, AIDraftResponse } from '@/types/aiDraft';
+import { FieldEvidence, FieldIssue, MissingTag, AIDraftResponse, SummaryData } from '@/types/aiDraft';
 
 interface AdminSupportFormProps {
   onSubmit: (data: any) => void;
@@ -48,6 +48,7 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
   const [missingTags, setMissingTags] = useState<MissingTag[]>([]);
   const [showEvidencePanel, setShowEvidencePanel] = useState(false);
   const [aiFiles, setAiFiles] = useState<File[]>([]);
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
 
   useEffect(() => {
     fetchInstitutions();
@@ -243,6 +244,7 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
       files: files,
       id: editingProgram?.id, // Include ID for updates
       existingFiles: existingFiles, // Include existing files for reference
+      summaryData: summaryData, // Include summary data for saving
     };
 
     onSubmit(submitData);
@@ -361,6 +363,12 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
       setAiEvidence(data.evidence || []);
       setAiIssues(data.issues || []);
       setMissingTags(data.missing_tags || []);
+
+      // Store summary data for later saving
+      if (data.summary_data) {
+        setSummaryData(data.summary_data);
+        toast.info('Özet bilgi formu verileri oluşturuldu!');
+      }
 
       // Show evidence panel
       setShowEvidencePanel(true);
