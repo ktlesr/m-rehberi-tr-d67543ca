@@ -177,6 +177,10 @@ export const calculateIncentives = async (inputs: IncentiveCalculatorInputs): Pr
   const { adminSettingsService } = await import('@/services/adminSettingsService');
   const settings = await adminSettingsService.getIncentiveCalculationSettings();
   
+  // Fetch dynamic support upper limits from YDO settings
+  const { investmentThresholdsService } = await import('@/services/investmentThresholdsService');
+  const thresholds = await investmentThresholdsService.getActiveThresholds();
+  
   // Check if sub-region support is enabled
   const isSubRegionSupportEnabled = settings.sub_region_support_enabled === 1;
   
@@ -306,30 +310,34 @@ export const calculateIncentives = async (inputs: IncentiveCalculatorInputs): Pr
   let investmentCapPercentage = 0;
   let cappedMachinerySupport = 0;
   
+  // Dynamic upper limits from YDO settings (with fallbacks)
+  const maxMachineryTechLocal = thresholds?.max_machinery_support_tech_local ?? 300000000;
+  const maxMachineryStrategic = thresholds?.max_machinery_support_strategic ?? 226000000;
+  
   if (inputs.incentiveType === 'Technology Initiative' || inputs.incentiveType === 'Local Development Initiative') {
     if (inputs.taxReductionSupport === 'No') {
-      monetaryCap = 300000000; // 300 million TL (increased from 240M)
-      investmentCapPercentage = 0.20; // 25% of total fixed investment (increased from 20%)
+      monetaryCap = maxMachineryTechLocal; // Dynamic: max_machinery_support_tech_local
+      investmentCapPercentage = 0.20;
       machinerySupportCalculated = totalMachineryCost * 0.30;
       machinerySupportLimit = totalFixedInvestment * 0.20;
       cappedMachinerySupport = Math.min(machinerySupportCalculated, machinerySupportLimit);
     } else {
-      monetaryCap = 240000000; // 240 million TL
-      investmentCapPercentage = 0.15; // 20% of total fixed investment
+      monetaryCap = Math.round(maxMachineryTechLocal * 0.8); // %80 of tech/local limit
+      investmentCapPercentage = 0.15;
       machinerySupportCalculated = totalMachineryCost * 0.25;
       machinerySupportLimit = totalFixedInvestment * 0.15;
       cappedMachinerySupport = Math.min(machinerySupportCalculated, machinerySupportLimit);
     }
   } else if (inputs.incentiveType === 'Strategic Initiative') {
     if (inputs.taxReductionSupport === 'No') {
-      monetaryCap = 240000000; // 240 million TL (increased from 180M)
-      investmentCapPercentage = 0.20; // 20% of total fixed investment (increased from 15%)
+      monetaryCap = maxMachineryStrategic; // Dynamic: max_machinery_support_strategic
+      investmentCapPercentage = 0.20;
       machinerySupportCalculated = totalMachineryCost * 0.30;
       machinerySupportLimit = totalFixedInvestment * 0.20;
       cappedMachinerySupport = Math.min(machinerySupportCalculated, machinerySupportLimit);
     } else {
-      monetaryCap = 180000000; // 180 million TL
-      investmentCapPercentage = 0.15; // 15% of total fixed investment
+      monetaryCap = Math.round(maxMachineryStrategic * 0.8); // %80 of strategic limit
+      investmentCapPercentage = 0.15;
       machinerySupportCalculated = totalMachineryCost * 0.25;
       machinerySupportLimit = totalFixedInvestment * 0.15;
       cappedMachinerySupport = Math.min(machinerySupportCalculated, machinerySupportLimit);
@@ -356,29 +364,33 @@ export const calculateIncentives = async (inputs: IncentiveCalculatorInputs): Pr
     let monetaryCap = 0;
     let investmentCapPercentage = 0;
     
+    // Dynamic interest support upper limits from YDO settings (with fallbacks)
+    const maxInterestTechLocal = thresholds?.max_interest_support_tech_local ?? 300000000;
+    const maxInterestStrategic = thresholds?.max_interest_support_strategic ?? 226000000;
+    
     if (inputs.incentiveType === 'Technology Initiative' || inputs.incentiveType === 'Local Development Initiative') {
       if (inputs.taxReductionSupport === 'No') {
-        supportRate = Math.min(inputs.bankInterestRate * 0.40, 20); // Cap at 20%
-        maxReductionCap = 25; // 25% maximum (increased from 20%)
-        monetaryCap = 300000000; // 300 million TL (increased from 240M)
-        investmentCapPercentage = 0.25; // 25% of total fixed investment (increased from 20%)
+        supportRate = Math.min(inputs.bankInterestRate * 0.40, 20);
+        maxReductionCap = 25;
+        monetaryCap = maxInterestTechLocal; // Dynamic: max_interest_support_tech_local
+        investmentCapPercentage = 0.25;
       } else {
-        supportRate = Math.min(inputs.bankInterestRate * 0.40, 20); // Cap at 20%
-        maxReductionCap = 20; // 20% maximum
-        monetaryCap = 240000000; // 240 million TL
-        investmentCapPercentage = 0.20; // 20% of total fixed investment
+        supportRate = Math.min(inputs.bankInterestRate * 0.40, 20);
+        maxReductionCap = 20;
+        monetaryCap = Math.round(maxInterestTechLocal * 0.8); // %80 of tech/local limit
+        investmentCapPercentage = 0.20;
       }
     } else if (inputs.incentiveType === 'Strategic Initiative') {
       if (inputs.taxReductionSupport === 'No') {
-        supportRate = Math.min(inputs.bankInterestRate * 0.30, 15); // Cap at 15%
-        maxReductionCap = 20; // 20% maximum (increased from 15%)
-        monetaryCap = 240000000; // 240 million TL (increased from 180M)
-        investmentCapPercentage = 0.20; // 20% of total fixed investment (increased from 15%)
+        supportRate = Math.min(inputs.bankInterestRate * 0.30, 15);
+        maxReductionCap = 20;
+        monetaryCap = maxInterestStrategic; // Dynamic: max_interest_support_strategic
+        investmentCapPercentage = 0.20;
       } else {
-        supportRate = Math.min(inputs.bankInterestRate * 0.30, 15); // Cap at 15%
-        maxReductionCap = 15; // 15% maximum
-        monetaryCap = 180000000; // 180 million TL
-        investmentCapPercentage = 0.15; // 15% of total fixed investment
+        supportRate = Math.min(inputs.bankInterestRate * 0.30, 15);
+        maxReductionCap = 15;
+        monetaryCap = Math.round(maxInterestStrategic * 0.8); // %80 of strategic limit
+        investmentCapPercentage = 0.15;
       }
     }
 

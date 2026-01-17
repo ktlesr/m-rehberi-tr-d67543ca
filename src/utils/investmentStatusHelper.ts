@@ -68,12 +68,32 @@ export function getCurrentThresholds(): {
   minMidHighTech: number;
   minRegion12: number;
   minRegion36: number;
+  // Support upper limits
+  maxInterestTechLocal: number;
+  maxInterestStrategic: number;
+  maxInterestPriority: number;
+  maxInterestTarget: number;
+  maxMachineryTechLocal: number;
+  maxMachineryStrategic: number;
+  maxExtraInterestTurkeyCentury: number;
+  maxExtraInterestPriority: number;
+  maxExtraInterestTarget: number;
 } {
   return {
     minHighTech: cachedThresholds?.min_high_tech_priority ?? DEFAULT_MIN_HIGH_TECH_INVESTMENT,
     minMidHighTech: cachedThresholds?.min_mid_high_tech_priority ?? DEFAULT_MIN_MID_HIGH_TECH_INVESTMENT,
     minRegion12: cachedThresholds?.min_investment_region_1_2 ?? DEFAULT_MIN_REGION_1_2,
     minRegion36: cachedThresholds?.min_investment_region_3_6 ?? DEFAULT_MIN_REGION_3_6,
+    // Support upper limits from YDO settings
+    maxInterestTechLocal: cachedThresholds?.max_interest_support_tech_local ?? 300000000,
+    maxInterestStrategic: cachedThresholds?.max_interest_support_strategic ?? 226000000,
+    maxInterestPriority: cachedThresholds?.max_interest_support_priority ?? 150000000,
+    maxInterestTarget: cachedThresholds?.max_interest_support_target ?? 100000000,
+    maxMachineryTechLocal: cachedThresholds?.max_machinery_support_tech_local ?? 300000000,
+    maxMachineryStrategic: cachedThresholds?.max_machinery_support_strategic ?? 226000000,
+    maxExtraInterestTurkeyCentury: cachedThresholds?.max_extra_interest_turkey_century ?? 50000000,
+    maxExtraInterestPriority: cachedThresholds?.max_extra_interest_priority ?? 40000000,
+    maxExtraInterestTarget: cachedThresholds?.max_extra_interest_target ?? 30000000,
   };
 }
 

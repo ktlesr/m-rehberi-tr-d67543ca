@@ -2148,6 +2148,18 @@ serve(async (req) => {
     const ai = getAiClient();
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
+    // Fetch active year thresholds from database for dynamic system prompt
+    const { data: activeYearThresholds } = await supabase
+      .from("investment_thresholds")
+      .select("*")
+      .eq("is_active", true)
+      .maybeSingle();
+    
+    console.log("📊 Active year thresholds loaded:", activeYearThresholds?.year, activeYearThresholds ? "✓" : "❌");
+    
+    // Helper function for currency formatting in system prompt
+    const formatCurrency = (val: number) => new Intl.NumberFormat('tr-TR').format(val);
+
     const generationConfig = {
       temperature: 0.3,
       maxOutputTokens: 8192,
@@ -2293,13 +2305,15 @@ Sen bir sohbet botu (chatbot) değilsin. Sen, tanımlı veri setlerini ve aşağ
 
 Bu verileri dosya aramadan ÖNCE hesaplamalarda MUTLAKA kullan.
 
-### A) 2025 YILI ASGARİ SABİT YATIRIM TUTARLARI (KESİN)
-* **1. ve 2. Bölge İlleri:** 12.000.000 TL
-* **3., 4., 5. ve 6. Bölge İlleri:** 6.000.000 TL
-
-### B) 2026 YILI ASGARİ SABİT YATIRIM TUTARLARI
+### A) ASGARİ SABİT YATIRIM TUTARLARI (DİNAMİK)
+${activeYearThresholds ? `
+* **${activeYearThresholds.year} YILI:**
+  * 1. ve 2. Bölge İlleri: **${formatCurrency(activeYearThresholds.min_investment_region_1_2)} TL**
+  * 3., 4., 5. ve 6. Bölge İlleri: **${formatCurrency(activeYearThresholds.min_investment_region_3_6)} TL**
+` : `
 * **1. ve 2. Bölge İlleri:** 15.100.000 TL
 * **3., 4., 5. ve 6. Bölge İlleri:** 7.500.000 TL
+`}
 
 ### C) DESTEK ORANLARI VE SÜRELERİ (9903 SAYILI KARAR)
 
@@ -2344,14 +2358,14 @@ Bu verileri dosya aramadan ÖNCE hesaplamalarda MUTLAKA kullan.
    * **Vergi İndirim Oranı:** %60
    * **Yatırıma Katkı Oranı (YKO):** %50
    * **SGK Desteği:** 8 Yıl (6. Bölgede 12 Yıl)
-   * **Makine Desteği:** Birim fiyatı 2M TL üstü makinelerin %25'i, max 240M TL
-   * **Faiz Desteği:** Sabit yatırımın %70'ine kadar, TCMB repo %40'ı, max 240M TL
+   * **Makine Desteği:** Birim fiyatı 2M TL üstü makinelerin %25'i, max ${activeYearThresholds?.max_machinery_support_tech_local ? formatCurrency(activeYearThresholds.max_machinery_support_tech_local) : '300.000.000'} TL
+   * **Faiz Desteği:** Sabit yatırımın %70'ine kadar, TCMB repo %40'ı, max ${activeYearThresholds?.max_interest_support_tech_local ? formatCurrency(activeYearThresholds.max_interest_support_tech_local) : '300.000.000'} TL
 
 2. **STRATEJİK HAMLE PROGRAMI:**
    * **Vergi İndirim Oranı:** %60
    * **Yatırıma Katkı Oranı (YKO):** %40
-   * **Makine Desteği:** max 180M TL
-   * **Faiz Desteği:** max 180M TL
+   * **Makine Desteği:** max ${activeYearThresholds?.max_machinery_support_strategic ? formatCurrency(activeYearThresholds.max_machinery_support_strategic) : '226.000.000'} TL
+   * **Faiz Desteği:** max ${activeYearThresholds?.max_interest_support_strategic ? formatCurrency(activeYearThresholds.max_interest_support_strategic) : '226.000.000'} TL
 
 3. **ÖNCELİKLİ YATIRIMLAR (Madde 9):**
    * **Vergi İndirim Oranı:** %60
@@ -2395,13 +2409,13 @@ Sektör verilerinde "teknoloji_hamlesi" alanını MUTLAKA kontrol et ve aşağı
 
 **DURUM 1 (Teknoloji Hamlesi):** "TEKNOLOJİ HAMLESİ: EVET" ise;
 - ⚠️ ÖNEMLİ: Dökümanda "ÖNCELİKLİ YATIRIM DURUMU: HAYIR" yazsa dahi, Hamle kapsamı bunu ÜSTELENİR (override eder).
-- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer aldığından, 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Bu kapsamda asgari yatırım tutarı 1. ve 2. Bölgeler için 15.100.000 TL, 3., 4., 5. ve 6. Bölgelerde 7.500.000 TL olmalıdır."
+- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer aldığından, 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Bu kapsamda asgari yatırım tutarı 1. ve 2. Bölgeler için ${activeYearThresholds?.min_investment_region_1_2 ? formatCurrency(activeYearThresholds.min_investment_region_1_2) : '15.100.000'} TL, 3., 4., 5. ve 6. Bölgelerde ${activeYearThresholds?.min_investment_region_3_6 ? formatCurrency(activeYearThresholds.min_investment_region_3_6) : '7.500.000'} TL olmalıdır."
 
 **DURUM 2 (Hamle Değil + Yüksek Teknoloji):** "TEKNOLOJİ HAMLESİ: HAYIR" + "YÜKSEK TEKNOLOJİ: EVET" ise;
-- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az 627.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 627.000.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
+- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte yüksek teknoloji yatırımı niteliğinde olduğundan, yatırım tutarının en az ${activeYearThresholds?.min_high_tech_priority ? formatCurrency(activeYearThresholds.min_high_tech_priority) : '627.000.000'} TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az ${activeYearThresholds?.min_high_tech_priority ? formatCurrency(activeYearThresholds.min_high_tech_priority) : '627.000.000'} TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
 
 **DURUM 3 (Hamle Değil + Orta-Yüksek Teknoloji):** "TEKNOLOJİ HAMLESİ: HAYIR" + "ORTA-YÜKSEK TEKNOLOJİ: EVET" ise;
-- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az 1.255.000.000 TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az 1.255.000.000 TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
+- Yanıt: "Teknoloji Hamlesi Programı kapsamında yer almamakla birlikte orta-yüksek teknoloji yatırımı niteliğinde olduğundan, İstanbul ili dışında gerçekleştirilmesi ve yatırım tutarının en az ${activeYearThresholds?.min_mid_high_tech_priority ? formatCurrency(activeYearThresholds.min_mid_high_tech_priority) : '1.255.000.000'} TL olması kaydıyla 9903 sayılı Karar kapsamında öncelikli yatırım olarak değerlendirilir. Asgari yatırım tutarı en az ${activeYearThresholds?.min_mid_high_tech_priority ? formatCurrency(activeYearThresholds.min_mid_high_tech_priority) : '1.255.000.000'} TL olması şartını sağlamaması durumunda ise Hedef yatırım olarak değerlendirilir."
 
 **DURUM 4 (Diğer):** Yukarıdaki şartlar sağlanmıyorsa;
 - Yanıt: "9903 sayılı Karar kapsamında öncelikli yatırım şartlarını sağlamadığından, yalnızca hedef yatırım kapsamında değerlendirilir (hedef listede yer alması kaydıyla)."
