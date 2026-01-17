@@ -1781,13 +1781,186 @@ serve(async (req) => {
           supportCards: supportCards.length,
         });
 
-        // ============= STRUCTURED RESPONSE BYPASS =============
-        // api.tesviksor.com structured JSON döndürürse, doğrudan ilet
+        // ============= STRUCTURED RESPONSE BYPASS WITH 2026 VALUE UPDATE =============
+        // api.tesviksor.com structured JSON döndürürse, Supabase'den 2026 değerleriyle güncelle
         if (vertexResponse?.type === "structured" || 
             (vertexResponse?.content && typeof vertexResponse.content === "object" && vertexResponse.content.sections)) {
-          console.log("✅ [TeşvikSor API] Structured response detected, passing through directly");
+          console.log("✅ [TeşvikSor API] Structured response detected, updating with 2026 values");
           
           const totalTime = Date.now() - startTime;
+          
+          // Province → Region mapping from database
+          const PROVINCE_REGION_MAP: Record<string, number> = {
+            "adana": 3, "adıyaman": 6, "afyonkarahisar": 4, "ağrı": 6, "aksaray": 4,
+            "amasya": 4, "ankara": 1, "antalya": 1, "ardahan": 6, "artvin": 4,
+            "aydın": 2, "balıkesir": 2, "bartın": 5, "batman": 6, "bayburt": 5,
+            "bilecik": 3, "bingöl": 6, "bitlis": 6, "bolu": 2, "burdur": 3,
+            "bursa": 1, "çanakkale": 2, "çankırı": 5, "çorum": 4, "denizli": 2,
+            "diyarbakır": 6, "düzce": 3, "edirne": 2, "elazığ": 4, "erzincan": 4,
+            "erzurum": 5, "eskişehir": 1, "gaziantep": 3, "giresun": 5, "gümüşhane": 6,
+            "hakkari": 6, "hakkâri": 6, "hatay": 5, "iğdır": 6, "ığdır": 6, "isparta": 3,
+            "istanbul": 1, "İstanbul": 1, "izmir": 1, "İzmir": 1,
+            "kahramanmaraş": 5, "karabük": 3, "karaman": 3, "kars": 6, "kastamonu": 4,
+            "kayseri": 2, "kilis": 5, "kırıkkale": 3, "kırklareli": 3, "kırşehir": 4,
+            "kocaeli": 1, "konya": 2, "kütahya": 3, "malatya": 4, "manisa": 2,
+            "mardin": 6, "mersin": 2, "muğla": 1, "muş": 6, "nevşehir": 3,
+            "niğde": 5, "ordu": 5, "osmaniye": 5, "rize": 3, "sakarya": 2,
+            "samsun": 3, "şanlıurfa": 6, "siirt": 6, "sinop": 5, "sivas": 4,
+            "şırnak": 6, "tekirdağ": 2, "tokat": 5, "trabzon": 3, "tunceli": 5,
+            "uşak": 3, "van": 6, "yalova": 2, "yozgat": 5, "zonguldak": 3
+          };
+          
+          // Extract province from structured response
+          const extractProvince = (resp: any): string | null => {
+            const content = resp?.content;
+            if (!content) return null;
+            
+            // Check header for "İl: X" or sections for location
+            if (content.header?.il) return content.header.il;
+            
+            // Search in sections for location info
+            const sections = content.sections || [];
+            for (const section of sections) {
+              if (section.title?.toLowerCase().includes('konum') || section.title?.toLowerCase().includes('lokasyon')) {
+                const items = section.items || [];
+                for (const item of items) {
+                  if (item.label?.toLowerCase().includes('il')) {
+                    return item.value;
+                  }
+                }
+              }
+              // Also check metadata
+              if (section.metadata?.il) return section.metadata.il;
+            }
+            
+            // Check top-level metadata
+            if (content.metadata?.il) return content.metadata.il;
+            if (resp.metadata?.province) return resp.metadata.province;
+            
+            return null;
+          };
+          
+          // Get province region
+          const getRegion = (province: string | null): number => {
+            if (!province) return 3; // Default to region 3
+            const normalized = province.toLowerCase().trim();
+            return PROVINCE_REGION_MAP[normalized] || 3;
+          };
+          
+          // Format currency with Turkish locale
+          const formatCurrency = (value: number): string => {
+            return new Intl.NumberFormat('tr-TR', { 
+              style: 'decimal', 
+              minimumFractionDigits: 0, 
+              maximumFractionDigits: 0 
+            }).format(value) + ' TL';
+          };
+          
+          // Fetch 2026 thresholds from Supabase
+          let thresholds: any = null;
+          try {
+            const { data } = await supabase
+              .from('investment_thresholds')
+              .select('*')
+              .eq('is_active', true)
+              .maybeSingle();
+            thresholds = data;
+            console.log("📊 [2026 Values] Fetched thresholds:", thresholds?.year);
+          } catch (err) {
+            console.error("⚠️ Failed to fetch thresholds:", err);
+          }
+          
+          // Update structured response with correct 2026 values
+          let updatedResponse = JSON.parse(JSON.stringify(vertexResponse));
+          
+          if (thresholds && updatedResponse.content?.sections) {
+            const province = extractProvince(updatedResponse);
+            const region = getRegion(province);
+            
+            console.log(`📍 [2026 Values] Province: ${province}, Region: ${region}`);
+            
+            // Determine correct minimum investment based on province region (NOT OSB/district)
+            const minInvestment = region <= 2 
+              ? thresholds.min_investment_region_1_2 
+              : thresholds.min_investment_region_3_6;
+            
+            // 2026 support limits
+            const limits = {
+              minInvestment,
+              maxInterestTarget: thresholds.max_interest_support_target,        // 15.100.000 TL
+              maxInterestPriority: thresholds.max_interest_support_priority,    // 30.100.000 TL
+              maxInterestStrategic: thresholds.max_interest_support_strategic,  // 226.000.000 TL
+              maxMachineryStrategic: thresholds.max_machinery_support_strategic, // 226.000.000 TL
+              maxMachineryTechLocal: thresholds.max_machinery_support_tech_local, // 301.000.000 TL
+              maxInterestTechLocal: thresholds.max_interest_support_tech_local,  // 301.000.000 TL
+              year: thresholds.year
+            };
+            
+            console.log(`💰 [2026 Values] Applying limits:`, {
+              region,
+              minInvestment: formatCurrency(limits.minInvestment),
+              maxInterestTarget: formatCurrency(limits.maxInterestTarget),
+              maxInterestPriority: formatCurrency(limits.maxInterestPriority)
+            });
+            
+            // Update sections with correct values
+            for (const section of updatedResponse.content.sections) {
+              if (section.items) {
+                for (const item of section.items) {
+                  const label = (item.label || '').toLowerCase();
+                  const value = (item.value || '').toLowerCase();
+                  
+                  // Update minimum investment amount
+                  if (label.includes('asgari') && (label.includes('yatırım') || label.includes('tutar'))) {
+                    const oldValue = item.value;
+                    item.value = formatCurrency(limits.minInvestment);
+                    console.log(`✏️ Updated asgari yatırım: ${oldValue} → ${item.value}`);
+                  }
+                  
+                  // Update interest support upper limit (Hedef Yatırım)
+                  if ((label.includes('faiz') || label.includes('kar payı')) && 
+                      (label.includes('üst limit') || label.includes('maksimum'))) {
+                    // Determine which limit based on investment type
+                    if (value.includes('stratejik') || label.includes('stratejik')) {
+                      item.value = formatCurrency(limits.maxInterestStrategic);
+                    } else if (value.includes('öncelikli') || label.includes('öncelikli')) {
+                      item.value = formatCurrency(limits.maxInterestPriority);
+                    } else {
+                      // Default to target investment limit
+                      const oldValue = item.value;
+                      item.value = formatCurrency(limits.maxInterestTarget);
+                      console.log(`✏️ Updated faiz üst limit: ${oldValue} → ${item.value}`);
+                    }
+                  }
+                  
+                  // Update machinery support upper limit
+                  if (label.includes('makine') && (label.includes('üst limit') || label.includes('maksimum'))) {
+                    const oldValue = item.value;
+                    item.value = formatCurrency(limits.maxMachineryTechLocal);
+                    console.log(`✏️ Updated makine üst limit: ${oldValue} → ${item.value}`);
+                  }
+                }
+              }
+              
+              // Also update any note/description containing old values
+              if (section.note) {
+                // Replace common old values with new ones
+                section.note = section.note
+                  .replace(/6\.000\.000\s*TL/g, formatCurrency(limits.minInvestment))
+                  .replace(/6,000,000\s*TL/g, formatCurrency(limits.minInvestment))
+                  .replace(/12\.000\.000\s*TL/g, formatCurrency(limits.maxInterestTarget))
+                  .replace(/12,000,000\s*TL/g, formatCurrency(limits.maxInterestTarget));
+              }
+            }
+            
+            // Add metadata about value update
+            if (!updatedResponse.content.metadata) {
+              updatedResponse.content.metadata = {};
+            }
+            updatedResponse.content.metadata.valuesUpdated = true;
+            updatedResponse.content.metadata.thresholdYear = limits.year;
+            updatedResponse.content.metadata.provinceRegion = region;
+          }
           
           // Track analytics for structured response
           trackSearchAnalytics(supabase, {
@@ -1806,15 +1979,16 @@ serve(async (req) => {
               expandedCount: 0,
               keywordsCount: 0,
             },
-            response: { source: "tesviksor_api_structured", length: JSON.stringify(vertexResponse).length },
+            response: { source: "tesviksor_api_structured_2026", length: JSON.stringify(updatedResponse).length },
           });
           
           return new Response(
             JSON.stringify({
-              ...vertexResponse,
+              ...updatedResponse,
               supportCards: supportCards || [],
               hybridSearch: {
                 structuredPassthrough: true,
+                valuesUpdatedWith2026: !!thresholds,
                 supportPrograms: supportCards?.length || 0,
                 processingTime: totalTime,
               },
