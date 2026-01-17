@@ -1781,6 +1781,54 @@ serve(async (req) => {
           supportCards: supportCards.length,
         });
 
+        // ============= TEXT'TEN STRUCTURED JSON'U PARSE ET (KRİTİK: REGEX'LERDEN ÖNCE) =============
+        // vertexResponse.text içinde JSON varsa, önce onu parse edelim ki regex'ler bozmasın
+        const tryParseStructuredFromText = (resp: any): any => {
+          if (!resp?.text || typeof resp.text !== 'string') return resp;
+          
+          let textToParse = resp.text.trim();
+          
+          // __METADATA__ ayracını temizle
+          if (textToParse.includes('__METADATA__')) {
+            textToParse = textToParse.split('__METADATA__')[0].trim();
+          }
+          
+          // ```json code block varsa çıkar
+          const codeBlockMatch = textToParse.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (codeBlockMatch) {
+            textToParse = codeBlockMatch[1].trim();
+          }
+          
+          // JSON benzeri mi kontrol et
+          if (!textToParse.startsWith('{') || !textToParse.includes('"type"')) {
+            return resp;
+          }
+          
+          try {
+            const parsed = JSON.parse(textToParse);
+            // Structured response mu kontrol et
+            if (parsed.type === 'structured' || 
+                (parsed.content && typeof parsed.content === 'object' && parsed.content.sections)) {
+              console.log("🔄 [Parse] Converted text-embedded JSON to structured response");
+              return {
+                ...resp,
+                ...parsed,
+                type: 'structured',
+                _parsedFromText: true
+              };
+            }
+            return resp;
+          } catch (e) {
+            console.log("⚠️ [Parse] Failed to parse JSON from text:", (e as Error).message?.substring(0, 50));
+            return resp;
+          }
+        };
+        
+        // ÖNCELİKLE: Text içindeki JSON'u parse et
+        if (vertexResponse && !vertexResponse._parsedFromText) {
+          vertexResponse = tryParseStructuredFromText(vertexResponse);
+        }
+
         // ============= STRUCTURED RESPONSE BYPASS WITH 2026 VALUE UPDATE =============
         // api.tesviksor.com structured JSON döndürürse, Supabase'den 2026 değerleriyle güncelle
         if (vertexResponse?.type === "structured" || 
@@ -2148,8 +2196,95 @@ serve(async (req) => {
         // ============= INTEREST SUPPORT REGION RULES (9903 SAYILI KARAR) =============
         // Hedef Yatırımlar için faiz/kar payı desteği yalnızca 4., 5. ve 6. bölgelerde uygulanır
         // 1., 2. ve 3. bölgelerde Hedef Yatırım faiz desteği UYGULANMAZ
-        if (vertexResponse?.text && typeof vertexResponse.text === "string") {
-          console.log("📋 [Interest Support Rules] Checking investment type and region...");
+        
+        // STRUCTURED RESPONSE İÇİN 9903 KURALI (JSON BOZULMADAN)
+        if (vertexResponse?.type === "structured" && vertexResponse?.content?.sections) {
+          console.log("📋 [Interest Support Rules] Checking structured response for 9903 rule...");
+          
+          const PROVINCE_REGION_MAP_9903: Record<string, number> = {
+            "adana": 3, "adıyaman": 6, "afyonkarahisar": 4, "ağrı": 6, "aksaray": 4,
+            "amasya": 4, "ankara": 1, "antalya": 1, "ardahan": 6, "artvin": 4,
+            "aydın": 2, "balıkesir": 2, "bartın": 5, "batman": 6, "bayburt": 5,
+            "bilecik": 3, "bingöl": 6, "bitlis": 6, "bolu": 2, "burdur": 3,
+            "bursa": 1, "çanakkale": 2, "çankırı": 5, "çorum": 4, "denizli": 2,
+            "diyarbakır": 6, "düzce": 3, "edirne": 2, "elazığ": 4, "erzincan": 4,
+            "erzurum": 5, "eskişehir": 1, "gaziantep": 3, "giresun": 5, "gümüşhane": 6,
+            "hakkari": 6, "hakkâri": 6, "hatay": 5, "iğdır": 6, "ığdır": 6, "isparta": 3,
+            "istanbul": 1, "İstanbul": 1, "izmir": 1, "İzmir": 1,
+            "kahramanmaraş": 5, "karabük": 3, "karaman": 3, "kars": 6, "kastamonu": 4,
+            "kayseri": 2, "kilis": 5, "kırıkkale": 3, "kırklareli": 3, "kırşehir": 4,
+            "kocaeli": 1, "konya": 2, "kütahya": 3, "malatya": 4, "manisa": 2,
+            "mardin": 6, "mersin": 2, "muğla": 1, "muş": 6, "nevşehir": 3,
+            "niğde": 5, "ordu": 5, "osmaniye": 5, "rize": 3, "sakarya": 2,
+            "samsun": 3, "şanlıurfa": 6, "siirt": 6, "sinop": 5, "sivas": 4,
+            "şırnak": 6, "tekirdağ": 2, "tokat": 5, "trabzon": 3, "tunceli": 5,
+            "uşak": 3, "van": 6, "yalova": 2, "yozgat": 5, "zonguldak": 3
+          };
+          
+          // Province ve Hedef Yatırım tespiti (structured content içinden)
+          let detectedProvince: string | null = null;
+          let isHedefYatirimStructured = false;
+          
+          for (const section of vertexResponse.content.sections) {
+            // Province tespiti
+            if (section.items) {
+              for (const item of section.items) {
+                const label = (item.label || '').toLowerCase();
+                const value = item.value || '';
+                if (label.includes('il') && !label.includes('ilçe')) {
+                  detectedProvince = value;
+                }
+                if (label.includes('hedef') || value.toLowerCase().includes('hedef yatırım')) {
+                  isHedefYatirimStructured = true;
+                }
+              }
+            }
+            // Metadata'dan kontrol
+            if (section.metadata?.il) detectedProvince = section.metadata.il;
+            if (section.title?.toLowerCase().includes('hedef')) isHedefYatirimStructured = true;
+          }
+          
+          // Top-level metadata kontrolü
+          if (vertexResponse.content.metadata?.il) detectedProvince = vertexResponse.content.metadata.il;
+          if (vertexResponse.metadata?.province) detectedProvince = vertexResponse.metadata.province;
+          
+          const region9903 = detectedProvince ? (PROVINCE_REGION_MAP_9903[detectedProvince.toLowerCase()] || 3) : 3;
+          
+          console.log(`📍 [9903 Structured] Province: ${detectedProvince}, Region: ${region9903}, IsHedef: ${isHedefYatirimStructured}`);
+          
+          // Hedef + 1-3. Bölge = Faiz desteği uygulanmaz
+          if (isHedefYatirimStructured && region9903 <= 3) {
+            console.log(`⚠️ [9903 Structured] Applying NOT applicable rule for Region ${region9903}`);
+            
+            // Sections içindeki faiz alanlarını güncelle
+            for (const section of vertexResponse.content.sections) {
+              if (section.items) {
+                for (const item of section.items) {
+                  const label = (item.label || '').toLowerCase();
+                  if ((label.includes('faiz') || label.includes('kar payı')) && 
+                      (label.includes('oran') || label.includes('üst limit') || label.includes('destek'))) {
+                    item.value = `Uygulanmaz (${region9903}. Bölge)`;
+                    item._9903Applied = true;
+                  }
+                }
+              }
+            }
+            
+            // Warning section ekle
+            vertexResponse.content.sections.push({
+              type: "warning",
+              title: "⚠️ Önemli Bilgi",
+              content: `Hedef sektörler için Faiz/Kar Payı Desteği 9903 sayılı Karar gereği 1., 2. ve 3. bölgelerde uygulanmamaktadır. ${detectedProvince} ili ${region9903}. bölgede yer almaktadır.`
+            });
+            
+            vertexResponse._interestSupportNotApplicable = true;
+            vertexResponse._interestSupportReason = `Hedef Yatırım + ${region9903}. Bölge (9903 Sayılı Karar)`;
+          }
+        }
+        // MARKDOWN RESPONSE İÇİN 9903 KURALI (mevcut regex mantığı)
+        else if (vertexResponse?.text && typeof vertexResponse.text === "string" && 
+                 !vertexResponse._parsedFromText) {
+          console.log("📋 [Interest Support Rules] Checking markdown for 9903 rule...");
           
           const responseTextLower = vertexResponse.text.toLowerCase();
           
@@ -2159,7 +2294,7 @@ serve(async (req) => {
                                   responseTextLower.includes('hedef_yatirim') ||
                                   responseTextLower.includes('hedef yatırımlar');
           
-          // Province-Region map (reuse from above)
+          // Province-Region map
           const PROVINCE_REGION_MAP_INTEREST: Record<string, number> = {
             "adana": 3, "adıyaman": 6, "afyonkarahisar": 4, "ağrı": 6, "aksaray": 4,
             "amasya": 4, "ankara": 1, "antalya": 1, "ardahan": 6, "artvin": 4,
@@ -2180,7 +2315,7 @@ serve(async (req) => {
             "uşak": 3, "van": 6, "yalova": 2, "yozgat": 5, "zonguldak": 3
           };
           
-          // Extract province for region check
+          // Extract province
           const extractProvinceForInterest = (text: string): string | null => {
             const patterns = [
               /İl:\s*\*?\*?([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,
@@ -2215,52 +2350,27 @@ serve(async (req) => {
           
           console.log(`📍 [Interest Support Rules] Province: ${province}, Region: ${region}, IsHedefYatirim: ${isHedefYatirim}`);
           
-          // Hedef Yatırım + 1., 2. veya 3. bölge = Faiz desteği UYGULANMAZ
+          // Hedef Yatırım + 1-3. bölge = Faiz desteği UYGULANMAZ
           if (isHedefYatirim && region <= 3) {
             console.log(`⚠️ [Interest Support Rules] Hedef Yatırım in Region ${region} - Interest support NOT applicable!`);
             
             let updatedText = vertexResponse.text;
             
-            // Faiz/Kar Payı Desteği Oranı değerlerini "Uygulanmaz" ile değiştir
-            // Patterns: "%25", "%5", "5 puan", "25 puan", sayısal değerler
+            // Faiz değerlerini "Uygulanmaz" ile değiştir (sadece markdown için)
             updatedText = updatedText.replace(
               /Faiz(?:\/| \/ |\\\/| veya )Kar(?:\s*Payı)?\s*Deste[gğ]i\s*Oran[ıi]?\s*[:\|]\s*\**\s*%?\d+(?:\s*puan)?/gi,
               'Faiz/Kar Payı Desteği Oranı: **Uygulanmaz** (1., 2., 3. Bölge)'
             );
             
-            // Faiz/Kar Payı Desteği Üst Limit değerlerini "Uygulanmaz" ile değiştir
             updatedText = updatedText.replace(
               /Faiz(?:\/| \/ |\\\/| veya )Kar(?:\s*Payı)?\s*Deste[gğ]i\s*Üst\s*Limit(?:\s*Tutar[ıi])?\s*[:\|]\s*\**\s*[\d\.,]+\s*TL/gi,
               'Faiz/Kar Payı Desteği Üst Limit Tutarı: **Uygulanmaz** (1., 2., 3. Bölge)'
             );
             
-            // Table format değişimleri (| ile ayrılmış)
-            updatedText = updatedText.replace(
-              /\|\s*Faiz(?:\/| \/ )Kar(?:\s*Payı)?\s*Deste[gğ]i\s*Oran[ıi]?\s*\|\s*\**%?\d+(?:\s*puan)?\**\s*\|/gi,
-              '| Faiz/Kar Payı Desteği Oranı | **Uygulanmaz** (1., 2., 3. Bölge) |'
-            );
-            
-            updatedText = updatedText.replace(
-              /\|\s*Faiz(?:\/| \/ )Kar(?:\s*Payı)?\s*Deste[gğ]i\s*Üst\s*Limit(?:\s*Tutar[ıi])?\s*\|\s*\**[\d\.,]+\s*TL\**\s*\|/gi,
-              '| Faiz/Kar Payı Desteği Üst Limit Tutarı | **Uygulanmaz** (1., 2., 3. Bölge) |'
-            );
-            
-            // Tek satır değişimleri (liste formatı)
-            updatedText = updatedText.replace(
-              /[-•]\s*Faiz(?:\/| \/ )Kar(?:\s*Payı)?\s*[Dd]esteği\s*[Oo]ranı\s*[:\-]\s*%?\d+/g,
-              '- Faiz/Kar Payı Desteği Oranı: **Uygulanmaz** (1., 2., 3. Bölge)'
-            );
-            
-            updatedText = updatedText.replace(
-              /[-•]\s*Faiz(?:\/| \/ )Kar(?:\s*Payı)?\s*[Dd]esteği\s*Üst\s*[Ll]imit(?:\s*[Tt]utarı)?\s*[:\-]\s*[\d\.,]+\s*TL/g,
-              '- Faiz/Kar Payı Desteği Üst Limit Tutarı: **Uygulanmaz** (1., 2., 3. Bölge)'
-            );
-            
-            // Uyarı notu ekle (eğer henüz yoksa)
+            // Uyarı notu ekle
             const warningNote = `\n\n> **⚠️ Önemli Bilgi:** Hedef sektörler için Faiz/Kar Payı Desteği 9903 sayılı Karar gereği 1., 2. ve 3. bölgelerde **uygulanmamaktadır**. ${province} ili ${region}. bölgede yer almaktadır.\n`;
             
             if (!updatedText.includes('Önemli Bilgi') && !updatedText.includes('uygulanmamaktadır')) {
-              // Metnin sonuna veya uygun bir yere ekle
               updatedText += warningNote;
             }
             
@@ -2268,7 +2378,7 @@ serve(async (req) => {
             vertexResponse._interestSupportNotApplicable = true;
             vertexResponse._interestSupportReason = `Hedef Yatırım + ${region}. Bölge (9903 Sayılı Karar)`;
             
-            console.log(`✅ [Interest Support Rules] Updated response - Interest support marked as NOT applicable`);
+            console.log(`✅ [Interest Support Rules] Updated markdown response`);
           }
         }
         // ============= INTEREST SUPPORT REGION RULES END =============
