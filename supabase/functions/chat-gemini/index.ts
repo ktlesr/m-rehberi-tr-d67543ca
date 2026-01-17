@@ -1998,6 +1998,153 @@ serve(async (req) => {
         }
         // ============= STRUCTURED BYPASS END =============
 
+        // ============= MARKDOWN 2026 VALUE UPDATE =============
+        // api.tesviksor.com markdown döndürüyorsa, string replace ile 2026 değerlerini güncelle
+        if (vertexResponse?.type === "markdown" || (vertexResponse?.text && typeof vertexResponse.text === "string")) {
+          console.log("📝 [2026 Update] Markdown response detected, updating values...");
+          
+          // Fetch 2026 thresholds from Supabase
+          let thresholds2026: any = null;
+          try {
+            const { data } = await supabase
+              .from('investment_thresholds')
+              .select('*')
+              .eq('is_active', true)
+              .maybeSingle();
+            thresholds2026 = data;
+            console.log("📊 [2026 Update] Fetched thresholds year:", thresholds2026?.year);
+          } catch (err) {
+            console.error("⚠️ [2026 Update] Failed to fetch thresholds:", err);
+          }
+          
+          if (thresholds2026 && vertexResponse.text) {
+            // Province → Region mapping 
+            const PROVINCE_REGION_MAP_MD: Record<string, number> = {
+              "adana": 3, "adıyaman": 6, "afyonkarahisar": 4, "ağrı": 6, "aksaray": 4,
+              "amasya": 4, "ankara": 1, "antalya": 1, "ardahan": 6, "artvin": 4,
+              "aydın": 2, "balıkesir": 2, "bartın": 5, "batman": 6, "bayburt": 5,
+              "bilecik": 3, "bingöl": 6, "bitlis": 6, "bolu": 2, "burdur": 3,
+              "bursa": 1, "çanakkale": 2, "çankırı": 5, "çorum": 4, "denizli": 2,
+              "diyarbakır": 6, "düzce": 3, "edirne": 2, "elazığ": 4, "erzincan": 4,
+              "erzurum": 5, "eskişehir": 1, "gaziantep": 3, "giresun": 5, "gümüşhane": 6,
+              "hakkari": 6, "hakkâri": 6, "hatay": 5, "iğdır": 6, "ığdır": 6, "isparta": 3,
+              "istanbul": 1, "İstanbul": 1, "izmir": 1, "İzmir": 1,
+              "kahramanmaraş": 5, "karabük": 3, "karaman": 3, "kars": 6, "kastamonu": 4,
+              "kayseri": 2, "kilis": 5, "kırıkkale": 3, "kırklareli": 3, "kırşehir": 4,
+              "kocaeli": 1, "konya": 2, "kütahya": 3, "malatya": 4, "manisa": 2,
+              "mardin": 6, "mersin": 2, "muğla": 1, "muş": 6, "nevşehir": 3,
+              "niğde": 5, "ordu": 5, "osmaniye": 5, "rize": 3, "sakarya": 2,
+              "samsun": 3, "şanlıurfa": 6, "siirt": 6, "sinop": 5, "sivas": 4,
+              "şırnak": 6, "tekirdağ": 2, "tokat": 5, "trabzon": 3, "tunceli": 5,
+              "uşak": 3, "van": 6, "yalova": 2, "yozgat": 5, "zonguldak": 3
+            };
+            
+            // Extract province from markdown text
+            const extractProvinceFromMarkdown = (text: string): string | null => {
+              // Multiple patterns to find province
+              const patterns = [
+                /İl:\s*\*?\*?([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,           // "İl: Kütahya" or "İl: **Kütahya**"
+                /il[:\s]+\*?\*?([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,         // "il: kütahya" 
+                /\*\*İl:\*\*\s*([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,         // "**İl:** Kütahya"
+                /([A-ZÇĞİÖŞÜ][a-zçğıöşü]+)\s+ili(?:nde)?/i,       // "Kütahya ili" or "Kütahya ilinde"
+                /metadata\s+il\s+([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,       // from metadata
+                /\|\s*İl\s*\|\s*([A-ZÇĞİÖŞÜa-zçğıöşü]+)\s*\|/i,   // table format: | İl | Kütahya |
+              ];
+              
+              for (const pattern of patterns) {
+                const match = text.match(pattern);
+                if (match && match[1]) {
+                  const province = match[1].trim();
+                  // Verify it's in our province list
+                  if (PROVINCE_REGION_MAP_MD[province.toLowerCase()]) {
+                    return province;
+                  }
+                }
+              }
+              
+              // Also check known province names directly in text
+              for (const [provinceName] of Object.entries(PROVINCE_REGION_MAP_MD)) {
+                const capitalizedProvince = provinceName.charAt(0).toUpperCase() + provinceName.slice(1);
+                if (text.includes(capitalizedProvince)) {
+                  return capitalizedProvince;
+                }
+              }
+              
+              return null;
+            };
+            
+            // Format currency with Turkish locale
+            const formatCurrencyMD = (value: number): string => {
+              return new Intl.NumberFormat('tr-TR', { 
+                style: 'decimal', 
+                minimumFractionDigits: 0, 
+                maximumFractionDigits: 0 
+              }).format(value) + ' TL';
+            };
+            
+            // Get province region
+            const province = extractProvinceFromMarkdown(vertexResponse.text);
+            const region = province ? (PROVINCE_REGION_MAP_MD[province.toLowerCase()] || 3) : 3;
+            
+            console.log(`📍 [2026 Update] Markdown province: ${province}, Region: ${region}`);
+            
+            // Determine minimum investment based on province region
+            const minInvestmentForRegion = region <= 2 
+              ? thresholds2026.min_investment_region_1_2 
+              : thresholds2026.min_investment_region_3_6;
+            
+            let updatedText = vertexResponse.text;
+            
+            // Replace old values with new 2026 values
+            // Asgari yatırım (6M → region based)
+            updatedText = updatedText.replace(/6\.000\.000\s*TL/g, formatCurrencyMD(minInvestmentForRegion));
+            updatedText = updatedText.replace(/6,000,000\s*TL/g, formatCurrencyMD(minInvestmentForRegion));
+            updatedText = updatedText.replace(/6\.000\.000TL/g, formatCurrencyMD(minInvestmentForRegion));
+            
+            // Hedef yatırım faiz üst limit (12M → 15.1M)
+            const targetLimit = thresholds2026.max_interest_support_target || 15100000;
+            updatedText = updatedText.replace(/12\.000\.000\s*TL/g, formatCurrencyMD(targetLimit));
+            updatedText = updatedText.replace(/12,000,000\s*TL/g, formatCurrencyMD(targetLimit));
+            updatedText = updatedText.replace(/12\.000\.000TL/g, formatCurrencyMD(targetLimit));
+            
+            // Öncelikli yatırım faiz üst limit (24M → 30.1M)
+            const priorityLimit = thresholds2026.max_interest_support_priority || 30100000;
+            updatedText = updatedText.replace(/24\.000\.000\s*TL/g, formatCurrencyMD(priorityLimit));
+            updatedText = updatedText.replace(/24,000,000\s*TL/g, formatCurrencyMD(priorityLimit));
+            
+            // Stratejik yatırım faiz üst limit (180M → 226M)
+            const strategicLimit = thresholds2026.max_interest_support_strategic || 226000000;
+            updatedText = updatedText.replace(/180\.000\.000\s*TL/g, formatCurrencyMD(strategicLimit));
+            updatedText = updatedText.replace(/180,000,000\s*TL/g, formatCurrencyMD(strategicLimit));
+            
+            // Makine desteği üst limit (240M → 301M)
+            const machineryLimit = thresholds2026.max_machinery_support_tech_local || 301000000;
+            updatedText = updatedText.replace(/240\.000\.000\s*TL/g, formatCurrencyMD(machineryLimit));
+            updatedText = updatedText.replace(/240,000,000\s*TL/g, formatCurrencyMD(machineryLimit));
+            
+            // Extra: 1-2. bölge için asgari yatırım düzeltmesi
+            // Eğer metin 7.500.000 TL içeriyorsa ama bölge 1-2 ise, 15.100.000 TL olmalı
+            if (region <= 2) {
+              const region3_6Min = formatCurrencyMD(thresholds2026.min_investment_region_3_6 || 7500000);
+              const region1_2Min = formatCurrencyMD(thresholds2026.min_investment_region_1_2 || 15100000);
+              
+              // Sadece "asgari" veya "minimum" kelimesinin yakınındaki değeri değiştir
+              // Pattern: asgari ... 7.500.000 TL
+              const minPattern = new RegExp(`(asgari|minimum|en az)([^\\d]*?)(${region3_6Min.replace(/\./g, '\\.')})`, 'gi');
+              updatedText = updatedText.replace(minPattern, `$1$2${region1_2Min}`);
+            }
+            
+            // Update vertexResponse with corrected values
+            vertexResponse.text = updatedText;
+            vertexResponse._valuesUpdatedWith2026 = true;
+            vertexResponse._thresholdYear = thresholds2026.year;
+            vertexResponse._provinceRegion = region;
+            
+            console.log(`✅ [2026 Update] Markdown values updated. Year: ${thresholds2026.year}, Region: ${region}`);
+          }
+        }
+        // ============= MARKDOWN 2026 VALUE UPDATE END =============
+
         // ============= STEP 3: INTELLIGENT RERANKING =============
         console.log("🎯 [Enhanced Hybrid] Step 3: Reranking results...");
         const rerankedResult = rerankResults(
