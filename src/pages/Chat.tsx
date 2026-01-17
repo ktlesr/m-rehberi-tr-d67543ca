@@ -3,15 +3,16 @@ import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ChatMessageArea } from '@/components/chat/ChatMessageArea';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { useChatSession } from '@/hooks/useChatSession';
+import { useChatSession, ChatMessage } from '@/hooks/useChatSession';
 import { geminiRagService } from '@/services/geminiRagService';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Menu, LogIn, Cloud } from 'lucide-react';
+import { Menu, LogIn, Cloud, TestTube2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useChatbotStats } from '@/hooks/useChatbotStats';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import type { StructuredAPIResponse } from '@/utils/structuredResponseRenderer';
 
 export default function Chat() {
   const { user, loading: authLoading } = useAuth();
@@ -38,6 +39,8 @@ export default function Chat() {
   const [currentSuggestion, setCurrentSuggestion] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [testMessages, setTestMessages] = useState<ChatMessage[]>([]);
+  const [showTestMode, setShowTestMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { trackUserMessage, trackAssistantMessage, trackNewSession, trackUniqueSession } = useChatbotStats();
@@ -207,6 +210,130 @@ export default function Chat() {
     }
   };
 
+  // Demo Interactive Response for testing
+  const createDemoInteractiveMessage = (): ChatMessage => {
+    const demoResponse: StructuredAPIResponse = {
+      type: 'structured',
+      mode: 'interactive',
+      content: {
+        summary: 'Teşvik hesaplaması için yatırım yapılacak ili öğrenmem gerekiyor.',
+        sections: [
+          {
+            type: 'info',
+            content: 'Seçeceğiniz il, teşvik bölgesini ve uygulanacak destek oranlarını belirler.'
+          }
+        ]
+      },
+      interaction: {
+        field: 'province',
+        questionText: 'Yatırımı hangi ilde yapmayı planlıyorsunuz?',
+        inputType: 'select',
+        options: [
+          { value: 'istanbul', label: 'İstanbul', region: 1 },
+          { value: 'ankara', label: 'Ankara', region: 2 },
+          { value: 'izmir', label: 'İzmir', region: 1 },
+          { value: 'bursa', label: 'Bursa', region: 2 },
+          { value: 'antalya', label: 'Antalya', region: 2 },
+          { value: 'adana', label: 'Adana', region: 3 },
+          { value: 'konya', label: 'Konya', region: 3 },
+          { value: 'gaziantep', label: 'Gaziantep', region: 4 },
+          { value: 'sanliurfa', label: 'Şanlıurfa', region: 5 },
+          { value: 'diyarbakir', label: 'Diyarbakır', region: 6 },
+          { value: 'van', label: 'Van', region: 6 },
+          { value: 'agri', label: 'Ağrı', region: 6 },
+        ],
+        allowSearch: true,
+        placeholder: 'İl seçin veya yazın...'
+      },
+      progress: {
+        sector: 'Tekstil Ürünleri İmalatı',
+        province: null,
+        district: null,
+        osb_status: null,
+        currentStep: 2,
+        totalSteps: 5,
+        completed: false
+      }
+    };
+
+    return {
+      role: 'assistant',
+      content: JSON.stringify(demoResponse),
+      timestamp: Date.now(),
+      structuredResponse: demoResponse
+    };
+  };
+
+  const handleStartTestMode = () => {
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: 'Tekstil sektöründe teşvik hesaplama yapmak istiyorum',
+      timestamp: Date.now() - 5000
+    };
+    
+    setTestMessages([userMessage, createDemoInteractiveMessage()]);
+    setShowTestMode(true);
+  };
+
+  const handleTestInteractiveSubmit = (value: string) => {
+    toast({
+      title: 'Seçim Yapıldı',
+      description: `Seçilen değer: ${value}`,
+    });
+    
+    // Add user selection as a message
+    const selectionMessage: ChatMessage = {
+      role: 'user',
+      content: `İl: ${value}`,
+      timestamp: Date.now()
+    };
+    
+    // Create next step response (district selection)
+    const districtResponse: StructuredAPIResponse = {
+      type: 'structured',
+      mode: 'interactive',
+      content: {
+        summary: `${value.charAt(0).toUpperCase() + value.slice(1)} ili seçildi. Şimdi ilçe bilgisine ihtiyacım var.`,
+        sections: []
+      },
+      interaction: {
+        field: 'district',
+        questionText: 'Yatırımı hangi ilçede yapmayı planlıyorsunuz?',
+        inputType: 'select',
+        options: [
+          { value: 'merkez', label: 'Merkez' },
+          { value: 'osb', label: 'OSB Bölgesi' },
+          { value: 'serbest-bolge', label: 'Serbest Bölge' },
+        ],
+        allowSearch: false,
+        placeholder: 'İlçe seçin...'
+      },
+      progress: {
+        sector: 'Tekstil Ürünleri İmalatı',
+        province: value,
+        district: null,
+        osb_status: null,
+        currentStep: 3,
+        totalSteps: 5,
+        completed: false
+      }
+    };
+
+    const assistantMessage: ChatMessage = {
+      role: 'assistant',
+      content: JSON.stringify(districtResponse),
+      timestamp: Date.now(),
+      structuredResponse: districtResponse
+    };
+
+    setTestMessages(prev => [...prev, selectionMessage, assistantMessage]);
+  };
+
+  const handleExitTestMode = () => {
+    setShowTestMode(false);
+    setTestMessages([]);
+  };
+
   // Show loading state while auth is loading
   if (authLoading) {
     return (
@@ -257,24 +384,43 @@ export default function Chat() {
           </SheetContent>
         </Sheet>
 
+        {/* Test Mode Banner */}
+        {showTestMode && (
+          <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+              <TestTube2 className="h-4 w-4" />
+              <span>Demo Mod - Interactive JSON Response Testi</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleExitTestMode} className="gap-2 border-amber-500/50 text-amber-700">
+              Testi Bitir
+            </Button>
+          </div>
+        )}
+
         {/* Anonymous User Banner */}
-        {isAnonymous && (
+        {!showTestMode && isAnonymous && (
           <div className="bg-muted/50 border-b px-4 py-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Cloud className="h-4 w-4" />
               <span>Sohbet geçmişiniz bu cihazda geçici olarak saklanıyor.</span>
             </div>
-            <Link to="/admin/login">
-              <Button variant="outline" size="sm" className="gap-2">
-                <LogIn className="h-4 w-4" />
-                Giriş Yap
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleStartTestMode} className="gap-2">
+                <TestTube2 className="h-4 w-4" />
+                Demo Test
               </Button>
-            </Link>
+              <Link to="/admin/login">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <LogIn className="h-4 w-4" />
+                  Giriş Yap
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
 
         <ChatHeader 
-          sessionTitle={activeSession?.title || 'Yeni Sohbet'}
+          sessionTitle={showTestMode ? 'Demo: Interactive Response Test' : (activeSession?.title || 'Yeni Sohbet')}
           onClearChat={handleClearChat}
           onExportChat={handleExportChat}
           onRenameSession={handleRenameSession}
@@ -284,19 +430,20 @@ export default function Chat() {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           <ChatMessageArea
-            messages={activeSession?.messages || []}
+            messages={showTestMode ? testMessages : (activeSession?.messages || [])}
             isLoading={isLoading}
-            currentSuggestion={currentSuggestion}
+            currentSuggestion={showTestMode ? '' : currentSuggestion}
             onSuggestionClick={handleSuggestionClick}
             isGeneratingQuestions={isGeneratingQuestions}
             activeSessionId={activeSessionId}
             onRegenerateMessage={handleRegenerateMessage}
+            onInteractiveSubmit={showTestMode ? handleTestInteractiveSubmit : undefined}
           />
         </div>
 
         <ChatInput
           onSendMessage={handleSendMessage}
-          disabled={isLoading || !activeStore}
+          disabled={isLoading || !activeStore || showTestMode}
           isGenerating={isLoading}
           value={inputValue}
           onValueChange={setInputValue}
