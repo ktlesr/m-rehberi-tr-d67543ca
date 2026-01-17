@@ -334,6 +334,19 @@ export default function Chat() {
     setTestMessages([]);
   };
 
+  // Handle real interactive submissions (normal mode)
+  const handleRealInteractiveSubmit = async (value: string) => {
+    if (!activeStore || !activeSessionId) return;
+    
+    // Send the selected value as a user message
+    await sendMessage(activeSessionId, value, activeStore);
+    
+    toast({
+      title: 'Seçim gönderildi',
+      description: `Değer: ${value}`,
+    });
+  };
+
   // Show loading state while auth is loading
   if (authLoading) {
     return (
@@ -437,7 +450,7 @@ export default function Chat() {
             isGeneratingQuestions={isGeneratingQuestions}
             activeSessionId={activeSessionId}
             onRegenerateMessage={handleRegenerateMessage}
-            onInteractiveSubmit={showTestMode ? handleTestInteractiveSubmit : undefined}
+            onInteractiveSubmit={showTestMode ? handleTestInteractiveSubmit : handleRealInteractiveSubmit}
           />
         </div>
 
