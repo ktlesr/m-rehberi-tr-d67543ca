@@ -90,48 +90,97 @@ export interface StructuredAPIResponse {
 /**
  * API yanıtını parse et - structured veya markdown olabilir
  */
+/**
+ * Nested JSON string'leri recursive olarak parse et
+ * Örn: content: "{\"summary\":...}" → content: {summary:...}
+ */
+function deepParseJsonStrings(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  
+  if (typeof obj === 'string') {
+    const trimmed = obj.trim();
+    // JSON gibi görünüyor mu?
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return deepParseJsonStrings(parsed); // Recursive parse
+      } catch {
+        return obj; // Parse başarısız, string olarak bırak
+      }
+    }
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(deepParseJsonStrings);
+  }
+  
+  if (typeof obj === 'object') {
+    const result: any = {};
+    for (const key of Object.keys(obj)) {
+      result[key] = deepParseJsonStrings(obj[key]);
+    }
+    return result;
+  }
+  
+  return obj;
+}
+
 export function parseAPIResponse(data: any): StructuredAPIResponse {
-  // Eğer data string ise, eski format (raw text)
+  // Eğer data string ise, önce parse etmeyi dene
   if (typeof data === 'string') {
+    const trimmed = data.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return parseAPIResponse(parsed); // Recursive call
+      } catch {
+        // Parse başarısız, markdown olarak devam
+      }
+    }
     return {
       type: 'markdown',
       content: data,
     };
   }
 
+  // Nested JSON string'leri çöz (content: "{...}" durumu)
+  const normalized = deepParseJsonStrings(data);
+
   // Eğer data.type === 'structured' ve content.sections varsa
-  if (data?.type === 'structured' && data?.content?.sections) {
-    return data as StructuredAPIResponse;
+  if (normalized?.type === 'structured' && normalized?.content?.sections) {
+    return normalized as StructuredAPIResponse;
   }
 
   // Eğer doğrudan content.sections varsa (type belirtilmemiş)
-  if (data?.content?.sections && Array.isArray(data.content.sections)) {
+  if (normalized?.content?.sections && Array.isArray(normalized.content.sections)) {
     return {
       type: 'structured',
-      mode: data.mode || 'informative',
-      content: data.content,
-      interaction: data.interaction,
-      followUp: data.followUp,
-      progress: data.progress,
-      sources: data.sources,
-      supportPrograms: data.supportPrograms,
+      mode: normalized.mode || 'informative',
+      content: normalized.content,
+      interaction: normalized.interaction,
+      followUp: normalized.followUp,
+      progress: normalized.progress,
+      sources: normalized.sources,
+      supportPrograms: normalized.supportPrograms,
     };
   }
 
   // Fallback: text varsa markdown olarak işle
-  if (data?.text) {
+  if (normalized?.text) {
     return {
       type: 'markdown',
-      content: data.text,
-      sources: data.sources,
+      content: normalized.text,
+      sources: normalized.sources,
     };
   }
 
   // Son çare: doğrudan content string olarak al
   return {
     type: 'markdown',
-    content: typeof data?.content === 'string' ? data.content : '',
-    sources: data?.sources,
+    content: typeof normalized?.content === 'string' ? normalized.content : '',
+    sources: normalized?.sources,
   };
 }
 
@@ -140,6 +189,8 @@ export function parseAPIResponse(data: any): StructuredAPIResponse {
  * Hem çıplak JSON hem de ```json ... ``` kod bloğu içindeki JSON'u destekler
  */
 export function tryParseStructuredContent(content: string): StructuredAPIResponse | null {
+  if (!content || typeof content !== 'string') return null;
+  
   try {
     let jsonString = content.trim();
     
@@ -153,9 +204,12 @@ export function tryParseStructuredContent(content: string): StructuredAPIRespons
     if (jsonString.startsWith('{') && jsonString.endsWith('}')) {
       const parsed = JSON.parse(jsonString);
       
+      // Nested JSON string'leri çöz
+      const normalized = deepParseJsonStrings(parsed);
+      
       // Structured format mı kontrol et
-      if (parsed.type === 'structured' || parsed.content?.sections) {
-        return parseAPIResponse(parsed);
+      if (normalized.type === 'structured' || normalized.content?.sections) {
+        return parseAPIResponse(normalized);
       }
     }
   } catch {
