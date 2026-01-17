@@ -2246,11 +2246,21 @@ Tüm bilgiler toplandı. Şimdi aşağıdaki **RAPOR ŞABLONUNU** kullanarak rap
 
 **Sigorta Primi İşveren Hissesi:** [X] Yıl
 
-**Faiz veya Kar Payı Desteği:** [Varsa tutarı] TL
+**Faiz / Kâr Payı Desteği Üst Limit Tutarı:** [Programa göre aşağıdaki değerlerden seç]
+- Hedef Yatırımlar: ${activeYearThresholds?.max_interest_support_target ? formatCurrency(activeYearThresholds.max_interest_support_target) : '15.100.000'} TL
+- Öncelikli Yatırımlar: ${activeYearThresholds?.max_interest_support_priority ? formatCurrency(activeYearThresholds.max_interest_support_priority) : '30.100.000'} TL
+- Teknoloji Hamlesi / Yerel Kalkınma: ${activeYearThresholds?.max_interest_support_tech_local ? formatCurrency(activeYearThresholds.max_interest_support_tech_local) : '300.000.000'} TL
+- Stratejik Hamle: ${activeYearThresholds?.max_interest_support_strategic ? formatCurrency(activeYearThresholds.max_interest_support_strategic) : '226.000.000'} TL
 
-**Makine Desteği:** [Sadece Hamle programları için] TL
+**Makine Desteği Üst Limit Tutarı:** [Sadece Hamle programları için]
+- Teknoloji Hamlesi / Yerel Kalkınma: ${activeYearThresholds?.max_machinery_support_tech_local ? formatCurrency(activeYearThresholds.max_machinery_support_tech_local) : '300.000.000'} TL
+- Stratejik Hamle: ${activeYearThresholds?.max_machinery_support_strategic ? formatCurrency(activeYearThresholds.max_machinery_support_strategic) : '226.000.000'} TL
 
-**Asgari Sabit Yatırım Tutarı:** [Bölgeye göre 2025 limiti] TL (2026: [tutar] TL)
+**Asgari Sabit Yatırım Tutarı:** [Yatırımın bulunduğu bölgeye göre seç]
+- 1. ve 2. Bölge: ${activeYearThresholds?.min_investment_region_1_2 ? formatCurrency(activeYearThresholds.min_investment_region_1_2) : '15.100.000'} TL
+- 3., 4., 5. ve 6. Bölge: ${activeYearThresholds?.min_investment_region_3_6 ? formatCurrency(activeYearThresholds.min_investment_region_3_6) : '7.500.000'} TL
+
+⚠️ ÖNEMLİ: Yalnızca yatırımın yapılacağı ilin bölgesine göre asgari tutarı yaz. Tüm bölgelerin tutarlarını listeleme!
 
 ---
 Detaylı başvuru süreci için ${incentiveQuery.province} Yatırım Destek Ofisi ile görüşmeniz faydalı olacaktır.
@@ -2370,6 +2380,12 @@ ${activeYearThresholds ? `
 3. **ÖNCELİKLİ YATIRIMLAR (Madde 9):**
    * **Vergi İndirim Oranı:** %60
    * **Yatırıma Katkı Oranı (YKO):** %30
+   * **Faiz Desteği Üst Limit:** max ${activeYearThresholds?.max_interest_support_priority ? formatCurrency(activeYearThresholds.max_interest_support_priority) : '30.100.000'} TL
+
+4. **HEDEF YATIRIMLAR (Genel/Bölgesel):**
+   * **Vergi İndirim Oranı:** %60
+   * **Yatırıma Katkı Oranı (YKO):** %20
+   * **Faiz Desteği Üst Limit:** max ${activeYearThresholds?.max_interest_support_target ? formatCurrency(activeYearThresholds.max_interest_support_target) : '15.100.000'} TL
 
 ---
 
@@ -2429,6 +2445,11 @@ Yukarıdaki BÖLÜM 2'deki SABİT TABLOLARI kullanarak raporu doldur.
 
 ## 5. RAPOR ŞABLONU (ZORUNLU FORMAT)
 
+⚠️ **KRİTİK KURAL - ASGARİ YATIRIM TUTARI:**
+- Tüm bölgelerin asgari tutarlarını listeleme! 
+- Sadece yatırımın yapılacağı ilin bölgesine göre tek tutar yaz
+- Örnek: Konya 5. Bölge ise → Asgari Tutar: ${activeYearThresholds?.min_investment_region_3_6 ? formatCurrency(activeYearThresholds.min_investment_region_3_6) : '7.500.000'} TL
+
 \`\`\`
 **Yatırım Konusu:** [Sektör Adı]
 
@@ -2448,11 +2469,11 @@ Yukarıdaki BÖLÜM 2'deki SABİT TABLOLARI kullanarak raporu doldur.
 
 **Sigorta Primi İşveren Hissesi:** [BÖLÜM 2'den seçilen yıl] Yıl
 
-**Faiz veya Kar Payı Desteği:** [Varsa tutarı] TL
+**Faiz / Kâr Payı Desteği Üst Limit Tutarı:** [Programa göre BÖLÜM 2'den seç - Hedef: ${activeYearThresholds?.max_interest_support_target ? formatCurrency(activeYearThresholds.max_interest_support_target) : '15.100.000'} TL, Öncelikli: ${activeYearThresholds?.max_interest_support_priority ? formatCurrency(activeYearThresholds.max_interest_support_priority) : '30.100.000'} TL, Teknoloji/Yerel: ${activeYearThresholds?.max_interest_support_tech_local ? formatCurrency(activeYearThresholds.max_interest_support_tech_local) : '300.000.000'} TL]
 
-**Makine Desteği:** [Sadece Hamle programları için] TL
+**Makine Desteği Üst Limit Tutarı:** [Sadece Hamle programları için - Teknoloji/Yerel: ${activeYearThresholds?.max_machinery_support_tech_local ? formatCurrency(activeYearThresholds.max_machinery_support_tech_local) : '300.000.000'} TL]
 
-**Asgari Sabit Yatırım Tutarı:** [Bölgeye göre 2025 limiti] TL (2026: [tutar] TL)
+**Asgari Sabit Yatırım Tutarı:** [Yatırım yapılacak ilin bölgesine göre TEK DEĞER: 1-2. Bölge → ${activeYearThresholds?.min_investment_region_1_2 ? formatCurrency(activeYearThresholds.min_investment_region_1_2) : '15.100.000'} TL, 3-6. Bölge → ${activeYearThresholds?.min_investment_region_3_6 ? formatCurrency(activeYearThresholds.min_investment_region_3_6) : '7.500.000'} TL]
 \`\`\`
 
 ---
