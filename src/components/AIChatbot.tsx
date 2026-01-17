@@ -38,6 +38,12 @@ import { useChatbotSettings } from "@/hooks/useChatbotSettings";
 import { SupportProgramCard, type SupportProgramCardData } from "@/components/chat/SupportProgramCard";
 import { extractFollowUpQuestion } from "@/utils/followUpQuestionParser";
 import { normalizeMarkdownContent } from "@/utils/markdownNormalizer";
+import { 
+  tryParseStructuredContent, 
+  StructuredResponseRenderer, 
+  FollowUpRenderer,
+  ProgressRenderer 
+} from "@/utils/structuredResponseRenderer";
 
 interface Message {
   role: "user" | "assistant";
@@ -239,22 +245,48 @@ function MessageBubble({ message, showSources }: { message: Message; showSources
 
   const rawContent = showSources ? message.content : cleanCitations(message.content);
 
-  // Takip sorusunu ayır (sadece asistan mesajları için)
-  const { mainContent, followUpQuestion } = isUser
+  // Yapılandırılmış (structured) yanıt olup olmadığını kontrol et
+  const structuredResponse = !isUser ? tryParseStructuredContent(rawContent) : null;
+  const isStructured = structuredResponse?.type === 'structured';
+
+  // Takip sorusunu ayır (sadece markdown asistan mesajları için)
+  const { mainContent, followUpQuestion } = isUser || isStructured
     ? { mainContent: rawContent, followUpQuestion: null }
     : extractFollowUpQuestion(rawContent);
+
+  // Structured response için readable text (sesli okuma için)
+  const getReadableText = (): string => {
+    if (isStructured && typeof structuredResponse?.content !== 'string') {
+      const content = structuredResponse!.content;
+      let text = content.summary || '';
+      content.sections?.forEach((section) => {
+        if (section.title) text += ` ${section.title}. `;
+        if (section.content) text += ` ${section.content}`;
+        if (section.items) {
+          section.items.forEach((item) => {
+            if (typeof item === 'string') {
+              text += ` ${item}.`;
+            } else {
+              text += ` ${item.label}: ${item.value}.`;
+            }
+          });
+        }
+      });
+      return text;
+    }
+    return mainContent
+      .replace(/\[badge:[^\]]+\]/gi, "")
+      .replace(/\[(\d+)\]/g, "")
+      .replace(/[#*_`]/g, "")
+      .replace(/\n+/g, ". ")
+      .trim();
+  };
 
   const handleSpeak = () => {
     if (isSpeaking) {
       stop();
     } else {
-      const cleanText = mainContent
-        .replace(/\[badge:[^\]]+\]/gi, "")
-        .replace(/\[(\d+)\]/g, "")
-        .replace(/[#*_`]/g, "")
-        .replace(/\n+/g, ". ")
-        .trim();
-      speak(cleanText);
+      speak(getReadableText());
     }
   };
 
@@ -284,6 +316,11 @@ function MessageBubble({ message, showSources }: { message: Message; showSources
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className="max-w-[85%]">
+        {/* Progress göstergesi (structured response için) */}
+        {!isUser && isStructured && structuredResponse?.progress && (
+          <ProgressRenderer progress={structuredResponse.progress} />
+        )}
+        
         <div
           className={`rounded-lg p-3 ${
             isUser ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted"
@@ -292,13 +329,20 @@ function MessageBubble({ message, showSources }: { message: Message; showSources
           <div className="text-sm prose prose-sm max-w-none dark:prose-invert">
             {isUser ? (
               <span className="whitespace-pre-wrap">{mainContent}</span>
+            ) : isStructured ? (
+              <StructuredResponseRenderer response={structuredResponse!} />
             ) : (
               <ReactMarkdown components={markdownComponents}>{preprocessMarkdown(mainContent)}</ReactMarkdown>
             )}
           </div>
 
-          {/* Takip Sorusu Kartı */}
-          {!isUser && followUpQuestion && <FollowUpCard question={followUpQuestion} />}
+          {/* Takip Sorusu (structured) */}
+          {!isUser && isStructured && structuredResponse?.followUp && (
+            <FollowUpRenderer followUp={structuredResponse.followUp} />
+          )}
+
+          {/* Takip Sorusu Kartı (markdown) */}
+          {!isUser && !isStructured && followUpQuestion && <FollowUpCard question={followUpQuestion} />}
 
           {!isUser && isSupported && (
             <div className="mt-2 pt-1.5 border-t border-border/30 flex justify-end">
