@@ -1347,6 +1347,15 @@ export type Database = {
           effective_from: string
           id: string
           is_active: boolean | null
+          max_extra_interest_priority: number | null
+          max_extra_interest_target: number | null
+          max_extra_interest_turkey_century: number | null
+          max_interest_support_priority: number | null
+          max_interest_support_strategic: number | null
+          max_interest_support_target: number | null
+          max_interest_support_tech_local: number | null
+          max_machinery_support_strategic: number | null
+          max_machinery_support_tech_local: number | null
           min_financial_leasing: number | null
           min_high_tech_priority: number
           min_investment_region_1_2: number
@@ -1370,6 +1379,15 @@ export type Database = {
           effective_from: string
           id?: string
           is_active?: boolean | null
+          max_extra_interest_priority?: number | null
+          max_extra_interest_target?: number | null
+          max_extra_interest_turkey_century?: number | null
+          max_interest_support_priority?: number | null
+          max_interest_support_strategic?: number | null
+          max_interest_support_target?: number | null
+          max_interest_support_tech_local?: number | null
+          max_machinery_support_strategic?: number | null
+          max_machinery_support_tech_local?: number | null
           min_financial_leasing?: number | null
           min_high_tech_priority: number
           min_investment_region_1_2: number
@@ -1393,6 +1411,15 @@ export type Database = {
           effective_from?: string
           id?: string
           is_active?: boolean | null
+          max_extra_interest_priority?: number | null
+          max_extra_interest_target?: number | null
+          max_extra_interest_turkey_century?: number | null
+          max_interest_support_priority?: number | null
+          max_interest_support_strategic?: number | null
+          max_interest_support_target?: number | null
+          max_interest_support_tech_local?: number | null
+          max_machinery_support_strategic?: number | null
+          max_machinery_support_tech_local?: number | null
           min_financial_leasing?: number | null
           min_high_tech_priority?: number
           min_investment_region_1_2?: number
