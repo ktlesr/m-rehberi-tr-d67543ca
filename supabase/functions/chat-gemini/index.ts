@@ -1014,6 +1014,27 @@ const cleanDistrict = (text: string): string => {
 
 const parseOsbStatus = (text: string): "İÇİ" | "DIŞI" | null => {
   const lower = text.toLowerCase().trim();
+
+  // UI'dan gelen değerler (interactive radio)
+  if (
+    lower === "osb_icinde" ||
+    lower === "osb_ici" ||
+    lower.includes("osb_icinde") ||
+    lower.includes("osb_ici")
+  ) {
+    return "İÇİ";
+  }
+
+  if (
+    lower === "osb_disinda" ||
+    lower === "osb_disi" ||
+    lower.includes("osb_disinda") ||
+    lower.includes("osb_disi")
+  ) {
+    return "DIŞI";
+  }
+
+  // Serbest metin girdileri
   if (
     lower.includes("içi") ||
     lower.includes("içinde") ||

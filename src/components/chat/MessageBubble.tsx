@@ -133,6 +133,10 @@ interface MessageBubbleProps {
   // Structured response props
   structuredResponse?: StructuredAPIResponse;
   onInteractiveSubmit?: (value: string) => void;
+  /**
+   * Krediyi korumak için: interaktif kartlar yalnızca en son mesajda ve yükleme yokken aktif olsun.
+   */
+  interactiveDisabled?: boolean;
 }
 
 export function MessageBubble({
@@ -145,6 +149,7 @@ export function MessageBubble({
   supportCards,
   structuredResponse,
   onInteractiveSubmit,
+  interactiveDisabled,
 }: MessageBubbleProps) {
   const isUser = role === "user";
   
@@ -358,6 +363,7 @@ export function MessageBubble({
                 <InteractiveInput 
                   config={parsedStructured.interaction} 
                   onSubmit={onInteractiveSubmit}
+                  disabled={interactiveDisabled}
                 />
               )}
               
