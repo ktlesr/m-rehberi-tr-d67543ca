@@ -1635,8 +1635,8 @@ serve(async (req) => {
       }
     }
 
-    // If Vertex RAG mode, delegate to vertex-rag-query function (ENHANCED HYBRID: 3-way parallel search)
-    if (ragMode === "vertex_rag_corpora") {
+    // If TeşvikSor API mode, delegate to vertex-rag-query function (ENHANCED HYBRID: 3-way parallel search)
+    if (ragMode === "vertex_rag_corpora" || ragMode === "tesviksor_api") {
       const lastUserMessage = messages
         .slice()
         .reverse()
@@ -1646,9 +1646,9 @@ serve(async (req) => {
         throw new Error("No user message found");
       }
 
-      // ============= VERTEX RAG AKIŞI (BYPASS YOK) =============
-      // Admin panelde Vertex AI seçiliyse, tüm sorgular buradan geçer
-      // Get corpus settings first
+      // ============= TEŞVİKSOR API AKIŞI =============
+      // Admin panelde TeşvikSor API seçiliyse, tüm sorgular api.tesviksor.com üzerinden işlenir
+      // Get corpus settings first (for backward compatibility)
       const { data: vertexCorpusData } = await supabase
         .from("admin_settings")
         .select("setting_value_text")
@@ -1982,7 +1982,7 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-    } // ragMode === "vertex_rag_corpora" block end
+    } // ragMode === "tesviksor_api" block end
 
     // Default: Use Gemini File Search (existing flow)
     if (!storeName) {

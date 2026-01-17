@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GeminiStoreManager } from './GeminiStoreManager';
 import { CustomRagStoreManager } from './CustomRagStoreManager';
-import { VertexRagStoreManager } from './VertexRagStoreManager';
+import { TesviksorApiManager } from './TesviksorApiManager';
 import { SupportProgramsEmbeddingManager } from './SupportProgramsEmbeddingManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Sparkles, Database, Cloud, Eye, EyeOff, Building2 } from 'lucide-react';
 
 export function KnowledgeBaseManager() {
-  const [ragMode, setRagMode] = useState<'gemini_file_search' | 'custom_rag' | 'vertex_rag_corpora'>('gemini_file_search');
+  const [ragMode, setRagMode] = useState<'gemini_file_search' | 'custom_rag' | 'tesviksor_api'>('gemini_file_search');
   const [showSources, setShowSources] = useState(true);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -37,7 +37,7 @@ export function KnowledgeBaseManager() {
   }
 
   async function handleModeChange(value: string) {
-    const newMode = value as 'gemini_file_search' | 'custom_rag' | 'vertex_rag_corpora';
+    const newMode = value as 'gemini_file_search' | 'custom_rag' | 'tesviksor_api';
     
     try {
       await adminSettingsService.setChatbotRagMode(newMode);
@@ -96,10 +96,10 @@ export function KnowledgeBaseManager() {
       description: 'PostgreSQL + pgvector'
     },
     { 
-      id: 'vertex_rag_corpora', 
-      label: 'Vertex AI', 
+      id: 'tesviksor_api', 
+      label: 'TeşvikSor API', 
       icon: Cloud,
-      description: 'GCP RAG Engine'
+      description: 'Teşvik & Yatırım API'
     },
   ];
 
@@ -187,8 +187,8 @@ export function KnowledgeBaseManager() {
             <CustomRagStoreManager />
           </TabsContent>
 
-          <TabsContent value="vertex_rag_corpora" className="m-0">
-            <VertexRagStoreManager />
+          <TabsContent value="tesviksor_api" className="m-0">
+            <TesviksorApiManager />
           </TabsContent>
 
           <TabsContent value="site_ici_destekler" className="m-0">
