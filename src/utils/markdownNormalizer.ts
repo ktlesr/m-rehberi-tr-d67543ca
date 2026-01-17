@@ -278,6 +278,32 @@ const normalizeListFormats = (content: string): string => {
     .replace(/\n[\*\-]\s*[\*\-]\s+/g, '\n* ');
 };
 
+// =================== FIX INLINE ASTERISKS IN LIST ===================
+// "için öne çıkan iller şunlardır: * **Kütahya:" → düzgün liste formatına çevir
+const fixInlineAsterisksInText = (content: string): string => {
+  let result = content;
+  
+  // Pattern 1: ": * **Text:" → "\n\n* **Text:"
+  // Satır içi asterisk + bold başlık kalıbını ayır
+  result = result.replace(/:\s*\*\s+\*\*([^*\n:]+):/g, ':\n\n* **$1:**');
+  
+  // Pattern 2: ". * **Text:" → "\n\n* **Text:"
+  result = result.replace(/\.\s*\*\s+\*\*([^*\n:]+):/g, '.\n\n* **$1:**');
+  
+  // Pattern 3: "şunlardır: * **Text" → "şunlardır:\n\n* **Text"
+  result = result.replace(/(şunlardır|aşağıdadır|şöyledir|bunlardır):\s*\*\s+/gi, '$1:\n\n* ');
+  
+  // Pattern 4: Satır ortasındaki yalnız "* " (liste değil, düz metin içinde) 
+  // "için: * **Kütahya" → "için:\n\n* **Kütahya"
+  result = result.replace(/([.!?:])\s+\*\s+\*\*/g, '$1\n\n* **');
+  
+  // Pattern 5: Ham asterisk inline kullanımı - düz metin içinde "* " 
+  // "şunlardır: * Bakır" → "şunlardır:\n\n* Bakır"
+  result = result.replace(/([.!?:])\s+\*\s+([A-ZÇĞİÖŞÜ])/g, '$1\n\n* $2');
+  
+  return result;
+};
+
 // =================== WHITESPACE CLEANUP ===================
 const cleanWhitespace = (content: string): string => {
   return content
@@ -290,6 +316,9 @@ export const normalizeMarkdownContent = (content: string): string => {
   if (!content) return '';
   
   let result = content;
+  
+  // ADIM 0: Satır içi asteriskleri ayır (en kritik - diğerlerinden önce)
+  result = fixInlineAsterisksInText(result);
   
   // ADIM 1: Çok satırlı liste bold'larını düzelt (en kritik)
   result = fixMultilineListBold(result);
@@ -333,6 +362,10 @@ export const normalizeMarkdownContent = (content: string): string => {
 export const normalizeMarkdownContentDebug = (content: string): { result: string; changes: string[] } => {
   const changes: string[] = [];
   let result = content;
+  
+  const stepInline = fixInlineAsterisksInText(result);
+  if (stepInline !== result) changes.push('fixInlineAsterisksInText');
+  result = stepInline;
   
   const step0 = fixMultilineListBold(result);
   if (step0 !== result) changes.push('fixMultilineListBold');
