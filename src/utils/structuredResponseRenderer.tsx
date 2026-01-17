@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import { AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -172,13 +173,27 @@ interface SectionRendererProps {
 }
 
 function SectionRenderer({ section, index }: SectionRendererProps) {
+  // Markdown components for inline rendering
+  const inlineMarkdownComponents = {
+    p: ({ children }: any) => <span>{children}</span>,
+    strong: ({ children }: any) => <strong className="font-semibold">{children}</strong>,
+    em: ({ children }: any) => <em>{children}</em>,
+    a: ({ href, children }: any) => (
+      <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    ),
+  };
+
   const renderContent = () => {
     switch (section.type) {
       case 'paragraph':
         return (
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {section.content}
-          </p>
+          <div className="text-sm text-muted-foreground leading-relaxed">
+            <ReactMarkdown components={inlineMarkdownComponents}>
+              {section.content || ''}
+            </ReactMarkdown>
+          </div>
         );
 
       case 'list':
@@ -296,13 +311,30 @@ interface StructuredResponseRendererProps {
 }
 
 export function StructuredResponseRenderer({ response, className }: StructuredResponseRendererProps) {
-  // Handle string content - render as simple text
+  // Markdown components for summary rendering
+  const summaryMarkdownComponents = {
+    p: ({ children }: any) => <span>{children}</span>,
+    strong: ({ children }: any) => <strong className="font-semibold text-foreground">{children}</strong>,
+    em: ({ children }: any) => <em>{children}</em>,
+    a: ({ href, children }: any) => (
+      <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    ),
+    ul: ({ children }: any) => <ul className="list-disc ml-4 my-2">{children}</ul>,
+    ol: ({ children }: any) => <ol className="list-decimal ml-4 my-2">{children}</ol>,
+    li: ({ children }: any) => <li className="mb-1">{children}</li>,
+  };
+
+  // Handle string content - render with markdown
   if (typeof response.content === 'string') {
     return (
       <div className={cn('space-y-4', className)}>
-        <p className="text-sm font-medium text-foreground leading-relaxed">
-          {response.content}
-        </p>
+        <div className="text-sm font-medium text-foreground leading-relaxed">
+          <ReactMarkdown components={summaryMarkdownComponents}>
+            {response.content}
+          </ReactMarkdown>
+        </div>
       </div>
     );
   }
@@ -323,9 +355,11 @@ export function StructuredResponseRenderer({ response, className }: StructuredRe
     <div className={cn('space-y-4', className)}>
       {/* Summary */}
       {content.summary && (
-        <p className="text-sm font-medium text-foreground leading-relaxed">
-          {content.summary}
-        </p>
+        <div className="text-sm font-medium text-foreground leading-relaxed">
+          <ReactMarkdown components={summaryMarkdownComponents}>
+            {content.summary}
+          </ReactMarkdown>
+        </div>
       )}
 
       {/* Sections */}
