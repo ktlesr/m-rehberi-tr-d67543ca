@@ -278,13 +278,39 @@ const normalizeListFormats = (content: string): string => {
     .replace(/\n[\*\-]\s*[\*\-]\s+/g, '\n* ');
 };
 
+// =================== FIX BROKEN BOLD PATTERNS ===================
+// API bazen bozuk bold döndürüyor: "Kütahya:**" veya "**Bilecik:" gibi
+const fixBrokenBoldPatterns = (content: string): string => {
+  let result = content;
+  
+  // Pattern 1: "Kütahya:**" → "**Kütahya:**" (eksik açılış)
+  // Liste item içinde bold olmayan kelime + :** 
+  result = result.replace(/^(\*\s+)([A-ZÇĞİÖŞÜa-zçğıöşü][^*\n]+?):\*\*/gm, '$1**$2:**');
+  
+  // Pattern 2: "**Bilecik:" → "**Bilecik:**" (eksik kapanış)
+  result = result.replace(/\*\*([A-ZÇĞİÖŞÜ][^*\n:]+):\s+(?!\*\*)/g, '**$1:** ');
+  
+  // Pattern 3: Satır başında yalnız "**Yatırımı" → kaldır veya düzelt
+  result = result.replace(/^\*\*([A-ZÇĞİÖŞÜa-zçğıöşü]+)\s*$/gm, '**$1**');
+  
+  // Pattern 4: "• Kütahya:** Text" → "• **Kütahya:** Text"
+  result = result.replace(/([•\-\*]\s+)([A-ZÇĞİÖŞÜa-zçğıöşü][^*\n:]+?):\*\*\s*/g, '$1**$2:** ');
+  
+  // Pattern 5: "• **Bilecik: Text" → "• **Bilecik:** Text" 
+  result = result.replace(/([•\-\*]\s+)\*\*([A-ZÇĞİÖŞÜ][^*\n:]+):\s+([^*])/g, '$1**$2:** $3');
+  
+  // Pattern 6: Liste dışında "**Text:" → "**Text:**"
+  result = result.replace(/\*\*([A-ZÇĞİÖŞÜ][^*\n:]{2,20}):\s+(?!\*)/g, '**$1:** ');
+  
+  return result;
+};
+
 // =================== FIX INLINE ASTERISKS IN LIST ===================
 // "için öne çıkan iller şunlardır: * **Kütahya:" → düzgün liste formatına çevir
 const fixInlineAsterisksInText = (content: string): string => {
   let result = content;
   
   // Pattern 1: ": * **Text:" → "\n\n* **Text:"
-  // Satır içi asterisk + bold başlık kalıbını ayır
   result = result.replace(/:\s*\*\s+\*\*([^*\n:]+):/g, ':\n\n* **$1:**');
   
   // Pattern 2: ". * **Text:" → "\n\n* **Text:"
@@ -293,12 +319,10 @@ const fixInlineAsterisksInText = (content: string): string => {
   // Pattern 3: "şunlardır: * **Text" → "şunlardır:\n\n* **Text"
   result = result.replace(/(şunlardır|aşağıdadır|şöyledir|bunlardır):\s*\*\s+/gi, '$1:\n\n* ');
   
-  // Pattern 4: Satır ortasındaki yalnız "* " (liste değil, düz metin içinde) 
-  // "için: * **Kütahya" → "için:\n\n* **Kütahya"
+  // Pattern 4: Satır ortasındaki "* " → yeni satır
   result = result.replace(/([.!?:])\s+\*\s+\*\*/g, '$1\n\n* **');
   
-  // Pattern 5: Ham asterisk inline kullanımı - düz metin içinde "* " 
-  // "şunlardır: * Bakır" → "şunlardır:\n\n* Bakır"
+  // Pattern 5: Ham asterisk inline kullanımı
   result = result.replace(/([.!?:])\s+\*\s+([A-ZÇĞİÖŞÜ])/g, '$1\n\n* $2');
   
   return result;
@@ -319,6 +343,9 @@ export const normalizeMarkdownContent = (content: string): string => {
   
   // ADIM 0: Satır içi asteriskleri ayır (en kritik - diğerlerinden önce)
   result = fixInlineAsterisksInText(result);
+  
+  // ADIM 0.5: Bozuk bold pattern'leri düzelt
+  result = fixBrokenBoldPatterns(result);
   
   // ADIM 1: Çok satırlı liste bold'larını düzelt (en kritik)
   result = fixMultilineListBold(result);
@@ -366,6 +393,10 @@ export const normalizeMarkdownContentDebug = (content: string): { result: string
   const stepInline = fixInlineAsterisksInText(result);
   if (stepInline !== result) changes.push('fixInlineAsterisksInText');
   result = stepInline;
+  
+  const stepBroken = fixBrokenBoldPatterns(result);
+  if (stepBroken !== result) changes.push('fixBrokenBoldPatterns');
+  result = stepBroken;
   
   const step0 = fixMultilineListBold(result);
   if (step0 !== result) changes.push('fixMultilineListBold');
