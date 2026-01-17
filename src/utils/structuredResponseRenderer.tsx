@@ -136,15 +136,21 @@ export function parseAPIResponse(data: any): StructuredAPIResponse {
 
 /**
  * Message content'ini structured response olarak parse etmeye çalış
+ * Hem çıplak JSON hem de ```json ... ``` kod bloğu içindeki JSON'u destekler
  */
 export function tryParseStructuredContent(content: string): StructuredAPIResponse | null {
-  // İlk önce JSON olarak parse etmeyi dene
   try {
-    const trimmed = content.trim();
+    let jsonString = content.trim();
+    
+    // ```json ... ``` kod bloğu içinde mi kontrol et
+    const codeBlockMatch = jsonString.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+    if (codeBlockMatch) {
+      jsonString = codeBlockMatch[1].trim();
+    }
     
     // JSON gibi görünüyor mu?
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      const parsed = JSON.parse(trimmed);
+    if (jsonString.startsWith('{') && jsonString.endsWith('}')) {
+      const parsed = JSON.parse(jsonString);
       
       // Structured format mı kontrol et
       if (parsed.type === 'structured' || parsed.content?.sections) {

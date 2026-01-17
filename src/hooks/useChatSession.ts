@@ -344,12 +344,24 @@ export function useChatSession(user: User | null) {
         const fullResponse = data.text;
         
         // Check if response is structured JSON - skip streaming for structured responses
-        const isStructuredResponse = data.type === 'structured' || 
+        // Also check if text contains ```json block with structured content
+        let isStructuredResponse = data.type === 'structured' || 
           (typeof data.content === 'object' && data.content !== null && data.mode);
         
         let parsedStructuredResponse: StructuredAPIResponse | undefined;
-        if (isStructuredResponse) {
-          // Parse structured response from API
+        
+        // If not already structured, try to parse from text (handles ```json blocks)
+        if (!isStructuredResponse && fullResponse) {
+          const { tryParseStructuredContent } = await import("@/utils/structuredResponseRenderer");
+          const parsed = tryParseStructuredContent(fullResponse);
+          if (parsed && parsed.type === 'structured') {
+            isStructuredResponse = true;
+            parsedStructuredResponse = parsed;
+          }
+        }
+        
+        if (isStructuredResponse && !parsedStructuredResponse) {
+          // Parse structured response from API direct fields
           parsedStructuredResponse = {
             type: data.type || 'structured',
             mode: data.mode || 'informative',
