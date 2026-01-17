@@ -28,6 +28,15 @@ function ensureInlineCitations(text: string, sources: any[]): string {
   return text;
 }
 
+// Structured JSON response olup olmadığını kontrol et
+function isStructuredResponse(data: any): boolean {
+  return (
+    data &&
+    (data.type === "structured" || 
+     (data.content && typeof data.content === "object" && Array.isArray(data.content.sections)))
+  );
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -95,7 +104,32 @@ serve(async (req) => {
 
     console.log("Stream complete. Total response length:", fullText.length);
 
-    // Parse __METADATA__ separator
+    // İlk önce JSON olarak parse etmeyi dene (structured response)
+    try {
+      const trimmed = fullText.trim();
+      if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+        const parsed = JSON.parse(trimmed);
+        
+        // Structured JSON response ise doğrudan ilet
+        if (isStructuredResponse(parsed)) {
+          console.log("Detected structured JSON response, passing through directly");
+          return new Response(
+            JSON.stringify({
+              ...parsed,
+              vertexRag: true,
+            }),
+            {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+    } catch (jsonError) {
+      // JSON değil, eski markdown formatı ile devam et
+      console.log("Response is not JSON, processing as markdown");
+    }
+
+    // Parse __METADATA__ separator (eski format)
     const [messageContent, metadataJson] = fullText.split("__METADATA__");
 
     let sources = [];
@@ -112,9 +146,10 @@ serve(async (req) => {
     const fixedMarkdown = fixMarkdownLineBreaks(messageContent.trim());
     const finalText = ensureInlineCitations(fixedMarkdown, sources);
 
-    // Return in chat-gemini compatible format
+    // Return in chat-gemini compatible format (markdown fallback)
     return new Response(
       JSON.stringify({
+        type: "markdown",
         text: finalText,
         sources: sources, // [{ title: "9903_Karar.pdf", index: 1 }, ...]
         groundingChunks: [],
