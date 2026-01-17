@@ -1739,7 +1739,7 @@ serve(async (req) => {
         // ============= STEP 2: PARALLEL 3-WAY SEARCH =============
         console.log("🔄 [Enhanced Hybrid] Step 2: Running parallel 3-way search...");
 
-        const [vertexResponse, qvMatches, supportCards] = await Promise.all([
+        let [vertexResponse, qvMatches, supportCards] = await Promise.all([
           // 1. Vertex RAG query with contextual query
           (async () => {
             try {
