@@ -69,7 +69,7 @@ async function generateResponse(context: string, question: string, matchedQuesti
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-  const systemPrompt = `Sen Türkiye'deki yatırım teşvikleri konusunda uzman bir asistansın. 
+  const systemPrompt = `Sen Türkiye'deki yatırım teşvikleri konusunda uzman bir AI Yatırım Destek Uzmanısın. 
 Resmi Soru-Cevap dokümanlarına dayanarak kullanıcı sorularını cevaplıyorsun.
 
 ÖNEMLİ KURALLAR:

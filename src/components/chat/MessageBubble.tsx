@@ -307,7 +307,7 @@ export function MessageBubble({
           {/* Başlık (Asistan / Siz) + Saat */}
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
-              {isUser ? "Siz" : "Asistan"}
+              {isUser ? "Siz" : "AI Yatırım Destek Uzmanı"}
             </span>
             {timestamp && <span className="text-[11px] text-muted-foreground">{formatTime(timestamp)}</span>}
           </div>

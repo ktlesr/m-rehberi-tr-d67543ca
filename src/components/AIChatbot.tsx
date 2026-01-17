@@ -919,8 +919,8 @@ export function AIChatbot() {
                   <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 absolute -top-1 -right-1 text-yellow-300" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm sm:text-base">AI Asistan</h3>
-                  <p className="text-xs opacity-90 hidden sm:block">Yatırım Teşvikleri ve Destekleri</p>
+                  <h3 className="font-semibold text-sm sm:text-base">AI Yatırım Destek Uzmanı</h3>
+                  <p className="text-xs opacity-90 hidden sm:block">Teşvikler ve Destek Programları</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
