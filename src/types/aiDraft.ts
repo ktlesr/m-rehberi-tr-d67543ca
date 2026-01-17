@@ -34,6 +34,14 @@ export interface AIDraftFilledFields {
   contact_info: string;
 }
 
+export interface SummaryData {
+  who_can_apply: string | null;
+  supported_areas: string | null;
+  application_period: string | null;
+  application_location: string | null;
+  application_url: string | null;
+}
+
 export interface AIDraftRequest {
   uploaded_files: Array<{ id?: string; name: string; path: string }>;
   source_url: string | null;
@@ -46,6 +54,7 @@ export interface AIDraftResponse {
   missing_tags: MissingTag[];
   evidence: FieldEvidence[];
   issues: FieldIssue[];
+  summary_data?: SummaryData;
 }
 
 // Announcement Draft Types

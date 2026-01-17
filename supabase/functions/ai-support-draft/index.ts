@@ -82,6 +82,11 @@ interface ExtractedData {
     field_key: string;
     message: string;
   }>;
+  // Summary fields
+  summary_who_can_apply: string | null;
+  summary_supported_areas: string | null;
+  summary_application_period: string | null;
+  summary_application_location: string | null;
 }
 
 serve(async (req) => {
@@ -348,6 +353,44 @@ KURALLAR:
                       required: ["type", "field_key", "message"],
                     },
                   },
+                  // Summary fields for Özet Bilgi Formu
+                  summary_who_can_apply: {
+                    type: "string",
+                    nullable: true,
+                    description: `Programa kimler başvurabilir? Kısa ve öz madde işaretli liste formatında:
+• Her madde tek cümle olmalı
+• Maksimum 5-6 madde
+• Türkçe bullet point (•) kullanın
+Örnek format:
+• KOBİ tanımına uyan işletmeler
+• Sanayi sicil belgesi sahibi firmalar
+• Ar-Ge merkezi belgesi olan kuruluşlar`,
+                  },
+                  summary_supported_areas: {
+                    type: "string",
+                    nullable: true,
+                    description: `Desteklenen alanlar ve destek unsurları nelerdir? Kapsayıcı ve anlaşılır özet:
+• Madde işaretli liste tercih edilir
+• Destek oranları ve limitler varsa dahil edilmeli
+• 1 sayfaya sığacak şekilde özetlenmeli
+• Türkçe bullet point (•) kullanın`,
+                  },
+                  summary_application_period: {
+                    type: "string",
+                    nullable: true,
+                    description: `Başvuru dönemi bilgisi:
+• Sürekli açık mı?
+• Belirli tarih aralığı var mı?
+• Yılın belirli dönemlerinde mi?`,
+                  },
+                  summary_application_location: {
+                    type: "string",
+                    nullable: true,
+                    description: `Başvuru yeri ve yöntemi:
+• Online başvuru linki (varsa)
+• Fiziksel başvuru adresi (varsa)
+• İlgili kurum bilgisi`,
+                  },
                 },
                 required: [
                   "institution_name",
@@ -358,7 +401,11 @@ KURALLAR:
                   "contact_information",
                   "tags", 
                   "evidence", 
-                  "issues"
+                  "issues",
+                  "summary_who_can_apply",
+                  "summary_supported_areas",
+                  "summary_application_period",
+                  "summary_application_location"
                 ],
               },
             },
@@ -595,6 +642,14 @@ KURALLAR:
       missing_tags: missingTags,
       evidence: extractedData.evidence || [],
       issues: extractedData.issues || [],
+      // Summary data for Özet Bilgi Formu
+      summary_data: {
+        who_can_apply: extractedData.summary_who_can_apply || null,
+        supported_areas: extractedData.summary_supported_areas || null,
+        application_period: extractedData.summary_application_period || null,
+        application_location: extractedData.summary_application_location || null,
+        application_url: source_url || null,
+      },
     };
 
     console.log("Final response prepared with", selectedTagIds.length, "tags");

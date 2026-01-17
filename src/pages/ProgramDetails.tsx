@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Building2, FileText, Share2, MessageSquare, Download } from 'lucide-react';
+import { ArrowLeft, Building2, FileText, Share2, MessageSquare, Download, BookOpen } from 'lucide-react';
 import { SupportProgram } from '@/types/support';
+import { SupportProgramSummary } from '@/types/supportSummary';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getFileIcon, getFileIconColor } from '@/utils/fileIcons';
@@ -14,6 +15,7 @@ const ProgramDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [program, setProgram] = useState<SupportProgram | null>(null);
+  const [summary, setSummary] = useState<SupportProgramSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,6 +52,17 @@ const ProgramDetails = () => {
           files: data.files || []
         };
         setProgram(transformedProgram);
+      }
+
+      // Fetch summary data
+      const { data: summaryData, error: summaryError } = await supabase
+        .from('support_program_summaries')
+        .select('*')
+        .eq('support_program_id', id)
+        .maybeSingle();
+
+      if (!summaryError && summaryData) {
+        setSummary(summaryData);
       }
     } catch (error) {
       console.error('Error fetching program:', error);
@@ -163,6 +176,12 @@ const ProgramDetails = () => {
                 </div>
 
                 <div className="flex items-center gap-2 ml-4">
+                  {summary && (
+                    <Button variant="default" size="sm" onClick={() => navigate(`/program/${id}/ozet`)}>
+                      <BookOpen className="w-4 h-4 mr-1" />
+                      Özet Bilgi'ye Git
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={handleFeedback}>
                     <MessageSquare className="w-4 h-4 mr-1" />
                     Geri Bildirim
@@ -176,14 +195,36 @@ const ProgramDetails = () => {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              {program.files && program.files.length > 0 && (
+              {(program.files && program.files.length > 0) || summary?.summary_pdf_url ? (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     <FileText className="w-5 h-5 inline mr-2" />
                     İlgili Belgeler
                   </h3>
                   <div className="space-y-2">
-                    {program.files.map((file) => {
+                    {/* Summary PDF - Auto-generated (shown first) */}
+                    {summary?.summary_pdf_url && (
+                      <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg border border-primary/20">
+                        <div className="flex items-center gap-2 flex-1">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <span className="text-sm font-medium text-primary">
+                            Özet Bilgi Formu (PDF)
+                          </span>
+                        </div>
+                        <a
+                          href={summary.summary_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-primary hover:text-primary/80 text-sm font-medium"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          İndir
+                        </a>
+                      </div>
+                    )}
+                    
+                    {/* Other files - Manually uploaded by admin */}
+                    {program.files?.map((file) => {
                       const FileIcon = getFileIcon(file.filename);
                       const iconColor = getFileIconColor(file.filename);
                       
@@ -209,7 +250,7 @@ const ProgramDetails = () => {
                     })}
                   </div>
                 </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
         </div>
