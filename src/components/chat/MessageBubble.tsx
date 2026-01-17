@@ -176,7 +176,9 @@ export function MessageBubble({
 
   // --- İçerik + Atıf Baloncukları ---
   const renderContentWithCitations = () => {
-    const processedContent = preprocessMarkdown(mainContent);
+    // ReactMarkdown children her koşulda string olmalı (aksi halde runtime crash)
+    const safeMainContent = typeof mainContent === 'string' ? mainContent : JSON.stringify(mainContent);
+    const processedContent = preprocessMarkdown(safeMainContent);
 
     if (!sources || sources.length === 0 || isUser) {
       return <ReactMarkdown components={markdownComponentsBase}>{processedContent}</ReactMarkdown>;
