@@ -61,6 +61,52 @@ function normalizeMarkdownForResponse(text: string): string {
 
 // ============= CACHING AND ANALYTICS HELPER FUNCTIONS =============
 
+// Cache schema version - increment this when response format changes
+const CACHE_SCHEMA_VERSION = 2;
+
+// Patterns that indicate broken/malformed markdown in cache
+const BROKEN_CACHE_PATTERNS = [
+  /\*\s*\n+\*\*/,           // "* \n\n**" pattern (empty list items)
+  /:\*\*\s*(?!\*)/,         // ":**" without proper closure
+  /\*\*[^*\n:]+:\s+(?!\*\*)/, // "**Label: " without closure
+  /^\*\s+\n\n/m,            // standalone "* " followed by empty lines
+  /\*\*\s*\n\n\*\*/,        // "** \n\n**" double star issues
+];
+
+// Check if cache content has broken markdown that needs regeneration
+function hasBrokenMarkdown(text: string): boolean {
+  if (!text) return false;
+  return BROKEN_CACHE_PATTERNS.some(pattern => pattern.test(text));
+}
+
+// Validate cache entry is usable (schema version + content quality)
+function isCacheValid(cacheEntry: any): boolean {
+  // Check schema version
+  const schemaVersion = cacheEntry.search_metadata?.schema_version;
+  if (!schemaVersion || schemaVersion < CACHE_SCHEMA_VERSION) {
+    console.log(`⚠️ Cache schema outdated: ${schemaVersion} < ${CACHE_SCHEMA_VERSION}`);
+    return false;
+  }
+  
+  // Check for broken markdown patterns
+  if (hasBrokenMarkdown(cacheEntry.response_text)) {
+    console.log('⚠️ Cache contains broken markdown patterns');
+    return false;
+  }
+  
+  // Check if response is valid JSON (for structured responses)
+  if (cacheEntry.search_metadata?.response_format === 'structured') {
+    try {
+      JSON.parse(cacheEntry.response_text);
+    } catch {
+      console.log('⚠️ Cache marked as structured but contains invalid JSON');
+      return false;
+    }
+  }
+  
+  return true;
+}
+
 // Normalize and hash query for caching
 async function normalizeQueryForCache(query: string): Promise<{ normalized: string; hash: string }> {
   const normalized = query
@@ -82,7 +128,7 @@ async function normalizeQueryForCache(query: string): Promise<{ normalized: stri
   return { normalized, hash };
 }
 
-// Check cache for existing response
+// Check cache for existing response (with schema version validation)
 async function checkCache(supabase: any, queryHash: string): Promise<any | null> {
   try {
     const { data, error } = await supabase
@@ -93,6 +139,12 @@ async function checkCache(supabase: any, queryHash: string): Promise<any | null>
       .single();
 
     if (error || !data) return null;
+
+    // CRITICAL: Validate cache entry before using
+    if (!isCacheValid(data)) {
+      console.log(`⚠️ Cache entry invalid/outdated for hash: ${queryHash.substring(0, 8)}... - will regenerate`);
+      return null; // Return null to trigger regeneration
+    }
 
     // Update hit count asynchronously (don't wait)
     supabase
@@ -105,7 +157,7 @@ async function checkCache(supabase: any, queryHash: string): Promise<any | null>
       .then(() => console.log("✅ Cache hit count updated"))
       .catch((err: any) => console.error("⚠️ Failed to update cache hit count:", err));
 
-    console.log(`🎯 Cache HIT for hash: ${queryHash.substring(0, 8)}...`);
+    console.log(`🎯 Cache HIT (valid) for hash: ${queryHash.substring(0, 8)}...`);
     return data;
   } catch (error) {
     console.error("⚠️ Cache check error:", error);
@@ -128,7 +180,21 @@ async function saveToCache(
   },
 ): Promise<void> {
   try {
+    // Don't cache responses with broken markdown
+    if (hasBrokenMarkdown(params.responseText)) {
+      console.log('⚠️ Skipping cache - response contains broken markdown patterns');
+      return;
+    }
+
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Add schema version to metadata for future validation
+    const enhancedMetadata = {
+      ...(params.searchMetadata || {}),
+      schema_version: CACHE_SCHEMA_VERSION,
+      response_format: 'text', // Mark as text format (structured responses will override this)
+      cached_at: new Date().toISOString(),
+    };
 
     await supabase.from("question_cache").upsert(
       {
@@ -139,7 +205,7 @@ async function saveToCache(
         grounding_chunks: params.groundingChunks || null,
         support_cards: params.supportCards || null,
         source: params.source || "gemini",
-        search_metadata: params.searchMetadata || null,
+        search_metadata: enhancedMetadata,
         expires_at: expiresAt,
         hit_count: 1,
         last_hit_at: new Date().toISOString(),
@@ -147,7 +213,7 @@ async function saveToCache(
       { onConflict: "query_hash" },
     );
 
-    console.log(`💾 Response cached for hash: ${params.queryHash.substring(0, 8)}...`);
+    console.log(`💾 Response cached (v${CACHE_SCHEMA_VERSION}) for hash: ${params.queryHash.substring(0, 8)}...`);
   } catch (error) {
     console.error("⚠️ Cache save error:", error);
   }
@@ -291,6 +357,78 @@ async function generateEmbedding(text: string, model: string, dimensions: number
     const data = await response.json();
     return data.data[0].embedding;
   }
+}
+
+// ============= NACE CODE ENRICHMENT FROM DATABASE =============
+
+// Extract keywords from user query for NACE search
+function extractProductKeywords(query: string): string[] {
+  const stopWords = ['için', 'hangi', 'nerede', 'nasıl', 'yatırım', 'yatırımı', 'üretimi', 'üretim', 
+    'teşvik', 'tesvik', 'destek', 'destekleri', 'var', 'mı', 'mi', 'mu', 'mü', 'iller', 'illerde',
+    'bölge', 'bölgeler', 'sektör', 'sektörü', 'nace', 'kodu', 'kodları', 'ile', 've', 'veya', 'da', 'de'];
+  
+  const words = query.toLowerCase()
+    .replace(/[?.,!:;'"()]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.includes(w));
+  
+  return words;
+}
+
+// Search sector_search table for relevant NACE codes
+async function searchNaceCodes(supabase: any, query: string): Promise<any[]> {
+  try {
+    const keywords = extractProductKeywords(query);
+    if (keywords.length === 0) return [];
+    
+    console.log('🔍 NACE search keywords:', keywords);
+    
+    // Build OR conditions for each keyword
+    const searchConditions = keywords.map(kw => `sektor.ilike.%${kw}%`).join(',');
+    
+    const { data, error } = await supabase
+      .from('sector_search')
+      .select('nace_kodu, sektor, hedef_yatirim, oncelikli_yatirim, yuksek_teknoloji, orta_yuksek_teknoloji, teknoloji_hamlesi, sartlar, bolge_1, bolge_2, bolge_3, bolge_4, bolge_5, bolge_6')
+      .or(searchConditions)
+      .limit(10);
+    
+    if (error) {
+      console.error('NACE search error:', error);
+      return [];
+    }
+    
+    console.log(`📊 Found ${data?.length || 0} NACE codes for keywords: ${keywords.join(', ')}`);
+    return data || [];
+  } catch (err) {
+    console.error('NACE search exception:', err);
+    return [];
+  }
+}
+
+// Format NACE codes into a readable section for response
+function formatNaceCodesSection(naceCodes: any[]): string {
+  if (!naceCodes || naceCodes.length === 0) return '';
+  
+  const lines = naceCodes.map(nc => {
+    const statuses: string[] = [];
+    if (nc.hedef_yatirim) statuses.push('Hedef Yatırım');
+    if (nc.oncelikli_yatirim) statuses.push('Öncelikli Yatırım');
+    if (nc.yuksek_teknoloji) statuses.push('Yüksek Teknoloji');
+    if (nc.orta_yuksek_teknoloji) statuses.push('Orta-Yüksek Teknoloji');
+    if (nc.teknoloji_hamlesi) statuses.push(`Teknoloji Hamlesi: ${nc.teknoloji_hamlesi}`);
+    
+    const statusText = statuses.length > 0 ? ` (${statuses.join(', ')})` : '';
+    const minInvestments: string[] = [];
+    
+    if (nc.bolge_1) minInvestments.push(`1.Bölge: ${(nc.bolge_1 / 1000000).toFixed(0)}M TL`);
+    if (nc.bolge_6) minInvestments.push(`6.Bölge: ${(nc.bolge_6 / 1000000).toFixed(0)}M TL`);
+    
+    const investmentInfo = minInvestments.length > 0 ? ` | Asgari: ${minInvestments.join(', ')}` : '';
+    
+    return `• **${nc.nace_kodu}** - ${nc.sektor.substring(0, 80)}${nc.sektor.length > 80 ? '...' : ''}${statusText}${investmentInfo}`;
+  });
+  
+  return `\n\n---\n\n📋 **İlgili NACE Kodları:**\n${lines.join('\n')}`;
 }
 
 // ============= SECTOR/TOPIC CHANGE DETECTION =============
@@ -1427,7 +1565,21 @@ serve(async (req) => {
           });
 
           // CRITICAL: Normalize markdown from cache before returning
-          const normalizedCacheText = normalizeMarkdownForResponse(cachedResponse.response_text || '');
+          let normalizedCacheText = normalizeMarkdownForResponse(cachedResponse.response_text || '');
+          
+          // Check if NACE codes need to be added to cached response
+          const hasNaceInCache = /\b\d{2}\.\d{2}(?:\.\d{2})?\b/.test(normalizedCacheText);
+          const isProductQuery = /(?:üretim|yatırım|teşvik|destek|nace|kodu|kodları|sektör)/i.test(lastUserMessage.content.toLowerCase());
+          
+          if (!hasNaceInCache && isProductQuery) {
+            const naceCodes = await searchNaceCodes(supabase, lastUserMessage.content);
+            if (naceCodes.length > 0) {
+              const naceSection = formatNaceCodesSection(naceCodes);
+              normalizedCacheText = normalizedCacheText + naceSection;
+              console.log(`✅ Added ${naceCodes.length} NACE codes to cached response`);
+            }
+          }
+          
           console.log('📝 Cache response normalized:', { 
             originalLength: cachedResponse.response_text?.length, 
             normalizedLength: normalizedCacheText.length 
@@ -1441,6 +1593,7 @@ serve(async (req) => {
               sources: cachedResponse.search_metadata?.sources || [],
               fromCache: true,
               cacheHit: true,
+              cacheVersion: cachedResponse.search_metadata?.schema_version || 'legacy',
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
@@ -2685,6 +2838,21 @@ BAŞLA! 🔍
     // ============= SON TEMİZLİK VE VALİDASYON =============
     // Response döndürmeden önce son bir temizlik yap
     finalText = cleanIrrelevantContent(finalText, mainTopic);
+
+    // ============= NACE KODU ZENGİNLEŞTİRME =============
+    // Eğer yanıtta NACE kodları yoksa ve sektör sorgusu ise, DB'den ekle
+    const hasNaceInResponse = /\b\d{2}\.\d{2}(?:\.\d{2})?\b/.test(finalText);
+    const isProductQuery = /(?:üretim|yatırım|teşvik|destek|nace|kodu|kodları|sektör)/i.test(normalizedUserMessage);
+    
+    if (!hasNaceInResponse && isProductQuery && mainTopic) {
+      console.log('🔍 Searching NACE codes for:', mainTopic);
+      const naceCodes = await searchNaceCodes(supabase, mainTopic);
+      if (naceCodes.length > 0) {
+        const naceSection = formatNaceCodesSection(naceCodes);
+        finalText = finalText + naceSection;
+        console.log(`✅ Added ${naceCodes.length} NACE codes to response`);
+      }
+    }
 
     // Eğer yanıt temiz değilse cache'leme (isCleanResponse kontrolü saveToCache'de yapılacak)
     const responseIsClean = isCleanResponse(finalText);
