@@ -84,7 +84,7 @@ export const useHybridSupportSearch = () => {
       // Get the IDs from search results
       const programIds = (searchResults as HybridSearchResult[]).map(r => r.id);
 
-      // Fetch full program data with relations
+      // Fetch full program data with relations (including summary)
       const { data: fullPrograms, error: programsError } = await supabase
         .from('support_programs')
         .select(`
@@ -96,7 +96,15 @@ export const useHybridSupportSearch = () => {
               category:tag_categories(*)
             )
           ),
-          files:file_attachments(*)
+          files:file_attachments(*),
+          summary:support_program_summaries(
+            who_can_apply,
+            supported_areas,
+            application_period,
+            application_location,
+            application_url,
+            summary_pdf_url
+          )
         `)
         .in('id', programIds);
 
@@ -110,10 +118,21 @@ export const useHybridSupportSearch = () => {
       // Create a map for quick lookup and preserve search order
       const programMap = new Map<string, SupportProgram>();
       (fullPrograms || []).forEach(program => {
+        // Handle summary - it may come as array or object depending on Supabase response
+        let summaryData = null;
+        if (program.summary) {
+          if (Array.isArray(program.summary)) {
+            summaryData = program.summary.length > 0 ? program.summary[0] : null;
+          } else {
+            summaryData = program.summary;
+          }
+        }
+        
         const transformedProgram: SupportProgram = {
           ...program,
           tags: (program.support_program_tags?.map((spt: { tag: Tag | null }) => spt.tag).filter(Boolean) || []) as Tag[],
-          files: program.files || []
+          files: program.files || [],
+          summary: summaryData
         };
         programMap.set(program.id, transformedProgram);
       });

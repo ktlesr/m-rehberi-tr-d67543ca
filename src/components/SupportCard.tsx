@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CalendarDays, Building2, ChevronDown, FileText, Download, Share2, MessageSquare, Tag } from 'lucide-react';
+import { CalendarDays, Building2, ChevronDown, FileText, Download, Share2, MessageSquare, Tag, BookOpen } from 'lucide-react';
 import { SupportProgram } from '@/types/support';
 import { toast } from 'sonner';
 import { getFileIcon, getFileIconColor } from '@/utils/fileIcons';
@@ -15,6 +16,7 @@ interface SupportCardProps {
 }
 
 export const SupportCard = ({ program }: SupportCardProps) => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   
   const formatDate = (dateString: string) => {
@@ -59,6 +61,15 @@ export const SupportCard = ({ program }: SupportCardProps) => {
   const applicantTypeTags = program.tags?.filter(tag => 
     tag.category?.name === 'Applicant Type'
   ) || [];
+
+  // Check if program has summary data
+  const hasSummary = program.summary && (
+    program.summary.who_can_apply || 
+    program.summary.supported_areas || 
+    program.summary.application_period || 
+    program.summary.application_location
+  );
+  const summaryPdfUrl = program.summary?.summary_pdf_url;
 
   return (
     <Card className="h-full hover:shadow-lg transition-shadow duration-200">
@@ -107,6 +118,18 @@ export const SupportCard = ({ program }: SupportCardProps) => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between text-sm text-gray-500 mb-4 gap-3">
                 <span>Oluşturma: {formatDate(program.created_at)} | Güncellenme: {formatDate(program.updated_at)}</span>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  {/* Özet Bilgi'ye Git Button */}
+                  {hasSummary && (
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={() => navigate(`/program/${program.id}/ozet`)}
+                      className="w-full sm:w-auto"
+                    >
+                      <BookOpen className="w-4 h-4 mr-1" />
+                      Özet Bilgi'ye Git
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={handleFeedback} className="w-full sm:w-auto">
                     <MessageSquare className="w-4 h-4 mr-1" />
                     Geri Bildirim
@@ -146,14 +169,35 @@ export const SupportCard = ({ program }: SupportCardProps) => {
                 </div>
               )}
 
-              {program.files && program.files.length > 0 && (
+              {((program.files && program.files.length > 0) || summaryPdfUrl) && (
                 <div className="mb-4">
                   <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                     <FileText className="w-4 h-4 mr-2" />
-                    İlgili Belgeler ({program.files.length})
+                    İlgili Belgeler ({(program.files?.length || 0) + (summaryPdfUrl ? 1 : 0)})
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {program.files.map((file) => {
+                    {/* Özet Bilgi Formu PDF - shown first */}
+                    {summaryPdfUrl && (
+                      <div className="flex items-center justify-between p-2 bg-primary/10 rounded-md hover:bg-primary/20 transition-colors">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <FileText className="w-4 h-4 flex-shrink-0 text-primary" />
+                          <span className="text-xs font-medium text-primary truncate">
+                            Özet Bilgi Formu (PDF)
+                          </span>
+                        </div>
+                        <a
+                          href={summaryPdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center text-primary hover:text-primary/80 text-xs ml-2 flex-shrink-0"
+                        >
+                          <Download className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                    
+                    {/* Regular file attachments */}
+                    {program.files?.map((file) => {
                       const FileIcon = getFileIcon(file.filename);
                       const iconColor = getFileIconColor(file.filename);
                       
