@@ -342,9 +342,65 @@ export function useChatSession(user: User | null) {
         if (error) throw error;
 
         const fullResponse = data.text;
+        
+        // Check if response is structured JSON - skip streaming for structured responses
+        const isStructuredResponse = data.type === 'structured' || 
+          (typeof data.content === 'object' && data.content !== null && data.mode);
+        
+        let parsedStructuredResponse: StructuredAPIResponse | undefined;
+        if (isStructuredResponse) {
+          // Parse structured response from API
+          parsedStructuredResponse = {
+            type: data.type || 'structured',
+            mode: data.mode || 'informative',
+            content: data.content,
+            interaction: data.interaction,
+            progress: data.progress,
+            followUp: data.followUp,
+            sources: data.sources,
+          } as StructuredAPIResponse;
+        }
+
+        // For structured responses: render immediately without streaming
+        if (isStructuredResponse && parsedStructuredResponse) {
+          const assistantMessage: ChatMessage = {
+            role: "assistant",
+            content: fullResponse || JSON.stringify(data),
+            timestamp: Date.now(),
+            sources: data.sources,
+            groundingChunks: data.groundingChunks,
+            supportCards: data.supportCards,
+            structuredResponse: parsedStructuredResponse,
+            interaction: data.interaction,
+            progress: data.progress,
+            followUp: data.followUp,
+          };
+
+          // Save assistant message to database (only for authenticated users)
+          if (!isAnonymous) {
+            await supabase.from("chat_messages").insert({
+              session_id: sessionId,
+              role: "assistant",
+              content: assistantMessage.content,
+              sources: data.sources,
+              grounding_chunks: data.groundingChunks,
+              support_cards: data.supportCards,
+            });
+          }
+
+          updateSession(sessionId, { messages: [...updatedMessages, assistantMessage] });
+
+          if (session.messages.length === 0 && message.length > 0) {
+            const title = message.slice(0, 50) + (message.length > 50 ? "..." : "");
+            updateSession(sessionId, { title });
+          }
+
+          return { success: true, data };
+        }
+
+        // For regular markdown responses: use streaming effect
         const words = fullResponse.split(" ");
 
-        const assistantId = generateUUID();
         const emptyAssistantMessage: ChatMessage = {
           role: "assistant",
           content: "",
