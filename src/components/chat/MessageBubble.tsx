@@ -158,6 +158,13 @@ export function MessageBubble({
   const cleanedContent = content.split('__METADATA__')[0].trim();
   const parsedStructured = structuredResponse || (!isUser ? tryParseStructuredContent(cleanedContent) : null);
   const isStructuredMode = parsedStructured?.type === 'structured';
+  
+  // FORMAT BOZUK KONTROLÜ: JSON benzeri ama parse edilememiş içerik
+  const isUnparseableJson = !isUser && !isStructuredMode && 
+    cleanedContent.startsWith('{') && 
+    cleanedContent.includes('"type"') &&
+    cleanedContent.includes('"content"');
+  
   // Takip sorusunu ve destek programı bildirimini ana içerikten ayır
   const { mainContent, followUpQuestion, supportCardsNotice } = isUser
     ? { mainContent: content, followUpQuestion: null, supportCardsNotice: null }
@@ -425,8 +432,30 @@ export function MessageBubble({
                 <FollowUpRenderer followUp={parsedStructured.followUp} />
               )}
             </div>
+          ) : isUnparseableJson ? (
+            // FORMAT BOZUK FALLBACK: JSON parse edilemedi ama JSON benzeri
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <span className="text-amber-600 dark:text-amber-400 text-lg">⚠️</span>
+                <div className="flex-1 text-sm">
+                  <p className="font-medium text-amber-800 dark:text-amber-300 mb-1">
+                    Yanıt formatı işlenemedi
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-400 text-xs">
+                    Lütfen tekrar deneyin veya sorunuzu farklı şekilde sorun.
+                  </p>
+                </div>
+              </div>
+              {/* Geliştiriciler için gizli raw output */}
+              <details className="text-xs text-muted-foreground">
+                <summary className="cursor-pointer hover:text-foreground">Ham çıktıyı göster</summary>
+                <pre className="mt-2 p-2 bg-muted/50 rounded text-[10px] overflow-auto max-h-40 whitespace-pre-wrap break-all">
+                  {cleanedContent.substring(0, 500)}...
+                </pre>
+              </details>
+            </div>
           ) : (
-            // Fallback: Markdown rendering
+            // Normal Fallback: Markdown rendering
             <div className="prose prose-sm max-w-none dark:prose-invert break-words">
               {renderContentWithCitations()}
             </div>
