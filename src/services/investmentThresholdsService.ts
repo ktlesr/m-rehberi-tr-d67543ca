@@ -17,6 +17,18 @@ export interface InvestmentThreshold {
   min_financial_leasing: number | null;
   min_machinery_support: number | null;
   completion_expert_fee: number | null;
+  // Faiz/Kâr Payı Desteği Üst Limitleri
+  max_interest_support_tech_local: number | null;
+  max_interest_support_strategic: number | null;
+  max_interest_support_priority: number | null;
+  max_interest_support_target: number | null;
+  // Makine Desteği Üst Limitleri
+  max_machinery_support_tech_local: number | null;
+  max_machinery_support_strategic: number | null;
+  // Ek Faiz Desteği Üst Limitleri (Yeni Firmalar)
+  max_extra_interest_turkey_century: number | null;
+  max_extra_interest_priority: number | null;
+  max_extra_interest_target: number | null;
   is_active: boolean;
   effective_from: string;
   notes: string | null;
@@ -156,6 +168,36 @@ export const investmentThresholdsService = {
         : null,
       completion_expert_fee: baseThresholds.completion_expert_fee 
         ? applyRoundingRule(baseThresholds.completion_expert_fee * multiplier) 
+        : null,
+      // Faiz/Kâr Payı Desteği Üst Limitleri
+      max_interest_support_tech_local: baseThresholds.max_interest_support_tech_local 
+        ? applyRoundingRule(baseThresholds.max_interest_support_tech_local * multiplier) 
+        : null,
+      max_interest_support_strategic: baseThresholds.max_interest_support_strategic 
+        ? applyRoundingRule(baseThresholds.max_interest_support_strategic * multiplier) 
+        : null,
+      max_interest_support_priority: baseThresholds.max_interest_support_priority 
+        ? applyRoundingRule(baseThresholds.max_interest_support_priority * multiplier) 
+        : null,
+      max_interest_support_target: baseThresholds.max_interest_support_target 
+        ? applyRoundingRule(baseThresholds.max_interest_support_target * multiplier) 
+        : null,
+      // Makine Desteği Üst Limitleri
+      max_machinery_support_tech_local: baseThresholds.max_machinery_support_tech_local 
+        ? applyRoundingRule(baseThresholds.max_machinery_support_tech_local * multiplier) 
+        : null,
+      max_machinery_support_strategic: baseThresholds.max_machinery_support_strategic 
+        ? applyRoundingRule(baseThresholds.max_machinery_support_strategic * multiplier) 
+        : null,
+      // Ek Faiz Desteği Üst Limitleri
+      max_extra_interest_turkey_century: baseThresholds.max_extra_interest_turkey_century 
+        ? applyRoundingRule(baseThresholds.max_extra_interest_turkey_century * multiplier) 
+        : null,
+      max_extra_interest_priority: baseThresholds.max_extra_interest_priority 
+        ? applyRoundingRule(baseThresholds.max_extra_interest_priority * multiplier) 
+        : null,
+      max_extra_interest_target: baseThresholds.max_extra_interest_target 
+        ? applyRoundingRule(baseThresholds.max_extra_interest_target * multiplier) 
         : null,
     };
   },

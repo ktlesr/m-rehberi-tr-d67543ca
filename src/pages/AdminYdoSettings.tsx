@@ -31,6 +31,7 @@ import {
 
 // Threshold field configuration
 const THRESHOLD_FIELDS = [
+  // Asgari Yatırım Tutarları
   { key: 'min_investment_region_1_2', label: '1-2. Bölge Asgari Yatırım', category: 'regional' },
   { key: 'min_investment_region_3_6', label: '3-6. Bölge Asgari Yatırım', category: 'regional' },
   { key: 'min_high_tech_priority', label: 'Yüksek Teknoloji Öncelikli', category: 'priority' },
@@ -44,6 +45,18 @@ const THRESHOLD_FIELDS = [
   { key: 'min_financial_leasing', label: 'Finansal Kiralama', category: 'other' },
   { key: 'min_machinery_support', label: 'Makine Desteği Birim', category: 'other' },
   { key: 'completion_expert_fee', label: 'Tamamlama Ekspertiz Ücreti', category: 'other' },
+  // Faiz/Kâr Payı Desteği Üst Limitleri
+  { key: 'max_interest_support_tech_local', label: 'Teknoloji Hamlesi / Yerel Kalkınma', category: 'interest_limits' },
+  { key: 'max_interest_support_strategic', label: 'Stratejik Hamle', category: 'interest_limits' },
+  { key: 'max_interest_support_priority', label: 'Öncelikli Yatırımlar', category: 'interest_limits' },
+  { key: 'max_interest_support_target', label: 'Hedef Yatırımlar', category: 'interest_limits' },
+  // Makine Desteği Üst Limitleri
+  { key: 'max_machinery_support_tech_local', label: 'Teknoloji Hamlesi / Yerel Kalkınma', category: 'machinery_limits' },
+  { key: 'max_machinery_support_strategic', label: 'Stratejik Hamle', category: 'machinery_limits' },
+  // Ek Faiz Desteği Üst Limitleri (Yeni Firmalar)
+  { key: 'max_extra_interest_turkey_century', label: 'Türkiye Yüzyılı', category: 'extra_interest_limits' },
+  { key: 'max_extra_interest_priority', label: 'Öncelikli Yatırımlar', category: 'extra_interest_limits' },
+  { key: 'max_extra_interest_target', label: 'Hedef Yatırımlar', category: 'extra_interest_limits' },
 ] as const;
 
 type ThresholdKey = typeof THRESHOLD_FIELDS[number]['key'];
@@ -460,7 +473,7 @@ export default function AdminYdoSettings() {
                 </div>
 
                 {/* Group by category */}
-                {['regional', 'priority', 'strategic', 'special', 'other'].map((category) => (
+                {['regional', 'priority', 'strategic', 'special', 'other', 'interest_limits', 'machinery_limits', 'extra_interest_limits'].map((category) => (
                   <div key={category} className="space-y-2">
                     <h4 className="text-sm font-medium capitalize border-b pb-1">
                       {category === 'regional' && 'Bölgesel Asgari Tutarlar'}
@@ -468,6 +481,9 @@ export default function AdminYdoSettings() {
                       {category === 'strategic' && 'Stratejik Program Eşikleri'}
                       {category === 'special' && 'Özel Program Eşikleri'}
                       {category === 'other' && 'Diğer Tutarlar'}
+                      {category === 'interest_limits' && 'Faiz/Kâr Payı Desteği Üst Limitleri'}
+                      {category === 'machinery_limits' && 'Makine Desteği Üst Limitleri'}
+                      {category === 'extra_interest_limits' && 'Ek Faiz Desteği Üst Limitleri (Yeni Firmalar)'}
                     </h4>
                     <div className="grid grid-cols-2 gap-3">
                       {THRESHOLD_FIELDS.filter(f => f.category === category).map((field) => (
