@@ -15,6 +15,15 @@ const preprocessMarkdown = (content: string): string => {
   
   return (
     normalized
+      // FAILSAFE: "**Vergi **İndirimi:" gibi satır içi bölünmüş başlık bold'larını düzelt
+      .replace(
+        /^(\s*(?:[•\*\-]\s+)?)\*\*([^*\n]{2,80}?)[\s\u00A0\u202F]+\*\*([^*\n]{2,80}?):/gm,
+        "$1**$2 $3:**",
+      )
+      .replace(
+        /^(\s*(?:[•\*\-]\s+)?)\*\*([^*\n]{2,80}?)[\s\u00A0\u202F]+\*\*([^*\n]{2,80}?)\*\*/gm,
+        "$1**$2 $3**",
+      )
       // ========== BOZUK BOLD TAG DÜZELTMELERİ (ÖNCELİKLİ) ==========
       // A1. "**text: **" → "**text:** " (boşluk kapatmadan önce)
       .replace(/\*\*([^*]+?):\s*\*\*/g, "**$1:** ")

@@ -201,6 +201,15 @@ const preprocessMarkdown = (content: string): string => {
   const normalized = normalizeMarkdownContent(content);
   
   return normalized
+    // FAILSAFE: "**Vergi **İndirimi:" gibi satır içi bölünmüş başlık bold'larını düzelt
+    .replace(
+      /^(\s*(?:[•\*\-]\s+)?)\*\*([^*\n]{2,80}?)[\s\u00A0\u202F]+\*\*([^*\n]{2,80}?):/gm,
+      "$1**$2 $3:**",
+    )
+    .replace(
+      /^(\s*(?:[•\*\-]\s+)?)\*\*([^*\n]{2,80}?)[\s\u00A0\u202F]+\*\*([^*\n]{2,80}?)\*\*/gm,
+      "$1**$2 $3**",
+    )
     // Bold başlık içeren liste öğelerinden bullet'ı kaldır (* **Label:** veya - **Label:**)
     .replace(/^[\*\-]\s+(\*\*[^*]+:\*\*)/gm, '$1')
     .replace(/\n[\*\-]\s+(\*\*[^*]+:\*\*)/g, '\n\n$1')

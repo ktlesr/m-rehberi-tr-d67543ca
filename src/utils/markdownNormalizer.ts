@@ -35,9 +35,29 @@ const fixMultilineListBold = (content: string): string => {
   return result;
 };
 
+// =================== INLINE SPLIT BOLD HEADER FIXES ===================
+// Pattern: "**Vergi **İndirimi:" → "**Vergi İndirimi:**"
+// Pattern: "**Sigorta Primi İşveren **Hissesi:" → "**Sigorta Primi İşveren Hissesi:**"
+const fixInlineSplitBoldHeaders = (content: string): string => {
+  let result = content;
+
+  // Satır başında (opsiyonel boşluk) + bozuk iki açılış bold: "**A **B:" -> "**A B:**"
+  result = result.replace(
+    /^(\s*(?:[•\*\-]\s+)?)\*\*([^*\n]{2,80}?)\s+\*\*([^*\n]{2,80}?):/gm,
+    (match, prefix, a, b) => `${prefix}**${a.trim()} ${b.trim()}:**`
+  );
+
+  return result;
+};
+
 // =================== SPLIT BOLD TAG FIXES ===================
 const fixSplitBoldTags = (content: string): string => {
   let result = content;
+  
+  // Pattern 1: "**Text\n\nDevam:**" (çift satır kırılması ile bölünmüş, sonda :)
+  result = result.replace(/\*\*([^*\n]+)\n\n+([^*\n]+):\*\*/g, (match, p1, p2) => {
+    return `**${p1.trim()} ${p2.trim()}:**`;
+  });
   
   // Pattern 1: "**Text\n\nDevam:**" (çift satır kırılması ile bölünmüş, sonda :)
   result = result.replace(/\*\*([^*\n]+)\n\n+([^*\n]+):\*\*/g, (match, p1, p2) => {
@@ -271,34 +291,37 @@ export const normalizeMarkdownContent = (content: string): string => {
   
   let result = content;
   
-  // ADIM 1: Çok satırlı liste bold'larını düzelt (en kritik - yeni)
+  // ADIM 1: Çok satırlı liste bold'larını düzelt (en kritik)
   result = fixMultilineListBold(result);
-  
-  // ADIM 2: Bozuk split bold tag'leri düzelt
+
+  // ADIM 2: Satır içi bozuk başlık bold'larını düzelt ("**Vergi **İndirimi:" gibi)
+  result = fixInlineSplitBoldHeaders(result);
+
+  // ADIM 3: Bozuk split bold tag'leri düzelt
   result = fixSplitBoldTags(result);
-  
-  // ADIM 3: Context-aware bold onarımı (2 satırlık pencere)
+
+  // ADIM 4: Context-aware bold onarımı (2 satırlık pencere)
   result = contextAwareBoldRepair(result);
   
-  // ADIM 4: Sadece kapanış olan bold'ları onar ("Text:**" -> "**Text:**")
+  // ADIM 5: Sadece kapanış olan bold'ları onar ("Text:**" -> "**Text:**")
   result = repairClosingOnlyBold(result);
-  
-  // ADIM 5: Sadece açılış olan bold'ları temizle ("**text" -> "text")
+
+  // ADIM 6: Sadece açılış olan bold'ları temizle ("**text" -> "text")
   result = cleanOpeningOnlyBold(result);
-  
-  // ADIM 6: Bold başlık formatlarını düzelt
+
+  // ADIM 7: Bold başlık formatlarını düzelt
   result = fixBoldHeaders(result);
-  
-  // ADIM 7: Orphan bold işaretlerini temizle
+
+  // ADIM 8: Orphan bold işaretlerini temizle
   result = cleanOrphanBoldMarkers(result);
-  
-  // ADIM 8: Liste formatlarını normalize et
+
+  // ADIM 9: Liste formatlarını normalize et
   result = normalizeListFormats(result);
-  
-  // ADIM 9: Liste continuation'ları düzelt
+
+  // ADIM 10: Liste continuation'ları düzelt
   result = fixListContinuation(result);
-  
-  // ADIM 10: Boşlukları temizle
+
+  // ADIM 11: Boşlukları temizle
   result = cleanWhitespace(result);
   
   return result;
@@ -314,11 +337,15 @@ export const normalizeMarkdownContentDebug = (content: string): { result: string
   const step0 = fixMultilineListBold(result);
   if (step0 !== result) changes.push('fixMultilineListBold');
   result = step0;
-  
+
+  const step0b = fixInlineSplitBoldHeaders(result);
+  if (step0b !== result) changes.push('fixInlineSplitBoldHeaders');
+  result = step0b;
+
   const step1 = fixSplitBoldTags(result);
   if (step1 !== result) changes.push('fixSplitBoldTags');
   result = step1;
-  
+
   const step1b = contextAwareBoldRepair(result);
   if (step1b !== result) changes.push('contextAwareBoldRepair');
   result = step1b;
