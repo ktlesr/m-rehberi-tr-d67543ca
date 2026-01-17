@@ -68,6 +68,42 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
       setSelectedTags(editingProgram.tags.map(tag => tag.id));
       setExistingFiles(editingProgram.files || []);
       setFiles([]); // Reset new files when editing
+      
+      // Reset AI states when switching to edit mode
+      setSourceUrl('');
+      setAdminHint('');
+      setAiFiles([]);
+      setAiEvidence([]);
+      setAiIssues([]);
+      setMissingTags([]);
+      setShowEvidencePanel(false);
+      
+      // Fetch existing summary data for this program
+      const fetchExistingSummary = async () => {
+        if (editingProgram.id) {
+          const { data } = await supabase
+            .from('support_program_summaries')
+            .select('*')
+            .eq('support_program_id', editingProgram.id)
+            .single();
+          
+          if (data) {
+            setSummaryData({
+              who_can_apply: data.who_can_apply,
+              supported_areas: data.supported_areas,
+              application_period: data.application_period,
+              application_location: data.application_location,
+              application_url: data.application_url,
+            });
+          } else {
+            setSummaryData(null);
+          }
+        }
+      };
+      fetchExistingSummary();
+    } else {
+      // Reset summary data when creating new program
+      setSummaryData(null);
     }
   }, [editingProgram]);
 
@@ -424,12 +460,13 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* AI Draft Generation Section - NEW */}
-            {!editingProgram && (
-              <div className="p-5 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border-2 border-purple-200 shadow-sm mb-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
-                  <h4 className="font-semibold text-purple-800">AI ile Otomatik Doldur</h4>
+            {/* AI Draft Generation Section - Available for both create and edit */}
+            <div className="p-5 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border-2 border-purple-200 shadow-sm mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                <h4 className="font-semibold text-purple-800">
+                  {editingProgram ? 'AI ile Güncelle / Özet Oluştur' : 'AI ile Otomatik Doldur'}
+                </h4>
                   {showEvidencePanel && (
                     <Button
                       type="button"
@@ -550,8 +587,28 @@ export const AdminSupportForm = ({ onSubmit, onCancel, editingProgram, isLoading
                     }
                   </p>
                 </div>
+                
+                {/* Edit mode hint */}
+                {editingProgram && (
+                  <div className="mt-3 p-3 bg-purple-100/50 rounded-lg border border-purple-200">
+                    <p className="text-sm text-purple-700">
+                      💡 Mevcut bilgileri AI ile güncelleyebilir veya yeni özet bilgi formu oluşturabilirsiniz.
+                    </p>
+                  </div>
+                )}
+                
+                {/* Existing summary indicator */}
+                {summaryData && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-green-700">
+                      <Check className="w-4 h-4" />
+                      <span className="text-sm font-medium">
+                        Özet bilgi formu mevcut
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>

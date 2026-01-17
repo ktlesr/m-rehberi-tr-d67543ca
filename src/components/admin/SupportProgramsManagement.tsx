@@ -104,6 +104,30 @@ export const SupportProgramsManagement = ({ triggerCreate }: SupportProgramsMana
           }
         }
 
+        // Save/update summary data if available for existing programs
+        if (data.summaryData) {
+          try {
+            const { error: summaryError } = await supabase
+              .from('support_program_summaries')
+              .upsert({
+                support_program_id: data.id,
+                who_can_apply: data.summaryData.who_can_apply,
+                supported_areas: data.summaryData.supported_areas,
+                application_period: data.summaryData.application_period,
+                application_location: data.summaryData.application_location,
+                application_url: data.summaryData.application_url,
+              });
+
+            if (summaryError) {
+              console.error('Error saving summary:', summaryError);
+            } else {
+              console.log('Summary data updated successfully');
+            }
+          } catch (summaryError) {
+            console.error('Error saving summary data:', summaryError);
+          }
+        }
+
         toast.success('Support program updated successfully!');
       } else {
         // Create new program
