@@ -66,7 +66,8 @@ function normalizeMarkdownForResponse(text: string): string {
 // v4: Fixed session auto-create and isIncentiveRelated logic for floating widget
 // v5: Added verified region info from DB, structured response for incentive flow
 // v6: Fixed NACE pattern recognition (4-digit codes), province slot validation, self-healing
-const CACHE_SCHEMA_VERSION = 6;
+// v7: Fixed extractProvince to search all sections, improved asgari yatırım region-specific handling, better SGK "Diğer" fallback
+const CACHE_SCHEMA_VERSION = 7;
 
 // Patterns that indicate broken/malformed markdown in cache
 const BROKEN_CACHE_PATTERNS = [
@@ -457,12 +458,15 @@ async function fetchVerifiedSgkDuration(
   try {
     console.log(`🔍 [SGK Verify] Querying: ${province}, ${district}, OSB: ${osbStatus}`);
     
+    // Normalize district name (trim, handle special cases)
+    let normalizedDistrict = district.trim();
+    
     // First try exact match
     const { data, error } = await supabase
       .from('sgk_durations')
       .select('alt_bolge, sgk_duration, bolge, province, district, osb_status')
       .eq('province', province)
-      .ilike('district', district)
+      .ilike('district', normalizedDistrict)
       .eq('osb_status', osbStatus)
       .maybeSingle();
     
@@ -482,8 +486,11 @@ async function fetchVerifiedSgkDuration(
       };
     }
     
-    // Fallback: Try with "Diğer" district (for general province data)
-    console.log(`🔄 [SGK Verify] No exact match, trying with "Diğer" district...`);
+    // Fallback: Try with "Diğer" district (for districts NOT in Ek-5 list)
+    // This is CRITICAL: If a district is not in Ek-5 list, it should use province's base region
+    console.log(`🔄 [SGK Verify] No exact match for "${normalizedDistrict}", trying with "Diğer" district...`);
+    console.log(`ℹ️ [SGK Verify] "${normalizedDistrict}" is NOT in Ek-5 list, will use province "${province}" base values`);
+    
     const { data: fallbackData, error: fallbackError } = await supabase
       .from('sgk_durations')
       .select('alt_bolge, sgk_duration, bolge, province, district, osb_status')
@@ -497,18 +504,18 @@ async function fetchVerifiedSgkDuration(
     }
     
     if (fallbackData) {
-      console.log(`✅ [SGK Verify] Found fallback match: Alt Bölge ${fallbackData.alt_bolge}, SGK ${fallbackData.sgk_duration} yıl`);
+      console.log(`✅ [SGK Verify] Using "Diğer" fallback for non-Ek5 district: Alt Bölge ${fallbackData.alt_bolge}, SGK ${fallbackData.sgk_duration} yıl`);
       return {
         altBolge: fallbackData.alt_bolge,
         sgkDuration: fallbackData.sgk_duration,
         bolge: fallbackData.bolge,
         province: fallbackData.province,
-        district: 'Diğer',
+        district: normalizedDistrict, // Keep original district name for display
         osbStatus: fallbackData.osb_status
       };
     }
     
-    console.log(`⚠️ [SGK Verify] No data found for ${province}/${district}`);
+    console.log(`⚠️ [SGK Verify] No data found for ${province}/${district} (including "Diğer" fallback)`);
     return null;
   } catch (err) {
     console.error('❌ [SGK Verify] Exception:', err);
@@ -2184,16 +2191,24 @@ serve(async (req) => {
             const content = resp?.content;
             if (!content) return null;
             
-            // Check header for "İl: X" or sections for location
+            // Check header for "İl: X"
             if (content.header?.il) return content.header.il;
             
-            // Search in sections for location info
+            // Search in ALL sections for location info (not just "konum" or "lokasyon" titles)
             const sections = content.sections || [];
+            
+            // First pass: check section titles containing location-related keywords
+            const locationKeywords = ['konum', 'lokasyon', 'yatırım yeri', 'yer bilgi', 'bölge'];
             for (const section of sections) {
-              if (section.title?.toLowerCase().includes('konum') || section.title?.toLowerCase().includes('lokasyon')) {
+              const titleLower = (section.title || '').toLowerCase();
+              if (locationKeywords.some(kw => titleLower.includes(kw))) {
                 const items = section.items || [];
                 for (const item of items) {
-                  if (item.label?.toLowerCase().includes('il')) {
+                  const labelLower = (item.label || '').toLowerCase();
+                  // Match "İl" but not "İlçe"
+                  if ((labelLower === 'il' || labelLower === 'il:') || 
+                      (labelLower.includes('il') && !labelLower.includes('ilçe'))) {
+                    console.log(`✅ [extractProvince] Found in section "${section.title}": ${item.value}`);
                     return item.value;
                   }
                 }
@@ -2202,10 +2217,25 @@ serve(async (req) => {
               if (section.metadata?.il) return section.metadata.il;
             }
             
+            // Second pass: check ALL sections for "İl" label (regardless of section title)
+            for (const section of sections) {
+              const items = section.items || [];
+              for (const item of items) {
+                const labelLower = (item.label || '').toLowerCase();
+                // Match exactly "İl" or "İl:" but not "İlçe"
+                if ((labelLower === 'il' || labelLower === 'il:') || 
+                    (labelLower.includes('il') && !labelLower.includes('ilçe') && !labelLower.includes('asgari'))) {
+                  console.log(`✅ [extractProvince] Found in any section: ${item.value}`);
+                  return item.value;
+                }
+              }
+            }
+            
             // Check top-level metadata
             if (content.metadata?.il) return content.metadata.il;
             if (resp.metadata?.province) return resp.metadata.province;
             
+            console.log(`⚠️ [extractProvince] No province found in response`);
             return null;
           };
           
@@ -2279,11 +2309,26 @@ serve(async (req) => {
                   const label = (item.label || '').toLowerCase();
                   const value = (item.value || '').toLowerCase();
                   
-                  // Update minimum investment amount
+                  // Update minimum investment amount - REGION SPECIFIC HANDLING
+                  // Handle "1. ve 2. Bölge Asgari Yatırım" separately from "3., 4., 5. ve 6. Bölge Asgari Yatırım"
                   if (label.includes('asgari') && (label.includes('yatırım') || label.includes('tutar'))) {
-                    const oldValue = item.value;
-                    item.value = formatCurrency(limits.minInvestment);
-                    console.log(`✏️ Updated asgari yatırım: ${oldValue} → ${item.value}`);
+                    // Check if this is specifically for regions 1-2 or 3-6
+                    if (label.includes('1') && label.includes('2') && label.includes('bölge')) {
+                      // This is the 1-2. Bölge row - always use region 1-2 value
+                      const oldValue = item.value;
+                      item.value = formatCurrency(thresholds.min_investment_region_1_2);
+                      console.log(`✏️ Updated 1-2. Bölge asgari yatırım: ${oldValue} → ${item.value}`);
+                    } else if ((label.includes('3') || label.includes('4') || label.includes('5') || label.includes('6')) && label.includes('bölge')) {
+                      // This is the 3-6. Bölge row - always use region 3-6 value
+                      const oldValue = item.value;
+                      item.value = formatCurrency(thresholds.min_investment_region_3_6);
+                      console.log(`✏️ Updated 3-6. Bölge asgari yatırım: ${oldValue} → ${item.value}`);
+                    } else {
+                      // Generic "asgari yatırım" - use province-based value
+                      const oldValue = item.value;
+                      item.value = formatCurrency(limits.minInvestment);
+                      console.log(`✏️ Updated asgari yatırım (province-based): ${oldValue} → ${item.value}`);
+                    }
                   }
                   
                   // Update interest support upper limit (Hedef Yatırım)
