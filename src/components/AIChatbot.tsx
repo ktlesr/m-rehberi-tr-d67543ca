@@ -44,6 +44,7 @@ import {
   FollowUpRenderer,
   ProgressRenderer 
 } from "@/utils/structuredResponseRenderer";
+import { buildLLMMessages } from "@/utils/llmMessageNormalizer";
 
 interface Message {
   role: "user" | "assistant";
@@ -646,10 +647,17 @@ function AIChatbotInner() {
         throw new Error("Lütfen önce admin panelinden bir bilgi bankası seçin");
       }
 
+      // Normalize messages for LLM (convert structured JSON to summaries, limit history)
+      const normalizedMessages = buildLLMMessages(
+        [...messages, { role: "user", content: userMessage }],
+        12, // max 12 messages
+        1500 // max 1500 chars per message
+      );
+
       const { data, error } = await supabase.functions.invoke("chat-gemini", {
         body: {
           storeName: activeStoreCache,
-          messages: [...messages, { role: "user", content: userMessage }],
+          messages: normalizedMessages,
           sessionId: currentSessionId,
         },
       });

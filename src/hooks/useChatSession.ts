@@ -8,6 +8,7 @@ import type {
   ProgressConfig,
   FollowUpConfig 
 } from "@/utils/structuredResponseRenderer";
+import { buildLLMMessages } from "@/utils/llmMessageNormalizer";
 
 const LOCAL_STORAGE_KEY = "tesviksor_chat_sessions";
 
@@ -306,13 +307,17 @@ export function useChatSession(user: User | null) {
 
         abortControllerRef.current = new AbortController();
 
+        // Normalize messages for LLM (convert structured JSON to summaries, limit history)
+        const normalizedMessages = buildLLMMessages(
+          updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+          12, // max 12 messages
+          1500 // max 1500 chars per message
+        );
+
         const { data, error } = await supabase.functions.invoke("chat-gemini", {
           body: {
             storeName,
-            messages: updatedMessages.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
+            messages: normalizedMessages,
             sessionId,
           },
         });

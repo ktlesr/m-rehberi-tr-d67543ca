@@ -37,6 +37,45 @@ function isStructuredResponse(data: any): boolean {
   );
 }
 
+// Truncate messages to prevent token overflow
+function truncateMessagesForVertex(messages: any[], maxMessages: number = 8, maxCharsPerMessage: number = 2000): any[] {
+  if (!messages || !Array.isArray(messages)) return [];
+  
+  // Take last N messages
+  const recentMessages = messages.slice(-maxMessages);
+  
+  return recentMessages.map(msg => {
+    let content = msg.content || '';
+    
+    // If content looks like structured JSON, extract summary
+    if (typeof content === 'string' && content.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed.content?.summary) {
+          content = parsed.content.summary;
+        } else if (parsed.type === 'structured') {
+          // Extract key info from structured response
+          const parts: string[] = [];
+          if (parsed.content?.header?.sector) parts.push(`Sektör: ${parsed.content.header.sector}`);
+          if (parsed.content?.header?.province) parts.push(`İl: ${parsed.content.header.province}`);
+          if (parsed.content?.header?.district) parts.push(`İlçe: ${parsed.content.header.district}`);
+          if (parsed.content?.interaction?.question) parts.push(parsed.content.interaction.question);
+          content = parts.length > 0 ? parts.join('. ') : '[Asistan yanıtı]';
+        }
+      } catch {
+        // Keep original content if not valid JSON
+      }
+    }
+    
+    // Truncate if too long
+    if (content.length > maxCharsPerMessage) {
+      content = content.substring(0, maxCharsPerMessage) + '...';
+    }
+    
+    return { role: msg.role, content };
+  });
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -58,6 +97,10 @@ serve(async (req) => {
       });
     }
 
+    // Truncate messages to prevent token overflow
+    const truncatedMessages = truncateMessagesForVertex(messages, 8, 2000);
+    console.log("Truncated messages count:", truncatedMessages.length);
+
     // Call YatırımaDestek API (streaming endpoint)
     console.log("Calling YatırımaDestek API at: https://api.tesviksor.com/api/vertex");
     const response = await fetch("https://api.tesviksor.com/api/vertex", {
@@ -66,7 +109,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
         "x-api-key": TESVIKSOR_API_KEY,
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages: truncatedMessages }),
     });
 
     if (!response.ok) {
