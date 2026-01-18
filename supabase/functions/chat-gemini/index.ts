@@ -67,7 +67,8 @@ function normalizeMarkdownForResponse(text: string): string {
 // v5: Added verified region info from DB, structured response for incentive flow
 // v6: Fixed NACE pattern recognition (4-digit codes), province slot validation, self-healing
 // v7: Fixed extractProvince to search all sections, improved asgari yatırım region-specific handling, better SGK "Diğer" fallback
-const CACHE_SCHEMA_VERSION = 7;
+// v8: Fixed Turkish İ/I character comparison in extractLocationFromStructuredResponse, added Temel Bölge override, capped alt bölge at 6, fixed note/description asgari yatırım
+const CACHE_SCHEMA_VERSION = 8;
 
 // Patterns that indicate broken/malformed markdown in cache
 const BROKEN_CACHE_PATTERNS = [
@@ -523,6 +524,11 @@ async function fetchVerifiedSgkDuration(
   }
 }
 
+// Helper: Turkish-safe lowercase (handles İ/I correctly)
+function turkishLower(str: string): string {
+  return str.replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase();
+}
+
 // Extract location data from structured response for SGK verification
 function extractLocationFromStructuredResponse(response: any): { 
   province: string | null; 
@@ -534,33 +540,40 @@ function extractLocationFromStructuredResponse(response: any): {
   let detectedOsbInside = false;
   
   if (!response?.content?.sections) {
+    console.log('⚠️ [Location Extract] No sections in response');
     return { province: null, district: null, osbInside: false };
   }
   
   for (const section of response.content.sections) {
     if (section.items) {
       for (const item of section.items) {
-        const label = (item.label || '').toLowerCase();
+        const label = turkishLower(item.label || '');
         const value = item.value || '';
-        const valueLower = value.toLowerCase();
+        const valueLower = turkishLower(value);
         
-        // Province detection
-        if ((label.includes('il') && !label.includes('ilçe')) || label === 'il') {
+        // Province detection - match "il" but NOT "ilçe"
+        // Using Turkish-safe comparison: "İl" → "il", "İlçe" → "ilçe"
+        if ((label === 'il' || label === 'il:' || 
+            (label.includes('il') && !label.includes('ilçe') && !label.includes('asgari')))) {
           detectedProvince = value.trim();
+          console.log(`✅ [Location Extract] Province found: ${detectedProvince} (label: ${item.label})`);
         }
         
         // District detection
-        if (label.includes('ilçe')) {
+        if (label.includes('ilçe') || label === 'ilce' || label === 'ilce:') {
           detectedDistrict = value.trim();
+          console.log(`✅ [Location Extract] District found: ${detectedDistrict} (label: ${item.label})`);
         }
         
         // OSB status detection
-        if (label.includes('osb') || label.includes('organize') || label.includes('endüstri')) {
+        if (label.includes('osb') || label.includes('organize') || label.includes('endüstri') || label.includes('durumu')) {
           detectedOsbInside = valueLower.includes('içi') || 
                              valueLower.includes('içinde') ||
                              valueLower.includes('osb içi') ||
-                             value === 'Evet' ||
-                             value === 'İçi';
+                             valueLower === 'evet' ||
+                             valueLower === 'içi' ||
+                             value === 'OSB İçinde';
+          console.log(`✅ [Location Extract] OSB status: ${detectedOsbInside} (value: ${value})`);
         }
       }
     }
@@ -576,6 +589,8 @@ function extractLocationFromStructuredResponse(response: any): {
   if (response.content.metadata?.ilce) detectedDistrict = response.content.metadata.ilce;
   if (response.metadata?.province) detectedProvince = response.metadata.province;
   if (response.metadata?.district) detectedDistrict = response.metadata.district;
+  
+  console.log(`📍 [Location Extract] Final: Province=${detectedProvince}, District=${detectedDistrict}, OSB=${detectedOsbInside}`);
   
   return { province: detectedProvince, district: detectedDistrict, osbInside: detectedOsbInside };
 }
@@ -604,7 +619,13 @@ async function updateStructuredResponseWithVerifiedSgk(
     return { response, verifiedInfo: null };
   }
   
-  console.log(`✏️ [SGK Update] Applying verified values: Alt Bölge ${verified.altBolge}, SGK ${verified.sgkDuration} yıl`);
+  // Cap alt bölge at 6 (7. bölge doesn't exist)
+  const cappedAltBolge = Math.min(verified.altBolge, 6);
+  if (verified.altBolge > 6) {
+    console.log(`⚠️ [SGK Update] Alt Bölge capped: ${verified.altBolge} → ${cappedAltBolge} (max is 6)`);
+  }
+  
+  console.log(`✏️ [SGK Update] Applying verified values: Temel Bölge ${verified.bolge}, Alt Bölge ${cappedAltBolge}, SGK ${verified.sgkDuration} yıl`);
   
   // Deep clone to avoid mutation issues
   const updatedResponse = JSON.parse(JSON.stringify(response));
@@ -614,7 +635,7 @@ async function updateStructuredResponseWithVerifiedSgk(
     for (const section of updatedResponse.content.sections) {
       if (section.items) {
         for (const item of section.items) {
-          const label = (item.label || '').toLowerCase();
+          const label = turkishLower(item.label || '');
           
           // SGK süresi güncelle
           if (label.includes('sgk') || 
@@ -622,26 +643,65 @@ async function updateStructuredResponseWithVerifiedSgk(
               label.includes('işveren hissesi') ||
               label.includes('işveren prim')) {
             const oldValue = item.value;
-            // Handle 6. bölge +2 yıl rule (12 → 14)
-            item.value = `${verified.sgkDuration} yıl`;
+            item.value = `${verified.sgkDuration} YIL`;
             if (oldValue !== item.value) {
               console.log(`✏️ [SGK Update] SGK süresi: ${oldValue} → ${item.value}`);
             }
             item._verifiedFromDb = true;
           }
           
-          // Teşvik Bölgesi / Alt Bölge güncelle
-          if (label.includes('teşvik bölge') || 
-              label.includes('alt bölge') ||
-              label.includes('yatırım bölge')) {
+          // Temel Bölge güncelle (ilin ana bölgesi)
+          if (label.includes('temel bölge') || label === 'temel bölge' || label === 'temel bölge:') {
             const oldValue = item.value;
-            item.value = `${verified.altBolge}. Bölge`;
+            item.value = `${verified.bolge}. Bölge`;
             if (oldValue !== item.value) {
-              console.log(`✏️ [SGK Update] Alt Bölge: ${oldValue} → ${item.value}`);
+              console.log(`✏️ [SGK Update] Temel Bölge: ${oldValue} → ${item.value}`);
+            }
+            item._verifiedFromDb = true;
+          }
+          
+          // OSB Alt Bölge (SGK için) güncelle
+          if (label.includes('osb alt bölge') || label.includes('alt bölge') || 
+              (label.includes('sgk') && label.includes('bölge'))) {
+            const oldValue = item.value;
+            item.value = `${cappedAltBolge}. Bölge`;
+            if (oldValue !== item.value) {
+              console.log(`✏️ [SGK Update] OSB Alt Bölge: ${oldValue} → ${item.value}`);
+            }
+            item._verifiedFromDb = true;
+          }
+          
+          // Teşvik Bölgesi / Yatırım Bölgesi güncelle (genel)
+          if ((label.includes('teşvik bölge') || label.includes('yatırım bölge')) && 
+              !label.includes('temel') && !label.includes('alt')) {
+            const oldValue = item.value;
+            item.value = `${cappedAltBolge}. Bölge`;
+            if (oldValue !== item.value) {
+              console.log(`✏️ [SGK Update] Teşvik Bölgesi: ${oldValue} → ${item.value}`);
             }
             item._verifiedFromDb = true;
           }
         }
+      }
+      
+      // Also update note/description text for asgari yatırım values
+      if (section.note) {
+        // Fix incorrect "6.000.000 TL" to region-appropriate value
+        // For regions 1-2: 15.100.000 TL, For regions 3-6: 7.500.000 TL
+        const correctMinInvestment = verified.bolge <= 2 ? '15.100.000 TL' : '7.500.000 TL';
+        section.note = section.note
+          .replace(/6\.000\.000\s*TL/g, correctMinInvestment)
+          .replace(/6,000,000\s*TL/g, correctMinInvestment)
+          .replace(/(\d)\.\s*Bölge\s+asgari\s+yatırım\s+tutarı\s+6\.000\.000\s*TL/gi, 
+            `$1. Bölge asgari yatırım tutarı ${correctMinInvestment}`);
+      }
+      
+      // Update section description if exists
+      if (section.description) {
+        const correctMinInvestment = verified.bolge <= 2 ? '15.100.000 TL' : '7.500.000 TL';
+        section.description = section.description
+          .replace(/6\.000\.000\s*TL/g, correctMinInvestment)
+          .replace(/6,000,000\s*TL/g, correctMinInvestment);
       }
     }
   }
@@ -651,11 +711,12 @@ async function updateStructuredResponseWithVerifiedSgk(
     updatedResponse.content.metadata = {};
   }
   updatedResponse.content.metadata.sgkVerified = true;
-  updatedResponse.content.metadata.verifiedAltBolge = verified.altBolge;
+  updatedResponse.content.metadata.verifiedTemelBolge = verified.bolge;
+  updatedResponse.content.metadata.verifiedAltBolge = cappedAltBolge;
   updatedResponse.content.metadata.verifiedSgkDuration = verified.sgkDuration;
   updatedResponse._sgkVerifiedFromDb = true;
   
-  return { response: updatedResponse, verifiedInfo: verified };
+  return { response: updatedResponse, verifiedInfo: { ...verified, altBolge: cappedAltBolge } };
 }
 
 // Extract location from markdown text for SGK verification
@@ -2356,14 +2417,28 @@ serve(async (req) => {
                 }
               }
               
-              // Also update any note/description containing old values
+              // Also update any note/description/text containing old values
               if (section.note) {
-                // Replace common old values with new ones
+                // Replace common old values with new ones based on PROVINCE REGION
                 section.note = section.note
                   .replace(/6\.000\.000\s*TL/g, formatCurrency(limits.minInvestment))
                   .replace(/6,000,000\s*TL/g, formatCurrency(limits.minInvestment))
                   .replace(/12\.000\.000\s*TL/g, formatCurrency(limits.maxInterestTarget))
                   .replace(/12,000,000\s*TL/g, formatCurrency(limits.maxInterestTarget));
+              }
+              
+              // Also update section text/content if exists
+              if (section.text && typeof section.text === 'string') {
+                section.text = section.text
+                  .replace(/6\.000\.000\s*TL/g, formatCurrency(limits.minInvestment))
+                  .replace(/6,000,000\s*TL/g, formatCurrency(limits.minInvestment));
+              }
+              
+              // Update section content if it's a string
+              if (section.content && typeof section.content === 'string') {
+                section.content = section.content
+                  .replace(/6\.000\.000\s*TL/g, formatCurrency(limits.minInvestment))
+                  .replace(/6,000,000\s*TL/g, formatCurrency(limits.minInvestment));
               }
             }
             
