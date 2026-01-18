@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { themes } from '@/config/themes';
 import { adminSettingsService } from '@/services/adminSettingsService';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,11 @@ interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [currentTheme, setCurrentTheme] = useState<string>('corporate-blue');
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Use refs to prevent multiple subscriptions
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const subscribedRef = useRef(false);
+  const channelIdRef = useRef(`theme-changes-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
   // Fetch theme from database on mount
   useEffect(() => {
@@ -47,27 +52,35 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   // Subscribe to realtime theme changes
   useEffect(() => {
-    const subscription = supabase
-      .channel('theme-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'admin_settings',
-          filter: 'setting_key=eq.active_app_theme'
-        },
-        (payload: any) => {
-          const newTheme = payload.new.setting_value_text;
-          if (newTheme && themes[newTheme]) {
-            setCurrentTheme(newTheme);
+    // Only subscribe once per component instance
+    if (!subscribedRef.current) {
+      channelRef.current = supabase
+        .channel(channelIdRef.current)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'admin_settings',
+            filter: 'setting_key=eq.active_app_theme'
+          },
+          (payload: any) => {
+            const newTheme = payload.new.setting_value_text;
+            if (newTheme && themes[newTheme]) {
+              setCurrentTheme(newTheme);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+      subscribedRef.current = true;
+    }
 
     return () => {
-      supabase.removeChannel(subscription);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        subscribedRef.current = false;
+      }
     };
   }, []);
 
