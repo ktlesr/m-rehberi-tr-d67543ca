@@ -3,12 +3,62 @@
  * 
  * API'den gelen structured JSON yanıtlarını parse eder ve render eder.
  * Markdown parsing sorunlarını tamamen ortadan kaldırır.
+ * Framer Motion animasyonları ile zenginleştirilmiştir.
  */
 
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import { motion } from 'framer-motion';
 import { AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// =================== ANIMATION VARIANTS ===================
+
+// Staggered reveal için parent container variant
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,  // Her çocuk 100ms arayla
+      delayChildren: 0.05
+    }
+  }
+};
+
+// Her section için giriş animasyonu (slide up + fade)
+const sectionVariants = {
+  hidden: { 
+    opacity: 0, 
+    y: 20,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      type: 'spring',
+      stiffness: 100,
+      damping: 15
+    }
+  }
+};
+
+// Warning/Info/Success kutuları için scale animasyonu
+const alertVariants = {
+  hidden: { 
+    opacity: 0, 
+    scale: 0.95 
+  },
+  visible: { 
+    opacity: 1, 
+    scale: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 150,
+      damping: 20
+    }
+  }
+};
 
 // =================== TYPE DEFINITIONS ===================
 
@@ -456,15 +506,21 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
     }
   };
 
+  // Warning/Info/Success için farklı variant kullan
+  const isAlertType = ['warning', 'info', 'success'].includes(section.type);
+
   return (
-    <div className="space-y-2">
+    <motion.div 
+      className="space-y-2"
+      variants={isAlertType ? alertVariants : sectionVariants}
+    >
       {section.title && (
         <h4 className="font-semibold text-primary text-sm border-b border-primary/20 pb-1">
           {section.title}
         </h4>
       )}
       {renderContent()}
-    </div>
+    </motion.div>
   );
 }
 
@@ -525,21 +581,29 @@ export function StructuredResponseRenderer({ response, className }: StructuredRe
   const summaryText = ensureString(content.summary);
 
   return (
-    <div className={cn('space-y-4', className)}>
-      {/* Summary */}
+    <motion.div 
+      className={cn('space-y-4', className)}
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Summary - fade in */}
       {summaryText && (
-        <div className="text-sm font-medium text-foreground leading-relaxed">
+        <motion.div 
+          variants={sectionVariants}
+          className="text-sm font-medium text-foreground leading-relaxed"
+        >
           <ReactMarkdown components={summaryMarkdownComponents}>
             {summaryText}
           </ReactMarkdown>
-        </div>
+        </motion.div>
       )}
 
-      {/* Sections */}
+      {/* Sections - staggered reveal */}
       {content.sections?.map((section, idx) => (
         <SectionRenderer key={idx} section={section} index={idx} />
       ))}
-    </div>
+    </motion.div>
   );
 }
 
@@ -551,7 +615,17 @@ interface FollowUpRendererProps {
 
 export function FollowUpRenderer({ followUp }: FollowUpRendererProps) {
   return (
-    <div className="mt-3 pt-3 border-t border-border/40">
+    <motion.div 
+      className="mt-3 pt-3 border-t border-border/40"
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ 
+        delay: 0.3,  // Diğer içeriklerden sonra
+        type: 'spring',
+        stiffness: 120,
+        damping: 15
+      }}
+    >
       <div className="rounded-lg bg-gradient-to-r from-primary/10 via-primary/15 to-primary/10 
                       border-2 border-primary/40 p-3 shadow-sm">
         <div className="flex items-start gap-2">
@@ -569,7 +643,7 @@ export function FollowUpRenderer({ followUp }: FollowUpRendererProps) {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -588,14 +662,28 @@ export function ProgressRenderer({ progress }: ProgressRendererProps) {
   ];
 
   return (
-    <div className="flex flex-wrap gap-2 p-3 bg-primary/5 rounded-lg mb-4 border border-primary/10">
+    <motion.div 
+      className="flex flex-wrap gap-2 p-3 bg-primary/5 rounded-lg mb-4 border border-primary/10"
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium w-full sm:w-auto">
         <span>Teşvik Hesaplama:</span>
       </div>
       <div className="flex gap-2 flex-wrap">
-        {steps.map((step) => (
-          <div
+        {steps.map((step, i) => (
+          <motion.div
             key={step.key}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ 
+              delay: i * 0.08,  // Her step 80ms arayla
+              type: 'spring',
+              stiffness: 200,
+              damping: 15
+            }}
+            layout  // Layout değişikliklerinde smooth geçiş
             className={cn(
               'flex items-center gap-1 px-2 py-1 rounded text-xs transition-all',
               step.value
@@ -606,19 +694,28 @@ export function ProgressRenderer({ progress }: ProgressRendererProps) {
             <span>{step.icon}</span>
             <span className="font-medium">{step.label}</span>
             {step.value && (
-              <span className="text-[10px] opacity-80 max-w-[80px] truncate">
+              <motion.span 
+                initial={{ opacity: 0, x: -5 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-[10px] opacity-80 max-w-[80px] truncate"
+              >
                 ({step.value})
-              </span>
+              </motion.span>
             )}
-          </div>
+          </motion.div>
         ))}
       </div>
       {progress.completed && (
-        <div className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-xs bg-green-500/20 text-green-700 border border-green-500/30">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+          className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-xs bg-green-500/20 text-green-700 border border-green-500/30"
+        >
           <CheckCircle2 className="h-3 w-3" />
           <span className="font-medium">Tamamlandı</span>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

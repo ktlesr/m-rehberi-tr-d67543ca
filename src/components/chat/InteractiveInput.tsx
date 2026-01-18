@@ -3,9 +3,11 @@
  * 
  * API'den gelen interaktif sorular için UI bileşenleri.
  * İl, ilçe, sektör seçimi ve OSB durumu için özelleştirilmiş inputlar.
+ * Framer Motion animasyonları ile zenginleştirilmiştir.
  */
 
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronDown, Search, Building2, MapPin, Factory } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,78 +89,98 @@ function SelectInput({ options, placeholder, allowSearch, onSelect, disabled }: 
           )} />
         </button>
 
-        {/* Dropdown Menu */}
-        {isOpen && (
-          <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
-            {/* Search Input */}
-            {allowSearch && (
-              <div className="p-2 border-b border-border">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Ara..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9"
-                    autoFocus
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Options List */}
-            <ScrollArea className="max-h-60">
-              <div className="p-1">
-                {filteredOptions.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    Sonuç bulunamadı
+        {/* Dropdown Menu with AnimatePresence */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div 
+              className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden"
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+            >
+              {/* Search Input */}
+              {allowSearch && (
+                <div className="p-2 border-b border-border">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Ara..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 h-9"
+                      autoFocus
+                    />
                   </div>
-                ) : (
-                  filteredOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleSelect(option.value)}
-                      className={cn(
-                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm',
-                        'transition-colors text-left',
-                        selectedValue === option.value
-                          ? 'bg-primary/10 text-primary'
-                          : 'hover:bg-muted'
-                      )}
-                    >
-                      {option.icon && (
-                        <span className="text-base">{option.icon}</span>
-                      )}
-                      <span className="flex-1">{option.label}</span>
-                      {option.region && (
-                        <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
-                          {option.region}. Bölge
-                        </span>
-                      )}
-                      {selectedValue === option.value && (
-                        <Check className="h-4 w-4 text-primary" />
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
+                </div>
+              )}
+
+              {/* Options List */}
+              <ScrollArea className="max-h-60">
+                <div className="p-1">
+                  {filteredOptions.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      Sonuç bulunamadı
+                    </div>
+                  ) : (
+                    filteredOptions.map((option, index) => (
+                      <motion.button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleSelect(option.value)}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.02 }}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm',
+                          'transition-colors text-left',
+                          selectedValue === option.value
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-muted'
+                        )}
+                      >
+                        {option.icon && (
+                          <span className="text-base">{option.icon}</span>
+                        )}
+                        <span className="flex-1">{option.label}</span>
+                        {option.region && (
+                          <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+                            {option.region}. Bölge
+                          </span>
+                        )}
+                        {selectedValue === option.value && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
+                      </motion.button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Submit Button */}
-      {selectedValue && (
-        <Button
-          onClick={handleSubmit}
-          disabled={disabled}
-          className="w-full"
-        >
-          Devam Et
-        </Button>
-      )}
+      {/* Submit Button with animation */}
+      <AnimatePresence>
+        {selectedValue && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Button
+              onClick={handleSubmit}
+              disabled={disabled}
+              className="w-full"
+            >
+              Devam Et
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -183,12 +205,17 @@ function RadioInput({ options, onSelect, disabled }: RadioInputProps) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
-        {options?.map((option) => (
-          <button
+        {options?.map((option, index) => (
+          <motion.button
             key={option.value}
             type="button"
             onClick={() => !disabled && setSelectedValue(option.value)}
             disabled={disabled}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: index * 0.1, type: 'spring', stiffness: 200 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             className={cn(
               'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
               selectedValue === option.value
@@ -206,19 +233,28 @@ function RadioInput({ options, onSelect, disabled }: RadioInputProps) {
             )}>
               {option.label}
             </span>
-          </button>
+          </motion.button>
         ))}
       </div>
 
-      {selectedValue && (
-        <Button
-          onClick={handleSubmit}
-          disabled={disabled}
-          className="w-full"
-        >
-          Devam Et
-        </Button>
-      )}
+      <AnimatePresence>
+        {selectedValue && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Button
+              onClick={handleSubmit}
+              disabled={disabled}
+              className="w-full"
+            >
+              Devam Et
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -261,15 +297,24 @@ function SearchInput({ placeholder, onSubmit, disabled }: SearchInputProps) {
         />
       </div>
 
-      {value.trim() && (
-        <Button
-          onClick={handleSubmit}
-          disabled={disabled}
-          className="w-full"
-        >
-          Ara
-        </Button>
-      )}
+      <AnimatePresence>
+        {value.trim() && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Button
+              onClick={handleSubmit}
+              disabled={disabled}
+              className="w-full"
+            >
+              Ara
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -308,15 +353,24 @@ function TextInput({ placeholder, onSubmit, disabled }: TextInputProps) {
         disabled={disabled}
       />
 
-      {value.trim() && (
-        <Button
-          onClick={handleSubmit}
-          disabled={disabled}
-          className="w-full"
-        >
-          Gönder
-        </Button>
-      )}
+      <AnimatePresence>
+        {value.trim() && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Button
+              onClick={handleSubmit}
+              disabled={disabled}
+              className="w-full"
+            >
+              Gönder
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -341,9 +395,24 @@ export function InteractiveInput({ config, onSubmit, disabled }: InteractiveInpu
   };
 
   return (
-    <div className="mt-4 p-4 rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20">
+    <motion.div 
+      className="mt-4 p-4 rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20"
+      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ 
+        delay: 0.4,  // Diğer içeriklerden sonra
+        type: 'spring',
+        stiffness: 150,
+        damping: 20
+      }}
+    >
       {/* Question Header */}
-      <div className="flex items-start gap-3 mb-4">
+      <motion.div 
+        className="flex items-start gap-3 mb-4"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.5, duration: 0.3 }}
+      >
         <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
           {getFieldIcon()}
         </div>
@@ -358,42 +427,48 @@ export function InteractiveInput({ config, onSubmit, disabled }: InteractiveInpu
             {config.questionText}
           </p>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Input Component */}
-      {config.inputType === 'select' && (
-        <SelectInput
-          options={config.options}
-          placeholder={config.placeholder}
-          allowSearch={config.allowSearch}
-          onSelect={onSubmit}
-          disabled={disabled}
-        />
-      )}
+      {/* Input Component - delayed animation */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6, duration: 0.3 }}
+      >
+        {config.inputType === 'select' && (
+          <SelectInput
+            options={config.options}
+            placeholder={config.placeholder}
+            allowSearch={config.allowSearch}
+            onSelect={onSubmit}
+            disabled={disabled}
+          />
+        )}
 
-      {config.inputType === 'radio' && (
-        <RadioInput
-          options={config.options}
-          onSelect={onSubmit}
-          disabled={disabled}
-        />
-      )}
+        {config.inputType === 'radio' && (
+          <RadioInput
+            options={config.options}
+            onSelect={onSubmit}
+            disabled={disabled}
+          />
+        )}
 
-      {config.inputType === 'search' && (
-        <SearchInput
-          placeholder={config.placeholder}
-          onSubmit={onSubmit}
-          disabled={disabled}
-        />
-      )}
+        {config.inputType === 'search' && (
+          <SearchInput
+            placeholder={config.placeholder}
+            onSubmit={onSubmit}
+            disabled={disabled}
+          />
+        )}
 
-      {config.inputType === 'text' && (
-        <TextInput
-          placeholder={config.placeholder}
-          onSubmit={onSubmit}
-          disabled={disabled}
-        />
-      )}
-    </div>
+        {config.inputType === 'text' && (
+          <TextInput
+            placeholder={config.placeholder}
+            onSubmit={onSubmit}
+            disabled={disabled}
+          />
+        )}
+      </motion.div>
+    </motion.div>
   );
 }
