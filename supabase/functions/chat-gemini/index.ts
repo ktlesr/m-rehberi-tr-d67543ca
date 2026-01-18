@@ -435,6 +435,327 @@ function formatNaceCodesSection(naceCodes: any[]): string {
   return `\n\n---\n\n📋 **İlgili NACE Kodları:**\n${lines.join('\n')}`;
 }
 
+// ============= SGK DURATION VERIFICATION FROM DATABASE =============
+
+// Verified SGK duration result from database
+interface VerifiedSgkDuration {
+  altBolge: number;
+  sgkDuration: number;
+  bolge: number;
+  province: string;
+  district: string;
+  osbStatus: boolean;
+}
+
+// Fetch verified SGK duration from database (9903 sayılı Karar kuralları)
+async function fetchVerifiedSgkDuration(
+  supabase: any,
+  province: string,
+  district: string,
+  osbStatus: boolean
+): Promise<VerifiedSgkDuration | null> {
+  try {
+    console.log(`🔍 [SGK Verify] Querying: ${province}, ${district}, OSB: ${osbStatus}`);
+    
+    // First try exact match
+    const { data, error } = await supabase
+      .from('sgk_durations')
+      .select('alt_bolge, sgk_duration, bolge, province, district, osb_status')
+      .eq('province', province)
+      .ilike('district', district)
+      .eq('osb_status', osbStatus)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('❌ [SGK Verify] Query error:', error);
+    }
+    
+    if (data) {
+      console.log(`✅ [SGK Verify] Found exact match: Alt Bölge ${data.alt_bolge}, SGK ${data.sgk_duration} yıl`);
+      return {
+        altBolge: data.alt_bolge,
+        sgkDuration: data.sgk_duration,
+        bolge: data.bolge,
+        province: data.province,
+        district: data.district,
+        osbStatus: data.osb_status
+      };
+    }
+    
+    // Fallback: Try with "Diğer" district (for general province data)
+    console.log(`🔄 [SGK Verify] No exact match, trying with "Diğer" district...`);
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('sgk_durations')
+      .select('alt_bolge, sgk_duration, bolge, province, district, osb_status')
+      .eq('province', province)
+      .eq('district', 'Diğer')
+      .eq('osb_status', osbStatus)
+      .maybeSingle();
+    
+    if (fallbackError) {
+      console.error('❌ [SGK Verify] Fallback query error:', fallbackError);
+    }
+    
+    if (fallbackData) {
+      console.log(`✅ [SGK Verify] Found fallback match: Alt Bölge ${fallbackData.alt_bolge}, SGK ${fallbackData.sgk_duration} yıl`);
+      return {
+        altBolge: fallbackData.alt_bolge,
+        sgkDuration: fallbackData.sgk_duration,
+        bolge: fallbackData.bolge,
+        province: fallbackData.province,
+        district: 'Diğer',
+        osbStatus: fallbackData.osb_status
+      };
+    }
+    
+    console.log(`⚠️ [SGK Verify] No data found for ${province}/${district}`);
+    return null;
+  } catch (err) {
+    console.error('❌ [SGK Verify] Exception:', err);
+    return null;
+  }
+}
+
+// Extract location data from structured response for SGK verification
+function extractLocationFromStructuredResponse(response: any): { 
+  province: string | null; 
+  district: string | null; 
+  osbInside: boolean 
+} {
+  let detectedProvince: string | null = null;
+  let detectedDistrict: string | null = null;
+  let detectedOsbInside = false;
+  
+  if (!response?.content?.sections) {
+    return { province: null, district: null, osbInside: false };
+  }
+  
+  for (const section of response.content.sections) {
+    if (section.items) {
+      for (const item of section.items) {
+        const label = (item.label || '').toLowerCase();
+        const value = item.value || '';
+        const valueLower = value.toLowerCase();
+        
+        // Province detection
+        if ((label.includes('il') && !label.includes('ilçe')) || label === 'il') {
+          detectedProvince = value.trim();
+        }
+        
+        // District detection
+        if (label.includes('ilçe')) {
+          detectedDistrict = value.trim();
+        }
+        
+        // OSB status detection
+        if (label.includes('osb') || label.includes('organize') || label.includes('endüstri')) {
+          detectedOsbInside = valueLower.includes('içi') || 
+                             valueLower.includes('içinde') ||
+                             valueLower.includes('osb içi') ||
+                             value === 'Evet' ||
+                             value === 'İçi';
+        }
+      }
+    }
+    
+    // Also check metadata
+    if (section.metadata?.il) detectedProvince = section.metadata.il;
+    if (section.metadata?.ilce) detectedDistrict = section.metadata.ilce;
+    if (section.metadata?.osb) detectedOsbInside = section.metadata.osb === true || section.metadata.osb === 'içi';
+  }
+  
+  // Check top-level metadata
+  if (response.content.metadata?.il) detectedProvince = response.content.metadata.il;
+  if (response.content.metadata?.ilce) detectedDistrict = response.content.metadata.ilce;
+  if (response.metadata?.province) detectedProvince = response.metadata.province;
+  if (response.metadata?.district) detectedDistrict = response.metadata.district;
+  
+  return { province: detectedProvince, district: detectedDistrict, osbInside: detectedOsbInside };
+}
+
+// Update structured response with verified SGK values
+async function updateStructuredResponseWithVerifiedSgk(
+  response: any,
+  supabase: any
+): Promise<{ response: any; verifiedInfo: VerifiedSgkDuration | null }> {
+  const location = extractLocationFromStructuredResponse(response);
+  
+  if (!location.province || !location.district) {
+    console.log('⚠️ [SGK Update] Missing province or district, skipping verification');
+    return { response, verifiedInfo: null };
+  }
+  
+  const verified = await fetchVerifiedSgkDuration(
+    supabase, 
+    location.province, 
+    location.district, 
+    location.osbInside
+  );
+  
+  if (!verified) {
+    console.log('⚠️ [SGK Update] No verified data found');
+    return { response, verifiedInfo: null };
+  }
+  
+  console.log(`✏️ [SGK Update] Applying verified values: Alt Bölge ${verified.altBolge}, SGK ${verified.sgkDuration} yıl`);
+  
+  // Deep clone to avoid mutation issues
+  const updatedResponse = JSON.parse(JSON.stringify(response));
+  
+  // Update sections with correct values
+  if (updatedResponse.content?.sections) {
+    for (const section of updatedResponse.content.sections) {
+      if (section.items) {
+        for (const item of section.items) {
+          const label = (item.label || '').toLowerCase();
+          
+          // SGK süresi güncelle
+          if (label.includes('sgk') || 
+              label.includes('sigorta') || 
+              label.includes('işveren hissesi') ||
+              label.includes('işveren prim')) {
+            const oldValue = item.value;
+            // Handle 6. bölge +2 yıl rule (12 → 14)
+            item.value = `${verified.sgkDuration} yıl`;
+            if (oldValue !== item.value) {
+              console.log(`✏️ [SGK Update] SGK süresi: ${oldValue} → ${item.value}`);
+            }
+            item._verifiedFromDb = true;
+          }
+          
+          // Teşvik Bölgesi / Alt Bölge güncelle
+          if (label.includes('teşvik bölge') || 
+              label.includes('alt bölge') ||
+              label.includes('yatırım bölge')) {
+            const oldValue = item.value;
+            item.value = `${verified.altBolge}. Bölge`;
+            if (oldValue !== item.value) {
+              console.log(`✏️ [SGK Update] Alt Bölge: ${oldValue} → ${item.value}`);
+            }
+            item._verifiedFromDb = true;
+          }
+        }
+      }
+    }
+  }
+  
+  // Add verification metadata
+  if (!updatedResponse.content.metadata) {
+    updatedResponse.content.metadata = {};
+  }
+  updatedResponse.content.metadata.sgkVerified = true;
+  updatedResponse.content.metadata.verifiedAltBolge = verified.altBolge;
+  updatedResponse.content.metadata.verifiedSgkDuration = verified.sgkDuration;
+  updatedResponse._sgkVerifiedFromDb = true;
+  
+  return { response: updatedResponse, verifiedInfo: verified };
+}
+
+// Extract location from markdown text for SGK verification
+function extractLocationFromMarkdown(text: string): { 
+  province: string | null; 
+  district: string | null; 
+  osbInside: boolean 
+} {
+  let province: string | null = null;
+  let district: string | null = null;
+  let osbInside = false;
+  
+  // Province patterns
+  const provincePatterns = [
+    /İl:\s*\*?\*?([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,
+    /\*\*İl:\*\*\s*([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,
+    /\|\s*İl\s*\|\s*([A-ZÇĞİÖŞÜa-zçğıöşü]+)\s*\|/i,
+  ];
+  
+  for (const pattern of provincePatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      province = match[1].trim();
+      break;
+    }
+  }
+  
+  // District patterns
+  const districtPatterns = [
+    /İlçe:\s*\*?\*?([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,
+    /\*\*İlçe:\*\*\s*([A-ZÇĞİÖŞÜa-zçğıöşü]+)/i,
+    /\|\s*İlçe\s*\|\s*([A-ZÇĞİÖŞÜa-zçğıöşü]+)\s*\|/i,
+  ];
+  
+  for (const pattern of districtPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      district = match[1].trim();
+      break;
+    }
+  }
+  
+  // OSB patterns
+  const osbPatterns = [
+    /OSB\s*(?:İçi|İçinde|Durumu:\s*İçi)/i,
+    /Organize\s*Sanayi\s*Bölgesi\s*İçi/i,
+    /\*\*OSB:\*\*\s*İçi/i,
+  ];
+  
+  osbInside = osbPatterns.some(pattern => pattern.test(text));
+  
+  return { province, district, osbInside };
+}
+
+// Update markdown text with verified SGK values
+async function updateMarkdownWithVerifiedSgk(
+  text: string,
+  supabase: any
+): Promise<{ text: string; verifiedInfo: VerifiedSgkDuration | null }> {
+  const location = extractLocationFromMarkdown(text);
+  
+  if (!location.province || !location.district) {
+    return { text, verifiedInfo: null };
+  }
+  
+  const verified = await fetchVerifiedSgkDuration(
+    supabase, 
+    location.province, 
+    location.district, 
+    location.osbInside
+  );
+  
+  if (!verified) {
+    return { text, verifiedInfo: null };
+  }
+  
+  console.log(`✏️ [SGK Markdown] Applying verified: Alt Bölge ${verified.altBolge}, SGK ${verified.sgkDuration} yıl`);
+  
+  let updatedText = text;
+  
+  // Replace SGK duration values with verified value
+  // Pattern: "SGK ... X yıl" or "İşveren ... X yıl" or "Sigorta ... X yıl"
+  const sgkPatterns = [
+    /(?:SGK|Sigorta\s*Primi|İşveren\s*(?:Hissesi|Prim))[^:]*:\s*\*?\*?\s*(\d+)\s*yıl/gi,
+    /(?:SGK|Sigorta\s*Primi|İşveren)\s*Destek\s*Süresi[^:]*:\s*\*?\*?\s*(\d+)\s*yıl/gi,
+  ];
+  
+  for (const pattern of sgkPatterns) {
+    updatedText = updatedText.replace(pattern, (match) => {
+      return match.replace(/\d+\s*yıl/, `${verified.sgkDuration} yıl`);
+    });
+  }
+  
+  // Replace Alt Bölge values with verified value
+  const bolgePatterns = [
+    /(?:Alt\s*Bölge|Teşvik\s*Bölgesi)[^:]*:\s*\*?\*?\s*(\d)\.\s*(?:Alt\s*)?Bölge/gi,
+  ];
+  
+  for (const pattern of bolgePatterns) {
+    updatedText = updatedText.replace(pattern, (match) => {
+      return match.replace(/\d\.\s*(?:Alt\s*)?Bölge/, `${verified.altBolge}. Bölge`);
+    });
+  }
+  
+  return { text: updatedText, verifiedInfo: verified };
+}
+
 // ============= SECTOR/TOPIC CHANGE DETECTION =============
 
 // Detect if user is asking about a new sector/NACE code (topic change)
@@ -2010,6 +2331,17 @@ serve(async (req) => {
             updatedResponse.content.metadata.provinceRegion = region;
           }
           
+          // ============= SGK DURATION VERIFICATION FROM DATABASE =============
+          // Veritabanından doğrulanmış SGK süresi ve alt bölge bilgisi ile güncelle
+          console.log("🔍 [SGK Verify] Checking structured response for SGK duration verification...");
+          const { response: sgkVerifiedResponse, verifiedInfo: sgkVerifiedInfo } = 
+            await updateStructuredResponseWithVerifiedSgk(updatedResponse, supabase);
+          
+          if (sgkVerifiedInfo) {
+            updatedResponse = sgkVerifiedResponse;
+            console.log(`✅ [SGK Verify] Structured response updated with verified SGK: ${sgkVerifiedInfo.sgkDuration} yıl, Alt Bölge: ${sgkVerifiedInfo.altBolge}`);
+          }
+          
           // Track analytics for structured response
           trackSearchAnalytics(supabase, {
             sessionId,
@@ -2189,6 +2521,22 @@ serve(async (req) => {
             vertexResponse._provinceRegion = region;
             
             console.log(`✅ [2026 Update] Markdown values updated. Year: ${thresholds2026.year}, Region: ${region}`);
+          }
+          
+          // ============= SGK DURATION VERIFICATION FOR MARKDOWN =============
+          // Veritabanından doğrulanmış SGK süresi ile markdown metnini güncelle
+          if (vertexResponse.text) {
+            console.log("🔍 [SGK Verify] Checking markdown for SGK duration verification...");
+            const { text: sgkVerifiedText, verifiedInfo: sgkMdVerifiedInfo } = 
+              await updateMarkdownWithVerifiedSgk(vertexResponse.text, supabase);
+            
+            if (sgkMdVerifiedInfo) {
+              vertexResponse.text = sgkVerifiedText;
+              vertexResponse._sgkVerifiedFromDb = true;
+              vertexResponse._verifiedSgkDuration = sgkMdVerifiedInfo.sgkDuration;
+              vertexResponse._verifiedAltBolge = sgkMdVerifiedInfo.altBolge;
+              console.log(`✅ [SGK Verify] Markdown updated with verified SGK: ${sgkMdVerifiedInfo.sgkDuration} yıl, Alt Bölge: ${sgkMdVerifiedInfo.altBolge}`);
+            }
           }
         }
         // ============= MARKDOWN 2026 VALUE UPDATE END =============
