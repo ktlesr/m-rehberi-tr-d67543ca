@@ -2870,6 +2870,7 @@ export type Database = {
           max_output_tokens: number | null
           model_name: string
           rag_corpus: string | null
+          response_mode: string | null
           similarity_top_k: number | null
           staging_bucket: string | null
           system_instruction: string | null
@@ -2889,6 +2890,7 @@ export type Database = {
           max_output_tokens?: number | null
           model_name: string
           rag_corpus?: string | null
+          response_mode?: string | null
           similarity_top_k?: number | null
           staging_bucket?: string | null
           system_instruction?: string | null
@@ -2908,6 +2910,7 @@ export type Database = {
           max_output_tokens?: number | null
           model_name?: string
           rag_corpus?: string | null
+          response_mode?: string | null
           similarity_top_k?: number | null
           staging_bucket?: string | null
           system_instruction?: string | null

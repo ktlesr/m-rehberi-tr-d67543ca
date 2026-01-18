@@ -72,10 +72,20 @@ export function ChatMessageArea({
     return () => container.removeEventListener("scroll", handleScroll);
   }, [messages]);
 
+  // Use refs to prevent multiple subscriptions
+  const incentiveChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const incentiveSubscribedRef = useRef<string | null>(null);
+
   // Load incentive query progress
   useEffect(() => {
     if (!activeSessionId) {
       setIncentiveProgress(null);
+      // Cleanup previous subscription
+      if (incentiveChannelRef.current) {
+        supabase.removeChannel(incentiveChannelRef.current);
+        incentiveChannelRef.current = null;
+        incentiveSubscribedRef.current = null;
+      }
       return;
     }
 
@@ -97,23 +107,37 @@ export function ChatMessageArea({
 
     loadProgress();
 
-    const channel = supabase
-      .channel(`incentive-progress-${activeSessionId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "incentive_queries", filter: `session_id=eq.${activeSessionId}` },
-        (payload) => {
-          if (payload.new && (payload.new as any).status === "collecting") {
-            setIncentiveProgress(payload.new);
-          } else if (payload.eventType === "DELETE") {
-            setIncentiveProgress(null);
-          }
-        },
-      )
-      .subscribe();
+    // Only subscribe if not already subscribed to this session
+    if (incentiveSubscribedRef.current !== activeSessionId) {
+      // Cleanup previous subscription
+      if (incentiveChannelRef.current) {
+        supabase.removeChannel(incentiveChannelRef.current);
+      }
+      
+      const channelId = `incentive-progress-${activeSessionId}-${Date.now()}`;
+      incentiveChannelRef.current = supabase
+        .channel(channelId)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "incentive_queries", filter: `session_id=eq.${activeSessionId}` },
+          (payload) => {
+            if (payload.new && (payload.new as any).status === "collecting") {
+              setIncentiveProgress(payload.new);
+            } else if (payload.eventType === "DELETE") {
+              setIncentiveProgress(null);
+            }
+          },
+        )
+        .subscribe();
+      incentiveSubscribedRef.current = activeSessionId;
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (incentiveChannelRef.current) {
+        supabase.removeChannel(incentiveChannelRef.current);
+        incentiveChannelRef.current = null;
+        incentiveSubscribedRef.current = null;
+      }
     };
   }, [activeSessionId]);
 
