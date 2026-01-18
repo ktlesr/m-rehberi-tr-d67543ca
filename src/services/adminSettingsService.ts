@@ -471,4 +471,39 @@ export const adminSettingsService = {
       throw error;
     }
   },
+
+  async getChatbotWidgetVisible(): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('admin_settings')
+      .select('setting_value')
+      .eq('setting_key', 'chatbot_widget_visible')
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching chatbot widget visibility:', error);
+      return true; // default to showing widget
+    }
+
+    // If no setting exists, default to visible (true)
+    if (!data) return true;
+    
+    return data.setting_value === 1;
+  },
+
+  async setChatbotWidgetVisible(visible: boolean): Promise<void> {
+    const { error } = await supabase
+      .from('admin_settings')
+      .upsert({
+        setting_key: 'chatbot_widget_visible',
+        category: 'chatbot',
+        setting_value: visible ? 1 : 0,
+        setting_value_text: null,
+        description: 'Show floating chatbot widget on public pages'
+      }, { onConflict: 'setting_key' });
+
+    if (error) {
+      console.error('Error setting chatbot widget visibility:', error);
+      throw error;
+    }
+  },
 };

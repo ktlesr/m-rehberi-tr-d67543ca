@@ -3,11 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface ChatbotSettings {
   showSources: boolean;
+  widgetVisible: boolean;
   isLoading: boolean;
 }
 
 export function useChatbotSettings(): ChatbotSettings {
   const [showSources, setShowSources] = useState(true);
+  const [widgetVisible, setWidgetVisible] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -15,12 +17,17 @@ export function useChatbotSettings(): ChatbotSettings {
       try {
         const { data, error } = await supabase
           .from('admin_settings')
-          .select('setting_value')
-          .eq('setting_key', 'chatbot_show_sources')
-          .single();
+          .select('setting_key, setting_value')
+          .in('setting_key', ['chatbot_show_sources', 'chatbot_widget_visible']);
 
         if (!error && data) {
-          setShowSources(data.setting_value === 1);
+          data.forEach((setting) => {
+            if (setting.setting_key === 'chatbot_show_sources') {
+              setShowSources(setting.setting_value === 1);
+            } else if (setting.setting_key === 'chatbot_widget_visible') {
+              setWidgetVisible(setting.setting_value === 1);
+            }
+          });
         }
       } catch (error) {
         console.error('Error loading chatbot settings:', error);
@@ -31,7 +38,7 @@ export function useChatbotSettings(): ChatbotSettings {
 
     loadSettings();
 
-    // Subscribe to realtime updates
+    // Subscribe to realtime updates for both settings
     const channel = supabase
       .channel('chatbot-settings-changes')
       .on(
@@ -40,11 +47,15 @@ export function useChatbotSettings(): ChatbotSettings {
           event: '*',
           schema: 'public',
           table: 'admin_settings',
-          filter: `setting_key=eq.chatbot_show_sources`
         },
         (payload) => {
-          if (payload.new && typeof (payload.new as any).setting_value === 'number') {
-            setShowSources((payload.new as any).setting_value === 1);
+          const newData = payload.new as any;
+          if (newData && typeof newData.setting_value === 'number') {
+            if (newData.setting_key === 'chatbot_show_sources') {
+              setShowSources(newData.setting_value === 1);
+            } else if (newData.setting_key === 'chatbot_widget_visible') {
+              setWidgetVisible(newData.setting_value === 1);
+            }
           }
         }
       )
@@ -55,5 +66,5 @@ export function useChatbotSettings(): ChatbotSettings {
     };
   }, []);
 
-  return { showSources, isLoading };
+  return { showSources, widgetVisible, isLoading };
 }

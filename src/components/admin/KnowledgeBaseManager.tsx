@@ -9,11 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { adminSettingsService } from '@/services/adminSettingsService';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, Database, Cloud, Eye, EyeOff, Building2 } from 'lucide-react';
+import { Loader2, Sparkles, Database, Cloud, Eye, EyeOff, Building2, MessageSquare } from 'lucide-react';
 
 export function KnowledgeBaseManager() {
   const [ragMode, setRagMode] = useState<'gemini_file_search' | 'custom_rag' | 'tesviksor_api'>('gemini_file_search');
   const [showSources, setShowSources] = useState(true);
+  const [widgetVisible, setWidgetVisible] = useState(true);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -23,12 +24,14 @@ export function KnowledgeBaseManager() {
 
   async function loadSettings() {
     try {
-      const [mode, sources] = await Promise.all([
+      const [mode, sources, visible] = await Promise.all([
         adminSettingsService.getChatbotRagMode(),
-        adminSettingsService.getChatbotShowSources()
+        adminSettingsService.getChatbotShowSources(),
+        adminSettingsService.getChatbotWidgetVisible()
       ]);
       setRagMode(mode);
       setShowSources(sources);
+      setWidgetVisible(visible);
     } catch (error) {
       console.error('Error loading settings:', error);
     } finally {
@@ -64,6 +67,24 @@ export function KnowledgeBaseManager() {
       toast({
         title: 'Başarılı',
         description: checked ? 'Kaynak referansları gösterilecek' : 'Kaynak referansları gizlenecek',
+      });
+    } catch (error) {
+      toast({
+        title: 'Hata',
+        description: 'Ayar kaydedilemedi',
+        variant: 'destructive',
+      });
+    }
+  }
+
+  async function handleWidgetVisibleChange(checked: boolean) {
+    try {
+      await adminSettingsService.setChatbotWidgetVisible(checked);
+      setWidgetVisible(checked);
+      
+      toast({
+        title: 'Başarılı',
+        description: checked ? 'Chatbot widget gösterilecek' : 'Chatbot widget gizlenecek',
       });
     } catch (error) {
       toast({
@@ -117,7 +138,23 @@ export function KnowledgeBaseManager() {
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
+            {widgetVisible ? (
+              <MessageSquare className="h-4 w-4 text-primary" />
+            ) : (
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            )}
+            <Label htmlFor="widget-visible" className="text-xs font-medium cursor-pointer">
+              Widget
+            </Label>
+            <Switch
+              id="widget-visible"
+              checked={widgetVisible}
+              onCheckedChange={handleWidgetVisibleChange}
+              className="scale-90"
+            />
+          </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
             {showSources ? (
               <Eye className="h-4 w-4 text-primary" />
@@ -125,7 +162,7 @@ export function KnowledgeBaseManager() {
               <EyeOff className="h-4 w-4 text-muted-foreground" />
             )}
             <Label htmlFor="show-sources" className="text-xs font-medium cursor-pointer">
-              Kaynakları Göster
+              Kaynaklar
             </Label>
             <Switch
               id="show-sources"

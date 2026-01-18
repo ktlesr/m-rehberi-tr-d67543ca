@@ -377,7 +377,14 @@ function MessageBubble({ message, showSources }: { message: Message; showSources
 
 export function AIChatbot() {
   const location = useLocation();
-  const shouldHide = location.pathname === "/chat" || location.pathname.startsWith("/admin");
+  const { widgetVisible, isLoading } = useChatbotSettings();
+  
+  const shouldHide = 
+    location.pathname === "/chat" || 
+    location.pathname.startsWith("/admin") ||
+    isLoading ||
+    !widgetVisible;
+    
   if (shouldHide) return null;
   return <AIChatbotInner />;
 }
