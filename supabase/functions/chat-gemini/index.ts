@@ -875,10 +875,39 @@ function detectNewSectorQuery(userMessage: string, existingQuery: any): boolean 
     /bir de\b/i,
     /bunun yerine\b/i,
     /konuyu değiştir/i,
+    // Yeni eklenen reset kalıpları
+    /bambaşka\b/i,
+    /değişik (bir )?(sektör|konu)/i,
+    /şunu (da )?sor/i,
+    /bunu bırak/i,
+    /geç(elim)?\s+(şimdi|artık)/i,
   ];
 
   if (resetKeywords.some((pattern) => pattern.test(userMessage))) {
     console.log("🔄 Topic change keyword detected");
+    return true;
+  }
+
+  // ============= KONU FARKLILAŞMASI TESPİTİ =============
+  // Eğer mevcut bir sektör varsa ve yeni mesaj tamamen farklı bir ürün/sektör içeriyorsa reset
+  // Bu, teşvik sorgusu akışı dışında genel bilgi sorularını yakalamak için
+  const existingSectorLower = (existingQuery.sector || '').toLowerCase();
+  const messageLower = message.toLowerCase();
+  
+  // Mevcut sektörde olmayan ama mesajda olan ürün/sektör anahtar kelimeleri
+  const productKeywords = [
+    'üretim', 'üretimi', 'imalat', 'imalatı', 'fabrika', 'tesisi', 'yatırımı',
+    'sanayi', 'sanayisi', 'işleme', 'işlemesi'
+  ];
+  
+  // Mesajda yeni bir ürün/sektör kelimesi var mı?
+  const hasNewProductContext = productKeywords.some(kw => 
+    messageLower.includes(kw) && !existingSectorLower.includes(messageLower.split(kw)[0].trim().split(' ').pop() || '')
+  );
+  
+  // Eğer sektör tamamlanmış (district ve osb_status da dolu) ve yeni sektör benzeri kelime varsa reset
+  if (existingQuery.osb_status && existingQuery.district && hasNewProductContext) {
+    console.log("🔄 Completed query + new product keyword detected - resetting");
     return true;
   }
 
@@ -2482,17 +2511,107 @@ serve(async (req) => {
             response: { source: "tesviksor_api_structured_2026", length: JSON.stringify(updatedResponse).length },
           });
           
+          // ============= INCENTIVE QUERY INTERACTION INJECTION =============
+          // Check if there's an active incentive query that needs the next question
+          let injectedInteraction: any = undefined;
+          let injectedProgress: any = undefined;
+          
+          if (sessionId) {
+            // Fetch active incentive query for this session
+            const { data: activeIncentiveQuery } = await supabase
+              .from("incentive_queries")
+              .select()
+              .eq("session_id", sessionId)
+              .eq("status", "collecting")
+              .maybeSingle();
+            
+            if (activeIncentiveQuery) {
+              console.log("📋 [Structured Injection] Found active incentive query:", {
+                sector: activeIncentiveQuery.sector,
+                province: activeIncentiveQuery.province,
+                district: activeIncentiveQuery.district,
+                osb_status: activeIncentiveQuery.osb_status
+              });
+              
+              // Determine next field to fill
+              let nextField = '';
+              let questionText = '';
+              let inputType = 'search';
+              let options: any[] | undefined = undefined;
+              
+              if (!activeIncentiveQuery.sector) {
+                nextField = 'sector';
+                questionText = 'Hangi sektörde yatırım yapmayı planlıyorsunuz? (NACE kodu veya ürün/faaliyet adı girebilirsiniz)';
+              } else if (!activeIncentiveQuery.province) {
+                nextField = 'province';
+                questionText = 'Bu yatırımı hangi ilde gerçekleştireceksiniz?';
+                inputType = 'select';
+              } else if (!activeIncentiveQuery.district) {
+                nextField = 'district';
+                questionText = `${activeIncentiveQuery.province} ilinde hangi ilçede yatırım yapacaksınız?`;
+                inputType = 'search';
+              } else if (!activeIncentiveQuery.osb_status) {
+                nextField = 'osb_status';
+                questionText = 'Yatırımınız Organize Sanayi Bölgesi (OSB) içinde mi olacak?';
+                inputType = 'radio';
+                options = [
+                  { value: 'osb_icinde', label: 'OSB İçinde', icon: '🏭' },
+                  { value: 'osb_disinda', label: 'OSB Dışında', icon: '🏠' }
+                ];
+              }
+              
+              if (nextField) {
+                injectedInteraction = {
+                  field: nextField,
+                  questionText: questionText,
+                  inputType: inputType,
+                  options: options
+                };
+                
+                // Build progress object
+                const filledSlots = [
+                  activeIncentiveQuery.sector,
+                  activeIncentiveQuery.province,
+                  activeIncentiveQuery.district,
+                  activeIncentiveQuery.osb_status
+                ].filter(Boolean).length;
+                
+                injectedProgress = {
+                  sector: activeIncentiveQuery.sector || null,
+                  province: activeIncentiveQuery.province || null,
+                  district: activeIncentiveQuery.district || null,
+                  osb_status: activeIncentiveQuery.osb_status || null,
+                  currentStep: filledSlots + 1,
+                  totalSteps: 4,
+                  completed: false
+                };
+                
+                console.log(`📊 [Structured Injection] Injecting interaction for field: ${nextField}`);
+              }
+            }
+          }
+          
+          // Build final response with optional interaction injection
+          const finalStructuredResponse = {
+            ...updatedResponse,
+            // Override mode to interactive if we have an interaction
+            mode: injectedInteraction ? 'interactive' : (updatedResponse.mode || 'result'),
+            // Inject interaction if available
+            ...(injectedInteraction && { interaction: injectedInteraction }),
+            // Inject progress if available
+            ...(injectedProgress && { progress: injectedProgress }),
+            supportCards: supportCards || [],
+            hybridSearch: {
+              structuredPassthrough: true,
+              valuesUpdatedWith2026: !!thresholds,
+              supportPrograms: supportCards?.length || 0,
+              processingTime: totalTime,
+              interactionInjected: !!injectedInteraction
+            },
+          };
+          
           return new Response(
-            JSON.stringify({
-              ...updatedResponse,
-              supportCards: supportCards || [],
-              hybridSearch: {
-                structuredPassthrough: true,
-                valuesUpdatedWith2026: !!thresholds,
-                supportPrograms: supportCards?.length || 0,
-                processingTime: totalTime,
-              },
-            }),
+            JSON.stringify(finalStructuredResponse),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
