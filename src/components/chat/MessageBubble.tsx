@@ -12,6 +12,7 @@ import {
   StructuredResponseRenderer,
   FollowUpRenderer,
   ProgressRenderer,
+  convertStructuredToMarkdown,
   type StructuredAPIResponse 
 } from "@/utils/structuredResponseRenderer";
 import { InteractiveInput } from "./InteractiveInput";
@@ -359,13 +360,22 @@ export function MessageBubble({
           ) : isStructuredMode && parsedStructured ? (
             // Structured JSON Response - Markdown parsing sorunu yok
             <div className="space-y-4">
-              {/* Progress Badge (varsa) */}
-              {parsedStructured.progress && (
+              {/* Progress Badge (sadece interactive/result modda) */}
+              {parsedStructured.progress && parsedStructured.mode !== 'informative' && (
                 <ProgressRenderer progress={parsedStructured.progress} />
               )}
               
-              {/* Structured Content */}
-              <StructuredResponseRenderer response={parsedStructured} />
+              {/* INFORMATIVE MODE → Düz metin olarak render */}
+              {parsedStructured.mode === 'informative' ? (
+                <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
+                  <ReactMarkdown components={markdownComponentsBase}>
+                    {convertStructuredToMarkdown(parsedStructured)}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                /* INTERACTIVE/RESULT MODE → Tasarımlı kartlar */
+                <StructuredResponseRenderer response={parsedStructured} />
+              )}
               
               {/* Interactive Input (varsa) */}
               {parsedStructured.interaction && onInteractiveSubmit && (

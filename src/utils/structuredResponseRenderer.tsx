@@ -85,6 +85,67 @@ export interface StructuredAPIResponse {
   supportPrograms?: SupportProgramItem[];
 }
 
+// =================== MARKDOWN CONVERTER ===================
+
+/**
+ * Structured response'u düz markdown metnine dönüştür
+ * Informative modda kullanılır - tasarımlı kartlar yerine sade metin
+ */
+export function convertStructuredToMarkdown(response: StructuredAPIResponse): string {
+  // Zaten string ise direkt döndür
+  if (typeof response.content === 'string') {
+    return response.content;
+  }
+  
+  const content = response.content as StructuredContent;
+  const parts: string[] = [];
+  
+  // Summary
+  if (content.summary) {
+    parts.push(content.summary);
+  }
+  
+  // Sections
+  content.sections?.forEach(section => {
+    // Section başlığı
+    if (section.title) {
+      parts.push(`\n**${section.title}**\n`);
+    }
+    
+    // Section içeriği (paragraph, info, warning, success)
+    if (section.content) {
+      if (section.type === 'warning') {
+        parts.push(`⚠️ ${section.content}`);
+      } else if (section.type === 'info') {
+        parts.push(`ℹ️ ${section.content}`);
+      } else if (section.type === 'success') {
+        parts.push(`✅ ${section.content}`);
+      } else {
+        parts.push(section.content);
+      }
+    }
+    
+    // Liste/key-value items
+    if (section.items && section.items.length > 0) {
+      parts.push(''); // Boş satır
+      section.items.forEach(item => {
+        if (typeof item === 'string') {
+          parts.push(`• ${item}`);
+        } else {
+          const kv = item as KeyValueItem;
+          if (kv.value) {
+            parts.push(`**${kv.label}:** ${kv.value}`);
+          } else {
+            parts.push(`• ${kv.label}`);
+          }
+        }
+      });
+    }
+  });
+  
+  return parts.join('\n');
+}
+
 // =================== PARSER FUNCTIONS ===================
 
 /**
