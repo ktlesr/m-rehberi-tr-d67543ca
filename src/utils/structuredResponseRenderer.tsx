@@ -304,7 +304,9 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
               const displayText = typeof item === 'string' 
                 ? item 
                 : (item as KeyValueItem).label 
-                  ? `${(item as KeyValueItem).label}: ${(item as KeyValueItem).value}`
+                  ? ((item as KeyValueItem).value 
+                      ? `${(item as KeyValueItem).label}: ${(item as KeyValueItem).value}` 
+                      : (item as KeyValueItem).label)
                   : String(item);
               return (
                 <li key={i} className="flex items-start gap-2">
