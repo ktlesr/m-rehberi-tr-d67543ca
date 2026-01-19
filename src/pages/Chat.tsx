@@ -7,12 +7,21 @@ import { useChatSession, ChatMessage } from '@/hooks/useChatSession';
 import { geminiRagService } from '@/services/geminiRagService';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Menu, LogIn, Cloud, TestTube2 } from 'lucide-react';
+import { Menu, LogIn, Cloud, Sparkles } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useChatbotStats } from '@/hooks/useChatbotStats';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
-import type { StructuredAPIResponse } from '@/utils/structuredResponseRenderer';
+
+// Örnek sorgular - gerçek API ile çalışacak
+const EXAMPLE_QUERIES = [
+  'Ankara\'da tekstil sektöründe yatırım teşviklerini hesaplamak istiyorum',
+  'Manisa\'da gıda üretimi için hangi teşviklerden yararlanabilirim?',
+  'Kütahya\'da makine imalatı için teşvik oranları nelerdir?',
+  'Afyonkarahisar\'da tarım işleme tesisi kurmak istiyorum, teşvikler neler?',
+  'Yozgat\'ta lojistik depo yatırımı için destek var mı?',
+  'Şanlıurfa\'da tekstil fabrikası kurmak için teşvik hesaplama',
+];
 
 export default function Chat() {
   const { user, loading: authLoading } = useAuth();
@@ -39,8 +48,6 @@ export default function Chat() {
   const [currentSuggestion, setCurrentSuggestion] = useState('');
   const [inputValue, setInputValue] = useState('');
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
-  const [testMessages, setTestMessages] = useState<ChatMessage[]>([]);
-  const [showTestMode, setShowTestMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { trackUserMessage, trackAssistantMessage, trackNewSession, trackUniqueSession } = useChatbotStats();
@@ -210,141 +217,35 @@ export default function Chat() {
     }
   };
 
-  // Demo Interactive Response for testing
-  const createDemoInteractiveMessage = (): ChatMessage => {
-    const demoResponse: StructuredAPIResponse = {
-      type: 'structured',
-      mode: 'interactive',
-      content: {
-        summary: 'Teşvik hesaplaması için yatırım yapılacak ili öğrenmem gerekiyor.',
-        sections: [
-          {
-            type: 'info',
-            content: 'Seçeceğiniz il, teşvik bölgesini ve uygulanacak destek oranlarını belirler.'
-          }
-        ]
-      },
-      interaction: {
-        field: 'province',
-        questionText: 'Yatırımı hangi ilde yapmayı planlıyorsunuz?',
-        inputType: 'select',
-        options: [
-          { value: 'istanbul', label: 'İstanbul', region: 1 },
-          { value: 'ankara', label: 'Ankara', region: 2 },
-          { value: 'izmir', label: 'İzmir', region: 1 },
-          { value: 'bursa', label: 'Bursa', region: 2 },
-          { value: 'antalya', label: 'Antalya', region: 2 },
-          { value: 'adana', label: 'Adana', region: 3 },
-          { value: 'konya', label: 'Konya', region: 3 },
-          { value: 'gaziantep', label: 'Gaziantep', region: 4 },
-          { value: 'sanliurfa', label: 'Şanlıurfa', region: 5 },
-          { value: 'diyarbakir', label: 'Diyarbakır', region: 6 },
-          { value: 'van', label: 'Van', region: 6 },
-          { value: 'agri', label: 'Ağrı', region: 6 },
-        ],
-        allowSearch: true,
-        placeholder: 'İl seçin veya yazın...'
-      },
-      progress: {
-        sector: 'Tekstil Ürünleri İmalatı',
-        province: null,
-        district: null,
-        osb_status: null,
-        currentStep: 2,
-        totalSteps: 5,
-        completed: false
-      }
-    };
+  // Start example query with real API
+  const handleStartExampleQuery = async () => {
+    if (!activeStore) {
+      toast({
+        title: 'Uyarı',
+        description: 'Lütfen sistem hazır olana kadar bekleyin.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-    return {
-      role: 'assistant',
-      content: JSON.stringify(demoResponse),
-      timestamp: Date.now(),
-      structuredResponse: demoResponse
-    };
-  };
-
-  const handleStartTestMode = () => {
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: 'Tekstil sektöründe teşvik hesaplama yapmak istiyorum',
-      timestamp: Date.now() - 5000
-    };
+    // Pick a random example query
+    const randomQuery = EXAMPLE_QUERIES[Math.floor(Math.random() * EXAMPLE_QUERIES.length)];
     
-    setTestMessages([userMessage, createDemoInteractiveMessage()]);
-    setShowTestMode(true);
-  };
-
-  const handleTestInteractiveSubmit = (value: string) => {
+    // Send as a real message
+    await handleSendMessage(randomQuery);
+    
     toast({
-      title: 'Seçim Yapıldı',
-      description: `Seçilen değer: ${value}`,
+      title: 'Örnek Sorgu Başlatıldı',
+      description: 'Gerçek API ile teşvik hesaplama akışı başlatılıyor...',
     });
-    
-    // Add user selection as a message
-    const selectionMessage: ChatMessage = {
-      role: 'user',
-      content: `İl: ${value}`,
-      timestamp: Date.now()
-    };
-    
-    // Create next step response (district selection)
-    const districtResponse: StructuredAPIResponse = {
-      type: 'structured',
-      mode: 'interactive',
-      content: {
-        summary: `${value.charAt(0).toUpperCase() + value.slice(1)} ili seçildi. Şimdi ilçe bilgisine ihtiyacım var.`,
-        sections: []
-      },
-      interaction: {
-        field: 'district',
-        questionText: 'Yatırımı hangi ilçede yapmayı planlıyorsunuz?',
-        inputType: 'select',
-        options: [
-          { value: 'merkez', label: 'Merkez' },
-          { value: 'osb', label: 'OSB Bölgesi' },
-          { value: 'serbest-bolge', label: 'Serbest Bölge' },
-        ],
-        allowSearch: false,
-        placeholder: 'İlçe seçin...'
-      },
-      progress: {
-        sector: 'Tekstil Ürünleri İmalatı',
-        province: value,
-        district: null,
-        osb_status: null,
-        currentStep: 3,
-        totalSteps: 5,
-        completed: false
-      }
-    };
-
-    const assistantMessage: ChatMessage = {
-      role: 'assistant',
-      content: JSON.stringify(districtResponse),
-      timestamp: Date.now(),
-      structuredResponse: districtResponse
-    };
-
-    setTestMessages(prev => [...prev, selectionMessage, assistantMessage]);
   };
 
-  const handleExitTestMode = () => {
-    setShowTestMode(false);
-    setTestMessages([]);
-  };
-
-  // Handle real interactive submissions (normal mode)
-  const handleRealInteractiveSubmit = async (value: string) => {
+  // Handle interactive submissions (real API)
+  const handleInteractiveSubmit = async (value: string) => {
     if (!activeStore || !activeSessionId) return;
     
     // Send the selected value as a user message
     await sendMessage(activeSessionId, value, activeStore);
-    
-    toast({
-      title: 'Seçim gönderildi',
-      description: `Değer: ${value}`,
-    });
   };
 
   // Show loading state while auth is loading
@@ -397,30 +298,23 @@ export default function Chat() {
           </SheetContent>
         </Sheet>
 
-        {/* Test Mode Banner */}
-        {showTestMode && (
-          <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
-              <TestTube2 className="h-4 w-4" />
-              <span>Demo Mod - Interactive JSON Response Testi</span>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleExitTestMode} className="gap-2 border-amber-500/50 text-amber-700">
-              Testi Bitir
-            </Button>
-          </div>
-        )}
-
-        {/* Anonymous User Banner */}
-        {!showTestMode && isAnonymous && (
+        {/* Anonymous User Banner with Example Query Button */}
+        {isAnonymous && (
           <div className="bg-muted/50 border-b px-4 py-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Cloud className="h-4 w-4" />
               <span>Sohbet geçmişiniz bu cihazda geçici olarak saklanıyor.</span>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleStartTestMode} className="gap-2">
-                <TestTube2 className="h-4 w-4" />
-                Demo Test
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={handleStartExampleQuery} 
+                className="gap-2"
+                disabled={isLoading || !activeStore}
+              >
+                <Sparkles className="h-4 w-4" />
+                Örnek Sorgu Başlat
               </Button>
               <Link to="/admin/login">
                 <Button variant="outline" size="sm" className="gap-2">
@@ -433,7 +327,7 @@ export default function Chat() {
         )}
 
         <ChatHeader 
-          sessionTitle={showTestMode ? 'Demo: Interactive Response Test' : (activeSession?.title || 'Yeni Sohbet')}
+          sessionTitle={activeSession?.title || 'Yeni Sohbet'}
           onClearChat={handleClearChat}
           onExportChat={handleExportChat}
           onRenameSession={handleRenameSession}
@@ -443,20 +337,20 @@ export default function Chat() {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           <ChatMessageArea
-            messages={showTestMode ? testMessages : (activeSession?.messages || [])}
+            messages={activeSession?.messages || []}
             isLoading={isLoading}
-            currentSuggestion={showTestMode ? '' : currentSuggestion}
+            currentSuggestion={currentSuggestion}
             onSuggestionClick={handleSuggestionClick}
             isGeneratingQuestions={isGeneratingQuestions}
             activeSessionId={activeSessionId}
             onRegenerateMessage={handleRegenerateMessage}
-            onInteractiveSubmit={showTestMode ? handleTestInteractiveSubmit : handleRealInteractiveSubmit}
+            onInteractiveSubmit={handleInteractiveSubmit}
           />
         </div>
 
         <ChatInput
           onSendMessage={handleSendMessage}
-          disabled={isLoading || !activeStore || showTestMode}
+          disabled={isLoading || !activeStore}
           isGenerating={isLoading}
           value={inputValue}
           onValueChange={setInputValue}
