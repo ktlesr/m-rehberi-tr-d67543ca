@@ -35,6 +35,26 @@ function normalizeNaceCode(code: string): string {
   return code.trim().replace(/^C/, "");
 }
 
+// Convert flat NACE codes to dotted format
+// 132 → 13.2, 1320 → 13.20, 132016 → 13.20.16
+function formatNaceCode(input: string): string {
+  // Remove any existing dots and non-digits
+  const digits = input.replace(/\./g, '').replace(/\D/g, '');
+  
+  if (digits.length <= 2) {
+    return digits; // "13" → "13" (ana grup)
+  } else if (digits.length === 3) {
+    return `${digits.slice(0, 2)}.${digits.slice(2)}`; // "132" → "13.2"
+  } else if (digits.length === 4) {
+    return `${digits.slice(0, 2)}.${digits.slice(2)}`; // "1320" → "13.20"
+  } else if (digits.length === 5) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`; // "13201" → "13.20.1"
+  } else if (digits.length >= 6) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4, 6)}`; // "132016" → "13.20.16"
+  }
+  return input;
+}
+
 // Format Turkish output per specifications with hierarchical investment status logic
 function formatTurkishOutput(row: SectorRow): string {
   const lines: string[] = [];
@@ -121,12 +141,26 @@ serve(async (req) => {
     console.log("Lookup NACE request:", question);
 
     // Step 1: Try exact NACE code match
-    const nacePattern = /\b[0-9]{2}(?:\.[0-9]{1,2}){0,2}\b/;
-    const naceMatch = question.match(nacePattern);
+    // Pattern 1: Dotted format - XX.X, XX.XX, XX.XX.X, XX.XX.XX
+    const nacePatternDotted = /\b[0-9]{2}(?:\.[0-9]{1,2}){1,2}\b/;
+    // Pattern 2: Flat format - XXX, XXXX, XXXXX, XXXXXX (3-6 digits)
+    const nacePatternFlat = /\b[0-9]{3,6}\b/;
+    
+    const dottedMatch = question.match(nacePatternDotted);
+    const flatMatch = question.match(nacePatternFlat);
+    
+    // Prioritize dotted format, then convert flat to dotted
+    let naceCode: string | null = null;
+    if (dottedMatch) {
+      naceCode = normalizeNaceCode(dottedMatch[0]);
+      console.log("Detected dotted NACE code:", naceCode);
+    } else if (flatMatch) {
+      // Convert flat to dotted: 132 → 13.2, 1320 → 13.20
+      naceCode = formatNaceCode(flatMatch[0]);
+      console.log("Detected flat NACE code:", flatMatch[0], "→", naceCode);
+    }
 
-    if (naceMatch) {
-      const naceCode = normalizeNaceCode(naceMatch[0]);
-      console.log("Detected NACE code:", naceCode);
+    if (naceCode) {
 
       const { data: exactMatch, error: exactError } = await supabase
         .from("sector_search")
