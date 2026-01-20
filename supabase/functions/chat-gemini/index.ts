@@ -68,7 +68,8 @@ function normalizeMarkdownForResponse(text: string): string {
 // v6: Fixed NACE pattern recognition (4-digit codes), province slot validation, self-healing
 // v7: Fixed extractProvince to search all sections, improved asgari yatırım region-specific handling, better SGK "Diğer" fallback
 // v8: Fixed Turkish İ/I character comparison in extractLocationFromStructuredResponse, added Temel Bölge override, capped alt bölge at 6, fixed note/description asgari yatırım
-const CACHE_SCHEMA_VERSION = 8;
+// v9: Enhanced NACE code normalization - supports both dotted (13.2) and flat (132, 1320, 132016) formats
+const CACHE_SCHEMA_VERSION = 9;
 
 // Patterns that indicate broken/malformed markdown in cache
 const BROKEN_CACHE_PATTERNS = [
@@ -826,19 +827,59 @@ async function updateMarkdownWithVerifiedSgk(
 
 // ============= SECTOR/TOPIC CHANGE DETECTION =============
 
+// Convert flat NACE codes to dotted format
+// 132 → 13.2, 1320 → 13.20, 132016 → 13.20.16
+function formatNaceCode(input: string): string {
+  const digits = input.replace(/\./g, '').replace(/\D/g, '');
+  
+  if (digits.length <= 2) {
+    return digits; // "13" → "13"
+  } else if (digits.length === 3) {
+    return `${digits.slice(0, 2)}.${digits.slice(2)}`; // "132" → "13.2"
+  } else if (digits.length === 4) {
+    return `${digits.slice(0, 2)}.${digits.slice(2)}`; // "1320" → "13.20"
+  } else if (digits.length === 5) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`; // "13201" → "13.20.1"
+  } else if (digits.length >= 6) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4, 6)}`; // "132016" → "13.20.16"
+  }
+  return input;
+}
+
+// Normalize NACE codes in user message before processing
+// Converts flat codes (132, 1320, 132016) to dotted format (13.2, 13.20, 13.20.16)
+function normalizeNaceInMessage(message: string): string {
+  // Match 3-6 digit flat codes that aren't part of larger numbers or years
+  return message.replace(/\b(\d{3,6})\b/g, (match) => {
+    // Skip if it looks like a year (1900-2099)
+    if (/^(19|20)\d{2}$/.test(match)) return match;
+    // Skip if it looks like a TL amount (followed by TL/tl/Tl)
+    const formatted = formatNaceCode(match);
+    // Validate it's a valid NACE format
+    if (/^\d{2}\.\d{1,2}(\.\d{1,2})?$/.test(formatted)) {
+      console.log(`🔄 NACE normalized: ${match} → ${formatted}`);
+      return formatted;
+    }
+    return match;
+  });
+}
+
 // Detect if user is asking about a new sector/NACE code (topic change)
 function detectNewSectorQuery(userMessage: string, existingQuery: any): boolean {
   if (!existingQuery?.sector) return false; // No existing sector to compare
 
   const message = userMessage.toLowerCase();
 
-  // NACE code patterns: XX.XX, XX.XX.XX, or XXXX (4-digit flat format like 1330, 1420)
-  const nacePatternDotted = /\b(\d{2}(?:\.\d{2}){1,2})\b/g;
-  const nacePatternFlat = /\b(\d{4})\b/g;
+  // NACE code patterns: XX.X, XX.XX, XX.XX.X, XX.XX.XX (dotted) or XXX-XXXXXX (flat 3-6 digits)
+  const nacePatternDotted = /\b(\d{2}(?:\.\d{1,2}){1,2})\b/g;  // Supports XX.X format
+  const nacePatternFlat = /\b(\d{3,6})\b/g;  // 3-6 digit flat numbers
   
   // Collect all NACE codes from message (both formats)
   const dottedCodes = [...message.matchAll(nacePatternDotted)].map((m) => m[1]);
-  const flatCodes = [...message.matchAll(nacePatternFlat)].map((m) => m[1]);
+  // Convert flat codes to dotted format for comparison
+  const flatCodes = [...message.matchAll(nacePatternFlat)]
+    .map((m) => formatNaceCode(m[1]))
+    .filter(code => /^\d{2}\.\d{1,2}(\.\d{1,2})?$/.test(code)); // Only valid NACE formats
   const messageNaceCodes = [...dottedCodes, ...flatCodes];
 
   // If message contains a NACE code, check if it's different from existing
@@ -847,7 +888,7 @@ function detectNewSectorQuery(userMessage: string, existingQuery: any): boolean 
     const existingDottedMatch = existingQuery.sector.match(nacePatternDotted);
     const existingFlatMatch = existingQuery.sector.match(nacePatternFlat);
     const existingNace = existingDottedMatch ? existingDottedMatch[0] : 
-                         (existingFlatMatch ? existingFlatMatch[0] : null);
+                         (existingFlatMatch ? formatNaceCode(existingFlatMatch[0]) : null);
     
     // Normalize both to comparable format (remove dots for comparison)
     const normalizeNace = (code: string) => code.replace(/\./g, "");
