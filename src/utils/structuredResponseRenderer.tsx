@@ -665,7 +665,9 @@ export function StructuredResponseRenderer({ response, className }: StructuredRe
       )}
 
       {/* Comparison Table - comparative mod */}
-      {isComparative && content.comparison_table && (
+      {isComparative && content.comparison_table && 
+       content.comparison_table.columns && 
+       content.comparison_table.items && (
         <motion.div 
           variants={sectionVariants}
           className="overflow-x-auto"
@@ -686,7 +688,7 @@ export function StructuredResponseRenderer({ response, className }: StructuredRe
             <tbody>
               {content.comparison_table.items.map((row, ri) => (
                 <tr key={ri} className="border-b border-border/30 last:border-0">
-                  {content.comparison_table!.columns.map((col, ci) => (
+                  {content.comparison_table!.columns!.map((col, ci) => (
                     <td 
                       key={ci} 
                       className={cn(
