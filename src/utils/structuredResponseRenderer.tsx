@@ -65,7 +65,8 @@ const alertVariants = {
 export type SectionType = 'paragraph' | 'list' | 'key-value' | 'table' | 'warning' | 'info' | 'success';
 
 export interface KeyValueItem {
-  label: string;
+  label?: string;
+  key?: string; // Alternative to label (API flexibility)
   value: string;
 }
 
@@ -74,11 +75,19 @@ export interface StructuredSection {
   type: SectionType;
   content?: string;
   items?: string[] | KeyValueItem[];
+  columns?: string[]; // Table tipi için sütun başlıkları
+}
+
+export interface ComparisonTable {
+  columns: string[];
+  items: Record<string, string>[];
 }
 
 export interface StructuredContent {
   summary: string;
   sections: StructuredSection[];
+  winner?: string; // Comparative mod için kazanan
+  comparison_table?: ComparisonTable; // Comparative mod için karşılaştırma tablosu
 }
 
 export interface InteractionConfig {
@@ -93,6 +102,7 @@ export interface InteractionConfig {
   }>;
   allowSearch?: boolean;
   placeholder?: string;
+  validation?: { required: boolean };
 }
 
 export interface FollowUpConfig {
@@ -102,11 +112,12 @@ export interface FollowUpConfig {
 
 export interface ProgressConfig {
   sector: string | null;
+  sector_nace?: string | null;
   province: string | null;
   district: string | null;
   osb_status: string | null;
-  currentStep: number;
-  totalSteps: number;
+  currentStep: number; // 1-4 (doc) or 1-5 (extended)
+  totalSteps?: number;
   completed?: boolean;
 }
 
@@ -126,12 +137,12 @@ export interface SupportProgramItem {
 
 export interface StructuredAPIResponse {
   type: 'structured' | 'markdown';
-  mode?: 'informative' | 'interactive' | 'result';
+  mode?: 'informative' | 'interactive' | 'result' | 'comparative';
   content: StructuredContent | string;
   interaction?: InteractionConfig;
   followUp?: FollowUpConfig;
   progress?: ProgressConfig;
-  sources?: SourceItem[];
+  sources?: SourceItem[] | string[];
   supportPrograms?: SupportProgramItem[];
 }
 
@@ -297,6 +308,10 @@ export function parseAPIResponse(data: any): StructuredAPIResponse {
 
   // Eğer data.type === 'structured' ve content.sections varsa
   if (normalized?.type === 'structured' && normalized?.content?.sections) {
+    // supportCards → supportPrograms alias desteği
+    if (!normalized.supportPrograms && normalized.supportCards) {
+      normalized.supportPrograms = normalized.supportCards;
+    }
     return normalized as StructuredAPIResponse;
   }
 
@@ -310,7 +325,7 @@ export function parseAPIResponse(data: any): StructuredAPIResponse {
       followUp: normalized.followUp,
       progress: normalized.progress,
       sources: normalized.sources,
-      supportPrograms: normalized.supportPrograms,
+      supportPrograms: normalized.supportPrograms || normalized.supportCards, // alias desteği
     };
   }
 
@@ -412,12 +427,13 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm">
             {section.items?.map((item, i) => {
               // Handle both string[] and KeyValueItem[] formats
+              // Support both label and key fields (API flexibility)
               const displayText = typeof item === 'string' 
                 ? item 
-                : (item as KeyValueItem).label 
+                : ((item as KeyValueItem).label || (item as KeyValueItem).key)
                   ? ((item as KeyValueItem).value 
-                      ? `${(item as KeyValueItem).label}: ${(item as KeyValueItem).value}` 
-                      : (item as KeyValueItem).label)
+                      ? `${(item as KeyValueItem).label || (item as KeyValueItem).key}: ${(item as KeyValueItem).value}` 
+                      : ((item as KeyValueItem).label || (item as KeyValueItem).key))
                   : String(item);
               return (
                 <li key={i} className="flex items-start gap-2">
@@ -436,7 +452,7 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
             {kvItems?.map((item, i) => (
               <div key={i} className="flex flex-col sm:flex-row sm:gap-2 py-1 border-b border-border/30 last:border-0">
                 <dt className="font-medium text-sm text-foreground min-w-[160px] flex-shrink-0">
-                  {item.label}:
+                  {item.label || item.key}:
                 </dt>
                 <dd className="text-sm text-muted-foreground">
                   {item.value}
@@ -447,6 +463,39 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
         );
 
       case 'table':
+        // Support both columns-based tables and key-value item tables
+        if (section.columns && section.columns.length > 0) {
+          // Full table with column headers (dokümantasyondaki format)
+          const tableData = section.items as unknown as Record<string, string>[];
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-border">
+                    {section.columns.map((col, ci) => (
+                      <th key={ci} className="py-2 px-2 text-left font-semibold text-foreground bg-muted/50">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableData?.map((row, ri) => (
+                    <tr key={ri} className="border-b border-border/30 last:border-0">
+                      {section.columns!.map((col, ci) => (
+                        <td key={ci} className="py-2 px-2 text-muted-foreground">
+                          {row[col] || '-'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        
+        // Fallback: key-value style table items
         const tableItems = section.items as KeyValueItem[];
         return (
           <div className="overflow-x-auto">
@@ -455,7 +504,7 @@ function SectionRenderer({ section, index }: SectionRendererProps) {
                 {tableItems?.map((item, i) => (
                   <tr key={i} className="border-b border-border/30 last:border-0">
                     <td className="py-2 pr-4 font-medium text-foreground whitespace-nowrap">
-                      {item.label}
+                      {item.label || item.key}
                     </td>
                     <td className="py-2 text-muted-foreground">
                       {item.value}
@@ -580,6 +629,9 @@ export function StructuredResponseRenderer({ response, className }: StructuredRe
   // Ensure summary is a string
   const summaryText = ensureString(content.summary);
 
+  // Comparative mod için özel render
+  const isComparative = response.mode === 'comparative';
+
   return (
     <motion.div 
       className={cn('space-y-4', className)}
@@ -596,6 +648,59 @@ export function StructuredResponseRenderer({ response, className }: StructuredRe
           <ReactMarkdown components={summaryMarkdownComponents}>
             {summaryText}
           </ReactMarkdown>
+        </motion.div>
+      )}
+
+      {/* Winner Badge - comparative mod */}
+      {isComparative && content.winner && (
+        <motion.div 
+          variants={alertVariants}
+          className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30"
+        >
+          <span className="text-lg">🏆</span>
+          <span className="text-sm font-semibold text-primary">
+            Önerilen: {content.winner}
+          </span>
+        </motion.div>
+      )}
+
+      {/* Comparison Table - comparative mod */}
+      {isComparative && content.comparison_table && (
+        <motion.div 
+          variants={sectionVariants}
+          className="overflow-x-auto"
+        >
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                {content.comparison_table.columns.map((col, ci) => (
+                  <th 
+                    key={ci} 
+                    className="py-2 px-3 text-left font-semibold text-foreground bg-muted/50"
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {content.comparison_table.items.map((row, ri) => (
+                <tr key={ri} className="border-b border-border/30 last:border-0">
+                  {content.comparison_table!.columns.map((col, ci) => (
+                    <td 
+                      key={ci} 
+                      className={cn(
+                        "py-2 px-3",
+                        ci === 0 ? "font-medium text-foreground" : "text-muted-foreground"
+                      )}
+                    >
+                      {row[col] || '-'}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </motion.div>
       )}
 
