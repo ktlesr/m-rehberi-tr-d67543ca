@@ -2317,27 +2317,72 @@ serve(async (req) => {
             "uşak": 3, "van": 6, "yalova": 2, "yozgat": 5, "zonguldak": 3
           };
           
+          // Turkish-aware lowercase helper
+          const turkishLowerForExtract = (s: string): string => 
+            s.toLowerCase()
+              .replace(/İ/g, 'i')
+              .replace(/I/g, 'ı')
+              .replace(/Ş/g, 'ş')
+              .replace(/Ğ/g, 'ğ')
+              .replace(/Ü/g, 'ü')
+              .replace(/Ö/g, 'ö')
+              .replace(/Ç/g, 'ç');
+          
+          // Extract province from user message as fallback
+          const extractProvinceFromUserMessage = (message: string): string | null => {
+            const provinces = Object.keys(PROVINCE_REGION_MAP);
+            const messageLower = turkishLowerForExtract(message);
+            for (const province of provinces) {
+              if (messageLower.includes(province)) {
+                // Return properly capitalized
+                return province.charAt(0).toUpperCase() + province.slice(1);
+              }
+            }
+            return null;
+          };
+          
           // Extract province from structured response
-          const extractProvince = (resp: any): string | null => {
+          const extractProvince = (resp: any, userMessage?: string): string | null => {
             const content = resp?.content;
-            if (!content) return null;
+            if (!content) {
+              // Fallback to user message if no content
+              if (userMessage) {
+                const fromMsg = extractProvinceFromUserMessage(userMessage);
+                if (fromMsg) {
+                  console.log(`✅ [extractProvince] Found in user message (no content): ${fromMsg}`);
+                  return fromMsg;
+                }
+              }
+              return null;
+            }
             
             // Check header for "İl: X"
             if (content.header?.il) return content.header.il;
             
+            // NEW: Check header title for province pattern like "Denizli İli Yatırım Teşvikleri"
+            const headerTitle = content.header?.title || '';
+            const headerMatch = headerTitle.match(/^([\wçğıöşüÇĞİÖŞÜ]+)\s+İli/i);
+            if (headerMatch) {
+              console.log(`✅ [extractProvince] Found in header title: ${headerMatch[1]}`);
+              return headerMatch[1];
+            }
+            
             // Search in ALL sections for location info (not just "konum" or "lokasyon" titles)
             const sections = content.sections || [];
+            
+            // Expanded location labels
+            const provinceLabels = ['il', 'il:', 'yatırım ili', 'lokasyon ili', 'yatırım lokasyonu'];
             
             // First pass: check section titles containing location-related keywords
             const locationKeywords = ['konum', 'lokasyon', 'yatırım yeri', 'yer bilgi', 'bölge'];
             for (const section of sections) {
-              const titleLower = (section.title || '').toLowerCase();
+              const titleLower = turkishLowerForExtract(section.title || '');
               if (locationKeywords.some(kw => titleLower.includes(kw))) {
                 const items = section.items || [];
                 for (const item of items) {
-                  const labelLower = (item.label || '').toLowerCase();
-                  // Match "İl" but not "İlçe"
-                  if ((labelLower === 'il' || labelLower === 'il:') || 
+                  const labelLower = turkishLowerForExtract(item.label || '');
+                  // Match expanded province labels but not "İlçe"
+                  if (provinceLabels.some(l => labelLower === l || labelLower.startsWith(l)) ||
                       (labelLower.includes('il') && !labelLower.includes('ilçe'))) {
                     console.log(`✅ [extractProvince] Found in section "${section.title}": ${item.value}`);
                     return item.value;
@@ -2352,9 +2397,9 @@ serve(async (req) => {
             for (const section of sections) {
               const items = section.items || [];
               for (const item of items) {
-                const labelLower = (item.label || '').toLowerCase();
+                const labelLower = turkishLowerForExtract(item.label || '');
                 // Match exactly "İl" or "İl:" but not "İlçe"
-                if ((labelLower === 'il' || labelLower === 'il:') || 
+                if (provinceLabels.some(l => labelLower === l) ||
                     (labelLower.includes('il') && !labelLower.includes('ilçe') && !labelLower.includes('asgari'))) {
                   console.log(`✅ [extractProvince] Found in any section: ${item.value}`);
                   return item.value;
@@ -2366,6 +2411,15 @@ serve(async (req) => {
             if (content.metadata?.il) return content.metadata.il;
             if (resp.metadata?.province) return resp.metadata.province;
             
+            // NEW: Fallback to user message
+            if (userMessage) {
+              const fromMsg = extractProvinceFromUserMessage(userMessage);
+              if (fromMsg) {
+                console.log(`✅ [extractProvince] Found in user message fallback: ${fromMsg}`);
+                return fromMsg;
+              }
+            }
+            
             console.log(`⚠️ [extractProvince] No province found in response`);
             return null;
           };
@@ -2373,7 +2427,7 @@ serve(async (req) => {
           // Get province region
           const getRegion = (province: string | null): number => {
             if (!province) return 3; // Default to region 3
-            const normalized = province.toLowerCase().trim();
+            const normalized = turkishLowerForExtract(province.trim());
             return PROVINCE_REGION_MAP[normalized] || 3;
           };
           
@@ -2404,7 +2458,8 @@ serve(async (req) => {
           let updatedResponse = JSON.parse(JSON.stringify(vertexResponse));
           
           if (thresholds && updatedResponse.content?.sections) {
-            const province = extractProvince(updatedResponse);
+            // Pass user message as fallback for province extraction
+            const province = extractProvince(updatedResponse, lastUserMessage?.content);
             const region = getRegion(province);
             
             console.log(`📍 [2026 Values] Province: ${province}, Region: ${region}`);
@@ -2529,7 +2584,99 @@ serve(async (req) => {
           
           if (sgkVerifiedInfo) {
             updatedResponse = sgkVerifiedResponse;
-            console.log(`✅ [SGK Verify] Structured response updated with verified SGK: ${sgkVerifiedInfo.sgkDuration} yıl, Alt Bölge: ${sgkVerifiedInfo.altBolge}`);
+            console.log(`✅ [SGK Verify] Structured response updated with verified SGK: ${sgkVerifiedInfo.sgkDuration} yıl, Alt Bölge: ${sgkVerifiedInfo.altBolge}, Bölge: ${sgkVerifiedInfo.bolge}`);
+            
+            // ============= BIDIRECTIONAL MIN INVESTMENT CORRECTION =============
+            // Use verified region from SGK data to correct any wrong min investment values
+            if (sgkVerifiedInfo.bolge && thresholds) {
+              const verifiedRegion = sgkVerifiedInfo.bolge;
+              const correctMinInvestment = verifiedRegion <= 2 
+                ? thresholds.min_investment_region_1_2  // 15.100.000 TL
+                : thresholds.min_investment_region_3_6; // 7.500.000 TL
+              
+              const correctMinFormatted = formatCurrency(correctMinInvestment);
+              
+              console.log(`🔧 [MinInvest Fix] Verified Region: ${verifiedRegion}, Correct Min: ${correctMinFormatted}`);
+              
+              // Build wrong value patterns based on verified region
+              const wrongValuePatterns: RegExp[] = [
+                /6\.000\.000\s*TL/g,
+                /6,000,000\s*TL/g,
+                /12\.000\.000\s*TL/g,
+                /12,000,000\s*TL/g,
+              ];
+              
+              // If region 1-2, then 7.5M is also wrong (should be 15.1M)
+              if (verifiedRegion <= 2) {
+                wrongValuePatterns.push(/7\.500\.000\s*TL/g, /7,500,000\s*TL/g);
+                console.log(`📌 [MinInvest Fix] Region 1-2: Adding 7.5M to wrong patterns → will replace with ${correctMinFormatted}`);
+              }
+              
+              // If region 3-6, then 15.1M is also wrong (should be 7.5M)
+              if (verifiedRegion >= 3) {
+                wrongValuePatterns.push(/15\.100\.000\s*TL/g, /15,100,000\s*TL/g);
+                console.log(`📌 [MinInvest Fix] Region 3-6: Adding 15.1M to wrong patterns → will replace with ${correctMinFormatted}`);
+              }
+              
+              // Apply corrections to all sections
+              for (const section of updatedResponse.content?.sections || []) {
+                // Fix section.note
+                if (section.note) {
+                  let originalNote = section.note;
+                  for (const pattern of wrongValuePatterns) {
+                    section.note = section.note.replace(pattern, correctMinFormatted);
+                  }
+                  if (section.note !== originalNote) {
+                    console.log(`✏️ [MinInvest Fix] Fixed note in section: ${section.title || 'untitled'}`);
+                  }
+                }
+                
+                // Fix section.text
+                if (section.text && typeof section.text === 'string') {
+                  let originalText = section.text;
+                  for (const pattern of wrongValuePatterns) {
+                    section.text = section.text.replace(pattern, correctMinFormatted);
+                  }
+                  if (section.text !== originalText) {
+                    console.log(`✏️ [MinInvest Fix] Fixed text in section: ${section.title || 'untitled'}`);
+                  }
+                }
+                
+                // Fix section.content
+                if (section.content && typeof section.content === 'string') {
+                  let originalContent = section.content;
+                  for (const pattern of wrongValuePatterns) {
+                    section.content = section.content.replace(pattern, correctMinFormatted);
+                  }
+                  if (section.content !== originalContent) {
+                    console.log(`✏️ [MinInvest Fix] Fixed content in section: ${section.title || 'untitled'}`);
+                  }
+                }
+                
+                // Fix items with province-specific "asgari yatırım" label
+                if (section.items) {
+                  for (const item of section.items) {
+                    const label = (item.label || '').toLowerCase();
+                    // Only fix generic "asgari yatırım" items, not region-specific ones
+                    if (label.includes('asgari') && label.includes('yatırım') && 
+                        !label.includes('1') && !label.includes('2') && 
+                        !label.includes('3') && !label.includes('4') && 
+                        !label.includes('5') && !label.includes('6')) {
+                      // Check if value contains wrong amount
+                      const valueStr = item.value || '';
+                      for (const pattern of wrongValuePatterns) {
+                        if (pattern.test(valueStr)) {
+                          const oldValue = item.value;
+                          item.value = valueStr.replace(pattern, correctMinFormatted);
+                          console.log(`✏️ [MinInvest Fix] Fixed item "${item.label}": ${oldValue} → ${item.value}`);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
           
           // Track analytics for structured response
