@@ -365,10 +365,10 @@ export function useChatSession(user: User | null) {
         if (!aiModerationResult.isAllowed) {
           console.warn('[AI MODERATION] Response blocked:', aiModerationResult);
           
-          // Teşvik odaklı standart güvenlik yanıtı
+          // Teşvik odaklı standart güvenlik yanıtı - sabit mesaj
           const blockedMessage: ChatMessage = {
             role: "assistant",
-            content: "Bu platform sadece yatırım teşvikleri hakkında bilgi vermektedir. Konu dışı sorulara yanıt veremem. Yatırım teşvikleri, belirlenen kriterler ve mevzuatlar çerçevesinde değerlendirilir. Size yatırım teşvikleri konusunda nasıl yardımcı olabilirim?",
+            content: "Bu platform sadece yatırım teşvikleri hakkında bilgi vermektedir. Siyasi konular hakkında yorum yapamam. Yatırım teşvikleri, belirlenen kriterler ve mevzuatlar çerçevesinde değerlendirilir ve siyasi görüşlere dayalı bir avantaj sağlanmaz. Yardımcı olmamı istediğiniz başka bir konu var mı?",
             timestamp: Date.now(),
           };
           
