@@ -44,7 +44,7 @@ export const useTodayActivity = () => {
     try {
       console.log('Fetching today activity stats via RPC...');
       
-      // Use secure RPC function - no direct table access needed
+      // Use secure RPC function for counts
       const { data, error } = await supabase.rpc('get_today_activity_counts');
 
       if (error) throw error;
@@ -55,13 +55,30 @@ export const useTodayActivity = () => {
 
       console.log('Today activity stats fetched:', { todayCalculations, todaySearches, activeSessions });
 
+      // Fetch recent activities for admins (RLS will filter for non-admins)
+      let recentActivities: ActivityData[] = [];
+      
+      const { data: activitiesData, error: activitiesError } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .in('activity_type', ['calculation', 'search'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (!activitiesError && activitiesData) {
+        recentActivities = activitiesData as ActivityData[];
+        console.log('Recent activities fetched:', recentActivities.length);
+      } else if (activitiesError) {
+        console.log('Could not fetch recent activities (likely not admin):', activitiesError.message);
+      }
+
       setStats(prevStats => {
         const newStats = {
           todayCalculations,
           todaySearches,
           activeSessions,
           totalToday: todayCalculations + todaySearches,
-          recentActivities: [] // RPC doesn't return details for security
+          recentActivities
         };
         
         if (JSON.stringify(prevStats) === JSON.stringify(newStats)) {
