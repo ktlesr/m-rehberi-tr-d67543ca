@@ -193,15 +193,52 @@ export function moderateUserInput(input: string): ModerationResult {
 }
 
 /**
+ * AI'ın kendi yapısını/programlamasını ifşa etmesi - ÖNCELİKLİ ENGELLEME
+ */
+const SELF_DISCLOSURE_PATTERNS = [
+    // JSON/format sızıntısı
+    /json\s*(format|formatında|yapısında)\s*(üret|oluştur|programla)/i,
+    /\bprogramland[ıi]m\b/i,
+    /\bkodland[ıi]m\b/i,
+    /\byap[ıi]land[ıi]r[ıi]ld[ıi]m\b/i,
+    
+    // Sistem kısıtlamalarını açıklama
+    /sistem\s*(talimat|kısıtlama|kural)/i,
+    /\bkısıtlamalar\b.*\b(sağlamak|tutarlılık|uygunluk)\b/i,
+    /görev\s*tanımı/i,
+    /belirtilen\s*(json|format|yapı)/i,
+    
+    // Kendi yeteneklerini/sınırlarını anlatma
+    /model\s*(sınır|kısıt|yetenek)/i,
+    /yapay\s*zeka\s*(olarak|danışman[ıi]y[ıi]m)/i,
+    /\bbenim\s+temel\s+görevim\b/i,
+    /\bteşvik\s+danışman[ıi]\b/i,
+    /\büzerinde\s+uzmanlaşmış\b/i,
+    /\byatırım\s+teşvikleri\s+konusunda\s+uzmanlaşmış\b/i,
+    
+    // Metin oluşturma kabiliyeti
+    /\bmetin\s+oluştur(abil|ma\s+yeteneğ)/i,
+    /\bbilgi\s+üret(ebil|me\s+yeteneğ)/i,
+];
+
+/**
+ * Test/deneme yanıtları - ÖNCELİKLİ ENGELLEME
+ */
+const TEST_RESPONSE_PATTERNS = [
+    /\bbu\s+(bir\s+)?test\s+(yanıt|cevap|response)/i,
+    /\btest\s+amacıyla\b/i,
+    /\bbu\s+sadece\s+bir\s+test\b/i,
+    /\börnek\s+yanıt\s+üret/i,
+    /\bdeneme\s+yanıt/i,
+    /\btest\s+olduğunu\s+belirt/i,
+    /\bbu\s+bir\s+test\s+yanıtıdır\b/i,
+    /\btest\s+response\b/i,
+];
+
+/**
  * Konu dışı içerik desenleri - AI'ın teşvik dışında bilgi ürettiğini tespit eder
  */
 const OFF_TOPIC_PATTERNS = [
-    // Test yanıtları
-    /\btest\s+(yanıt|response|cevap)/i,
-    /\bbir\s+test\s+yanıtıdır/i,
-    /\btest\s+amacıyla/i,
-    /\btest\s+olduğunu\s+belirt/i,
-    
     // Genel bilgi içerikleri (gezegen, hayvan, tarih vb.)
     /\b(merkür|venüs|mars|jüpiter|satürn|uranüs|neptün|plüton)\b.*\b(gezegen|yüzey|atmosfer|güneş)\b/i,
     /\b(gezegen|yıldız|galaksi|uzay|astronot|nasa|esa)\s+(hakkında|bilgi|nedir)/i,
@@ -227,9 +264,7 @@ const OFF_TOPIC_PATTERNS = [
     
     // AI'ın kendi yeteneklerini gösterme girişimi
     /\b(yapay zeka|ai|chatgpt|gpt|gemini)\s+(yetenek|özellik|başar|yapabil)/i,
-    /\bmodel\s+(sınır|yetenek|başar|yapabil)/i,
     /\bteşvik\s+(dışında|haricinde|konularından\s+bağımsız)\b.*\bbilgi\b/i,
-    /\bbilgi\s+üret(ebil|me\s+yeteneğ)/i,
 ];
 
 /**
@@ -253,7 +288,31 @@ export function moderateAIResponse(response: string): ModerationResult {
         return { isAllowed: false, reason: 'Boş yanıt', category: 'empty' };
     }
 
-    // AI'ın sistem prompt'unu sızdırıp sızdırmadığını kontrol et
+    // 1. ÖNCELİKLİ: Test yanıtı kontrolü (teşvik context'i olsa bile MUTLAKA engelle)
+    for (const pattern of TEST_RESPONSE_PATTERNS) {
+        if (pattern.test(response)) {
+            return {
+                isAllowed: false,
+                reason: 'Test yanıtı tespit edildi',
+                category: 'test_response',
+                severity: 'critical'
+            };
+        }
+    }
+
+    // 2. ÖNCELİKLİ: AI'ın kendini ifşa etmesi (teşvik context'i olsa bile MUTLAKA engelle)
+    for (const pattern of SELF_DISCLOSURE_PATTERNS) {
+        if (pattern.test(response)) {
+            return {
+                isAllowed: false,
+                reason: 'Sistem bilgisi sızıntısı tespit edildi',
+                category: 'self_disclosure',
+                severity: 'critical'
+            };
+        }
+    }
+
+    // 3. Sistem prompt sızıntısı kontrolü
     const systemLeakPatterns = [
         /\[BÖLÜM:|DURUM \d+:|KRİTİK:|ZORUNLU\]/i,
         /constructSystemPrompt|findRelevantContext|getChatResponse/i,
@@ -271,7 +330,7 @@ export function moderateAIResponse(response: string): ModerationResult {
         }
     }
 
-    // Konu dışı içerik kontrolü
+    // 4. Konu dışı içerik kontrolü
     const hasOffTopicContent = OFF_TOPIC_PATTERNS.some(pattern => pattern.test(response));
     
     if (hasOffTopicContent) {
