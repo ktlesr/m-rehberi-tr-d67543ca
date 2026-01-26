@@ -1124,3 +1124,20 @@ kbd {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* Safe Area utilities for mobile devices with notch */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-inset-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-inset-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+.safe-area-inset-top {
+  padding-top: env(safe-area-inset-top);
+}

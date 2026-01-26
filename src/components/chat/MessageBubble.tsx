@@ -335,8 +335,9 @@ export function MessageBubble({
 
       <div
         className={cn(
-          "flex flex-col gap-1.5 md:gap-2 max-w-[92%] sm:max-w-[80%] md:max-w-[75%]",
-          isUser && "items-end",
+          "flex flex-col gap-1 sm:gap-1.5 md:gap-2",
+          "w-full max-w-[95%] xs:max-w-[92%] sm:max-w-[85%] md:max-w-[75%]",
+          isUser && "items-end ml-auto",
         )}
       >
         {/* Balon */}

@@ -204,7 +204,7 @@ function RadioInput({ options, onSelect, disabled }: RadioInputProps) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
         {options?.map((option, index) => (
           <motion.button
             key={option.value}

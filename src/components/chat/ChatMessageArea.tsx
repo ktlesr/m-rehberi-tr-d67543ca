@@ -149,8 +149,8 @@ export function ChatMessageArea({
       aria-live="polite"
       aria-label="Sohbet mesajları"
     >
-      <div className="p-4 pb-8">
-        <div className="max-w-3xl mx-auto space-y-6">
+      <div className="p-3 sm:p-4 pb-6 sm:pb-8">
+        <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
           {/* Show incentive progress if active */}
           {incentiveProgress && <IncentiveProgressBadge progress={incentiveProgress} />}
 
