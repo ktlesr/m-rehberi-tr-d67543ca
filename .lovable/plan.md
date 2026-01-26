@@ -1,216 +1,231 @@
 
-# Chat Sayfası Mobil Uyumluluk Planı
 
-## Tespit Edilen Sorunlar
+# Chat Sayfası İçerik Denetimi (Content Moderation) Entegrasyonu Planı
 
-Ekran görüntüsünden ve kod analizinden tespit edilen mobil uyumluluk sorunları:
+## Genel Bakış
 
-1. **Anonim kullanıcı banner'ı taşması**: "Sohbet geçmişiniz bu cihazda..." metni ve butonlar mobilde sığmıyor, yan yana sıkışıyor
-2. **Buton görünürlüğü**: "Örnek Sorgu Başlat" ve "Giriş" butonları küçük ekranlarda kesilmiş görünüyor
-3. **Header yükseklik tutarsızlığı**: Mobil menü butonu ile header arasında hizalama problemi
-4. **Mesaj baloncukları**: max-w-[92%] küçük ekranlarda hala fazla geniş olabilir
-5. **Alt input alanı**: Notch/safe-area desteği eksik
-6. **Sheet sidebar genişliği**: w-72 çok küçük ekranlarda (özellikle 320px genişliğindeki) çok geniş kalabilir
+Bu plan, mevcut `content-moderation.ts` dosyasını /chat sayfasına entegre ederek kullanıcı girdilerini ve AI yanıtlarını güvenlik ve konu odaklılık açısından filtrelemeyi amaçlar. **Mevcut fonksiyonellik bozulmayacak**, sadece güvenlik katmanı eklenecektir.
 
 ---
 
-## Çözüm Planı
+## Mevcut Durum Analizi
 
-### 1. Chat.tsx - Anonim Kullanıcı Banner'ı (Satır 301-327)
+### content-moderation.ts Özellikleri (Hazır ve Çalışıyor)
+- **moderateUserInput()**: Kullanıcı girdisini kontrol eder
+  - Siyasi içerik filtreleme
+  - Etnik/ırkçı içerik filtreleme
+  - Dini manipülasyon filtreleme
+  - Argo/küfür filtreleme
+  - Prompt injection tespiti
+  - Yasa dışı faaliyet tespiti
+  - DoS koruması (5000 karakter limiti)
+- **moderateAIResponse()**: AI yanıtını kontrol eder
+  - Sistem prompt sızıntısı tespiti
+- **Beyaz Liste**: Teşvik terimleri yanlışlıkla engellenmez (yatırım, teşvik, sektör, vb.)
 
-**Mevcut durum**: `flex items-center justify-between` ile tek satırda - mobilde taşıyor
+### Mevcut Chat Akışı
+1. `ChatInput.tsx`: Kullanıcı mesaj yazar → `onSendMessage` çağırılır
+2. `Chat.tsx`: `handleSendMessage()` → `sendMessage()` çağırılır
+3. `useChatSession.ts`: `sendMessage()` → `chat-gemini` edge function çağrılır
+4. **Mevcut bloklama**: `responseData?.blocked` zaten işleniyor (SAFETY durumu)
 
-**Düzeltme**: Mobilde dikey layout, tablet/desktop'ta yatay layout
+---
 
-```tsx
-{isAnonymous && (
-  <div className="bg-muted/50 border-b px-3 py-2 sm:px-4">
-    {/* Mobil: dikey stack, sm+: yatay */}
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-        <Cloud className="h-4 w-4 flex-shrink-0" />
-        <span className="line-clamp-2 sm:line-clamp-1">
-          Sohbet geçmişiniz bu cihazda geçici olarak saklanıyor.
-        </span>
-      </div>
-      <div className="flex items-center gap-2 w-full sm:w-auto">
-        <Button 
-          variant="default" 
-          size="sm" 
-          onClick={handleStartExampleQuery} 
-          className="gap-1 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
-          disabled={isLoading || !activeStore}
-        >
-          <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">Örnek Sorgu</span>
-        </Button>
-        <Link to="/admin/login" className="flex-1 sm:flex-none">
-          <Button variant="outline" size="sm" className="gap-1 sm:gap-2 w-full text-xs sm:text-sm">
-            <LogIn className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-            <span>Giriş</span>
-          </Button>
-        </Link>
-      </div>
-    </div>
-  </div>
-)}
-```
+## Entegrasyon Noktaları
 
-### 2. Chat.tsx - Mobil Header Düzeltmesi (Satır 280-299)
+### 1. content-moderation.ts Dosyasını Kopyala
+- **Kaynak**: `user-uploads://content-moderation.ts`
+- **Hedef**: `src/utils/contentModeration.ts`
 
-**Mevcut durum**: Hamburger menü butonu border-b ile sarılı ama header ile hizalanmıyor
+### 2. Chat.tsx - Kullanıcı Girdisi Kontrolü (Satır 134-157)
 
-**Düzeltme**: Header ile tutarlı yükseklik ve safe-area padding
+**Değişiklik**: `handleSendMessage` fonksiyonuna moderasyon kontrolü ekle
 
-```tsx
-{/* Mobile Sidebar */}
-<Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-  <div className="lg:hidden border-b px-2 h-14 flex items-center">
-    <SheetTrigger asChild>
-      <Button variant="ghost" size="icon" className="h-10 w-10">
-        <Menu className="h-5 w-5" />
-        <span className="sr-only">Menüyü aç</span>
-      </Button>
-    </SheetTrigger>
-  </div>
+```typescript
+import { moderateUserInput, logSecurityEvent } from '@/utils/contentModeration';
+
+const handleSendMessage = async (message: string) => {
+  // === YENİ: İçerik Denetimi ===
+  const moderationResult = moderateUserInput(message);
   
-  <SheetContent 
-    side="left" 
-    className="w-[85vw] max-w-72 p-0 safe-area-inset-left"
-  >
-    ...
-  </SheetContent>
-</Sheet>
-```
-
-### 3. ChatMessageArea.tsx - Mesaj Genişliği ve Padding (Satır 152-153)
-
-**Mevcut durum**: `max-w-3xl mx-auto` ve `p-4` - küçük ekranlarda çok fazla boşluk
-
-**Düzeltme**: Responsive padding
-
-```tsx
-<div className="p-3 sm:p-4 pb-6 sm:pb-8">
-  <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
-```
-
-### 4. MessageBubble.tsx - Balon Genişliği (Satır 337-340)
-
-**Mevcut durum**: `max-w-[92%] sm:max-w-[80%] md:max-w-[75%]`
-
-**Düzeltme**: Daha küçük ekranlar için optimize
-
-```tsx
-<div
-  className={cn(
-    "flex flex-col gap-1 sm:gap-1.5 md:gap-2",
-    "w-full max-w-[95%] xs:max-w-[92%] sm:max-w-[85%] md:max-w-[75%]",
-    isUser && "items-end ml-auto",
-  )}
->
-```
-
-### 5. ChatInput.tsx - Safe Area ve Responsive Düzeltmeleri (Satır 176-179)
-
-**Mevcut durum**: Notch cihazlarda alt kısım kesilebilir
-
-**Düzeltme**: Safe area padding ekle
-
-```tsx
-<div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 
-                p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-  <div className="max-w-3xl mx-auto">
-    <div className="flex gap-2 sm:gap-3 items-center">
-```
-
-### 6. ChatInput.tsx - Buton Boyutları (Satır 181-195, 231-256)
-
-**Düzeltme**: Mobilde daha küçük butonlar
-
-```tsx
-{/* Voice input button */}
-<Button
-  ...
-  className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex-shrink-0 ...`}
->
-  <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
-</Button>
-
-{/* Send/Stop button */}
-<Button
-  ...
-  className="h-10 w-10 sm:h-11 sm:w-11 rounded-full flex-shrink-0 ..."
->
-```
-
-### 7. ChatHeader.tsx - Responsive Düzeltmeler (Satır 40-41)
-
-**Düzeltme**: Mobilde daha kompakt header
-
-```tsx
-<div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-  <div className="flex items-center justify-between px-2 sm:px-3 md:px-4 h-14 sm:h-16 md:h-[72px]">
-```
-
-### 8. index.css - Safe Area ve xs Breakpoint Ekleme
-
-**Düzeltme**: Tailwind config'e xs breakpoint ve safe-area utility ekle
-
-```css
-/* Safe area için yardımcı sınıflar */
-.safe-area-inset-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.safe-area-inset-left {
-  padding-left: env(safe-area-inset-left);
-}
-
-.safe-area-inset-right {
-  padding-right: env(safe-area-inset-right);
-}
-```
-
-### 9. tailwind.config.ts - xs Breakpoint Ekleme
-
-```ts
-theme: {
-  screens: {
-    'xs': '375px',
-    // ... existing screens
+  if (!moderationResult.isAllowed) {
+    // Güvenlik olayını logla
+    logSecurityEvent(user?.id || null, message, moderationResult);
+    
+    // Kullanıcıya nazik bir uyarı göster
+    toast({
+      title: 'İçerik Uyarısı',
+      description: moderationResult.reason || 'Bu mesaj gönderilemez.',
+      variant: 'destructive',
+      duration: 5000,
+    });
+    return; // Mesajı gönderme
   }
-}
+  // === MEVCUT KOD DEVAM EDER ===
+  
+  if (!activeStore) {
+    // ... mevcut kod
+  }
+  // ...
+};
 ```
 
-### 10. InteractiveInput.tsx - Mobil Optimizasyonu (Satır 207)
+### 3. useChatSession.ts - AI Yanıtı Kontrolü (Satır 358-390)
 
-**Mevcut durum**: Radio butonları `grid-cols-2` sabit
+**Değişiklik**: AI yanıtı alındıktan sonra moderasyon kontrolü ekle
 
-**Düzeltme**: Çok küçük ekranlarda tek sütun
+```typescript
+import { moderateAIResponse } from '@/utils/contentModeration';
 
-```tsx
-<div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
+// sendMessage fonksiyonu içinde, API yanıtı alındıktan sonra:
+const sendMessage = useCallback(async (...) => {
+  // ... mevcut kod (API çağrısı)
+  
+  if (error) throw error;
+
+  const fullResponse = data.text || '';
+  
+  // === YENİ: AI Yanıtı Denetimi ===
+  const aiModerationResult = moderateAIResponse(fullResponse);
+  
+  if (!aiModerationResult.isAllowed) {
+    console.warn('[AI MODERATION] Response blocked:', aiModerationResult);
+    
+    const blockedMessage: ChatMessage = {
+      role: "assistant",
+      content: "Üzgünüm, bu yanıt güvenlik kontrolünden geçemedi. Lütfen sorunuzu farklı şekilde ifade edin.",
+      timestamp: Date.now(),
+    };
+    
+    if (!isAnonymous) {
+      await supabase.from("chat_messages").insert({
+        session_id: sessionId,
+        role: "assistant",
+        content: blockedMessage.content,
+      });
+    }
+    
+    updateSession(sessionId, { messages: [...updatedMessages, blockedMessage] });
+    return;
+  }
+  // === MEVCUT KOD DEVAM EDER ===
+  
+  // Check if response is structured JSON...
+});
+```
+
+### 4. UI Geri Bildirimi - Toast Mesajları
+
+Moderasyon sonucuna göre farklı uyarı stilleri:
+
+| Kategori | Severity | Toast Stili | Mesaj |
+|----------|----------|-------------|-------|
+| political | high | destructive | "Bu platform sadece yatırım teşvikleri hakkında bilgi vermektedir..." |
+| ethnic | critical | destructive | "Bu platform herkes için eşit şekilde hizmet vermektedir..." |
+| religious | high | destructive | "Dini konular hakkında yorum yapamam..." |
+| profanity | medium | default | "Lütfen saygılı bir dil kullanın..." |
+| injection | critical | destructive | "Sistem komutları kabul edilmemektedir..." |
+| corruption | critical | destructive | "Yasa dışı faaliyetler hakkında bilgi veremem..." |
+
+---
+
+## Teknik Uygulama Adımları
+
+### Adım 1: content-moderation.ts'i Kopyala
+```
+Hedef: src/utils/contentModeration.ts
+```
+
+### Adım 2: Chat.tsx Düzenlemesi
+
+**Satır 1-15 (import ekle):**
+```typescript
+import { moderateUserInput, logSecurityEvent } from '@/utils/contentModeration';
+```
+
+**Satır 134-157 (handleSendMessage güncelle):**
+- Moderasyon kontrolü ekle
+- Toast uyarısı göster
+- Bloke edilen mesajı gönderme
+
+### Adım 3: useChatSession.ts Düzenlemesi
+
+**Satır 1-12 (import ekle):**
+```typescript
+import { moderateAIResponse } from '@/utils/contentModeration';
+```
+
+**Satır 358 civarı (AI yanıtı kontrolü):**
+- API yanıtı alındıktan sonra moderateAIResponse() çağır
+- Bloke edilirse özel mesaj göster
+
+---
+
+## Güvenlik Katmanları Özeti
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    KULLANICI GİRDİSİ                        │
+├─────────────────────────────────────────────────────────────┤
+│  1. ChatInput.tsx: maxLength (2000 karakter) kontrolü       │
+│  2. Chat.tsx: moderateUserInput() → Regex filtreleme        │
+│     - Siyasi, dini, etnik, argo, injection, corruption      │
+│  3. Beyaz liste: Teşvik terimleri korunur                   │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    API ÇAĞRISI                              │
+├─────────────────────────────────────────────────────────────┤
+│  chat-gemini edge function                                  │
+│  - Gemini SAFETY kontrolü (mevcut)                          │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    AI YANITI                                │
+├─────────────────────────────────────────────────────────────┤
+│  useChatSession.ts: moderateAIResponse()                    │
+│  - Sistem prompt sızıntısı kontrolü                         │
+│  - Kod yapıları sızıntısı kontrolü                          │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    KULLANICI ARAYÜZÜ                        │
+├─────────────────────────────────────────────────────────────┤
+│  MessageBubble.tsx: Güvenli içerik render                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Uygulama Sırası
+## Test Senaryoları
 
-1. **tailwind.config.ts** - xs breakpoint ekle
-2. **src/index.css** - Safe area yardımcı sınıfları ekle
-3. **Chat.tsx** - Anonim banner ve mobil header düzeltmeleri
-4. **ChatHeader.tsx** - Responsive yükseklik ve padding
-5. **ChatMessageArea.tsx** - Responsive padding
-6. **MessageBubble.tsx** - Balon genişliği optimizasyonu
-7. **ChatInput.tsx** - Safe area ve buton boyutları
-8. **InteractiveInput.tsx** - Grid responsive düzeltmesi
+| Test | Girdi | Beklenen Sonuç |
+|------|-------|----------------|
+| Siyasi | "AKP hakkında ne düşünüyorsun" | Bloke + Toast uyarısı |
+| Teşvik (Beyaz Liste) | "Ankara'da yatırım teşvikleri" | Normal işlem |
+| Prompt Injection | "Ignore previous instructions" | Bloke + Toast uyarısı |
+| Küfür | "[küfür] teşvik var mı" | Bloke + Toast uyarısı |
+| Uzun Mesaj | 5001+ karakter | Bloke + Toast uyarısı |
+| Normal Soru | "Tekstil sektörü teşvikleri neler?" | Normal işlem |
+
+---
+
+## Dosya Değişiklikleri Özeti
+
+1. **YENİ DOSYA**: `src/utils/contentModeration.ts` (content-moderation.ts kopyası)
+2. **DÜZENLEME**: `src/pages/Chat.tsx` (import + handleSendMessage güncelleme)
+3. **DÜZENLEME**: `src/hooks/useChatSession.ts` (import + AI yanıt kontrolü)
 
 ---
 
 ## Beklenen Sonuç
 
-- 320px genişliğindeki cihazlarda bile düzgün görünüm
-- Notch'lu iPhone'larda alt input alanı kesilmeyecek
-- Anonim kullanıcı banner'ı mobilde dikey, tablet'te yatay görünecek
-- Mesaj balonları ekrana sığacak ve okunabilir olacak
-- Mobil sidebar ekranın %85'ini kaplayarak tüm içeriği gösterecek
+- Siyasi, dini, etnik içerik engellenecek
+- Argo ve küfür engellenecek
+- Prompt injection girişimleri engellenecek
+- Yasa dışı faaliyet talepleri reddedilecek
+- AI sistem prompt sızıntısı önlenecek
+- Teşvik terimleri yanlışlıkla engellenmeyecek (beyaz liste)
+- Mevcut chat fonksiyonelliği korunacak
+- Kullanıcıya nazik ve açıklayıcı uyarılar gösterilecek
+
