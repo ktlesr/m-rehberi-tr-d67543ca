@@ -1,231 +1,178 @@
 
+# AI Yanıt Filtreleme - Güçlendirilmiş Moderasyon Planı
 
-# Chat Sayfası İçerik Denetimi (Content Moderation) Entegrasyonu Planı
+## Problem Analizi
 
-## Genel Bakış
+Ekran görüntüsünde görüldüğü gibi, AI şu istenmeyen içerikleri üretiyor:
+- "Bu bir test yanıtıdır..."
+- "...yatırım teşvikleri konusunda uzmanlaşmış bir yapay zeka danışmanıyım..."
+- "Ayrıca, tüm yanıtlarımı belirtilen JSON formatında üretmek üzere programlandım..."
 
-Bu plan, mevcut `content-moderation.ts` dosyasını /chat sayfasına entegre ederek kullanıcı girdilerini ve AI yanıtlarını güvenlik ve konu odaklılık açısından filtrelemeyi amaçlar. **Mevcut fonksiyonellik bozulmayacak**, sadece güvenlik katmanı eklenecektir.
-
----
-
-## Mevcut Durum Analizi
-
-### content-moderation.ts Özellikleri (Hazır ve Çalışıyor)
-- **moderateUserInput()**: Kullanıcı girdisini kontrol eder
-  - Siyasi içerik filtreleme
-  - Etnik/ırkçı içerik filtreleme
-  - Dini manipülasyon filtreleme
-  - Argo/küfür filtreleme
-  - Prompt injection tespiti
-  - Yasa dışı faaliyet tespiti
-  - DoS koruması (5000 karakter limiti)
-- **moderateAIResponse()**: AI yanıtını kontrol eder
-  - Sistem prompt sızıntısı tespiti
-- **Beyaz Liste**: Teşvik terimleri yanlışlıkla engellenmez (yatırım, teşvik, sektör, vb.)
-
-### Mevcut Chat Akışı
-1. `ChatInput.tsx`: Kullanıcı mesaj yazar → `onSendMessage` çağırılır
-2. `Chat.tsx`: `handleSendMessage()` → `sendMessage()` çağırılır
-3. `useChatSession.ts`: `sendMessage()` → `chat-gemini` edge function çağrılır
-4. **Mevcut bloklama**: `responseData?.blocked` zaten işleniyor (SAFETY durumu)
+**Neden Engellenmedi?**
+Mevcut `moderateAIResponse` fonksiyonu, yanıtta "yatırım teşvikleri" gibi anahtar kelimeler bulunduğunda konu dışı içeriğe izin veriyor. Bu tasarım hatası, AI'ın konu dışı içeriği teşvik terimleriyle "maskelemesine" izin veriyor.
 
 ---
 
-## Entegrasyon Noktaları
+## Çözüm: Üç Katmanlı Kontrol
 
-### 1. content-moderation.ts Dosyasını Kopyala
-- **Kaynak**: `user-uploads://content-moderation.ts`
-- **Hedef**: `src/utils/contentModeration.ts`
+### Katman 1: Sistem Bilgisi Sızıntısı (Öncelikli - Her Zaman Engelle)
 
-### 2. Chat.tsx - Kullanıcı Girdisi Kontrolü (Satır 134-157)
-
-**Değişiklik**: `handleSendMessage` fonksiyonuna moderasyon kontrolü ekle
+Teşvik context'i olsa bile, aşağıdaki pattern'ler kesinlikle engellenmeli:
 
 ```typescript
-import { moderateUserInput, logSecurityEvent } from '@/utils/contentModeration';
+const SYSTEM_LEAK_PATTERNS = [
+  // Mevcut olanlar...
+  // + Yeni eklenecekler:
+  /json\s*(format|formatında|yapısında)\s*(üret|oluştur|programla)/i,
+  /programlandım|programlanmış|kodlandım/i,
+  /sistem\s*(talimat|kısıtlama|kurallar)/i,
+  /\bkısıtlamalar\b.*\b(sağlamak|tutarlılık|uygunluk)\b/i,
+  /görev\s*tanımı/i,
+];
+```
 
-const handleSendMessage = async (message: string) => {
-  // === YENİ: İçerik Denetimi ===
-  const moderationResult = moderateUserInput(message);
+### Katman 2: Test/Deneme Yanıtları (Öncelikli - Her Zaman Engelle)
+
+```typescript
+const TEST_RESPONSE_PATTERNS = [
+  /\bbu\s+(bir\s+)?test\s+(yanıt|cevap|response)/i,
+  /\btest\s+olduğunu\s+belirt/i,
+  /\börnek\s+yanıt\s+üret/i,
+  /\bbu\s+sadece\s+bir\s+test/i,
+];
+```
+
+### Katman 3: Kontrol Mantığı Değişikliği
+
+**Mevcut Mantık (Hatalı)**:
+```
+1. Konu dışı mı? → Evet
+2. Teşvik context'i var mı? → Evet ("yatırım teşvikleri" geçiyor)
+3. Sonuç: İzin ver ❌
+```
+
+**Yeni Mantık (Düzeltilmiş)**:
+```
+1. Sistem bilgisi sızıntısı mı? → Evet ise ENGELLE (öncelikli)
+2. Test yanıtı mı? → Evet ise ENGELLE (öncelikli)
+3. Konu dışı + teşvik context yok → ENGELLE
+4. Diğer → İzin ver
+```
+
+---
+
+## Uygulama: contentModeration.ts Güncelleme
+
+### 1. Yeni Pattern'ler Ekle (Satır 257 civarı)
+
+```typescript
+// AI'ın kendi yapısını/programlamasını ifşa etmesi
+const SELF_DISCLOSURE_PATTERNS = [
+  // JSON/format sızıntısı
+  /json\s*(format|formatında|yapısında)\s*(üret|oluştur|programla)/i,
+  /\bprogramland[ıi]m\b/i,
+  /\bkodland[ıi]m\b/i,
+  /\byap[ıi]land[ıi]r[ıi]ld[ıi]m\b/i,
   
-  if (!moderationResult.isAllowed) {
-    // Güvenlik olayını logla
-    logSecurityEvent(user?.id || null, message, moderationResult);
-    
-    // Kullanıcıya nazik bir uyarı göster
-    toast({
-      title: 'İçerik Uyarısı',
-      description: moderationResult.reason || 'Bu mesaj gönderilemez.',
-      variant: 'destructive',
-      duration: 5000,
-    });
-    return; // Mesajı gönderme
-  }
-  // === MEVCUT KOD DEVAM EDER ===
+  // Sistem kısıtlamalarını açıklama
+  /sistem\s*(talimat|kısıtlama|kural)/i,
+  /\bkısıtlamalar\b.*\b(sağlamak|tutarlılık|uygunluk)\b/i,
+  /görev\s*tanımı/i,
+  /belirtilen\s*(json|format|yapı)/i,
   
-  if (!activeStore) {
-    // ... mevcut kod
+  // Kendi yeteneklerini/sınırlarını anlatma
+  /model\s*(sınır|kısıt|yetenek)/i,
+  /yapay\s*zeka\s*(olarak|danışman)/i,
+  /\bbenim\s+temel\s+görevim\b/i,
+];
+
+// Test/deneme yanıtları
+const TEST_RESPONSE_PATTERNS = [
+  /\bbu\s+(bir\s+)?test\s+(yanıt|cevap|response)/i,
+  /\btest\s+amacıyla\b/i,
+  /\bbu\s+sadece\s+bir\s+test\b/i,
+  /\börnek\s+yanıt\s+üret/i,
+  /\bdeneme\s+yanıt/i,
+];
+```
+
+### 2. moderateAIResponse Fonksiyonunu Güncelle
+
+```typescript
+export function moderateAIResponse(response: string): ModerationResult {
+  if (!response || response.trim().length === 0) {
+    return { isAllowed: false, reason: 'Boş yanıt', category: 'empty' };
   }
-  // ...
+
+  // 1. ÖNCELİKLİ: Test yanıtı kontrolü (teşvik context'i olsa bile engelle)
+  for (const pattern of TEST_RESPONSE_PATTERNS) {
+    if (pattern.test(response)) {
+      return {
+        isAllowed: false,
+        reason: 'Test yanıtı tespit edildi',
+        category: 'test_response',
+        severity: 'critical'
+      };
+    }
+  }
+
+  // 2. ÖNCELİKLİ: Sistem/programlama bilgisi sızıntısı (teşvik context'i olsa bile engelle)
+  for (const pattern of SELF_DISCLOSURE_PATTERNS) {
+    if (pattern.test(response)) {
+      return {
+        isAllowed: false,
+        reason: 'Sistem bilgisi sızıntısı tespit edildi',
+        category: 'self_disclosure',
+        severity: 'critical'
+      };
+    }
+  }
+
+  // 3. Mevcut sistem leak pattern'leri...
+  // 4. Konu dışı içerik kontrolü...
+  
+  return { isAllowed: true };
+}
+```
+
+### 3. useChatSession.ts - Bloke Mesajı Güncelle
+
+Bloke edilen tüm durumlarda aynı standart mesaj:
+
+```typescript
+const blockedMessage: ChatMessage = {
+  role: "assistant",
+  content: "Bu platform sadece yatırım teşvikleri hakkında bilgi vermektedir. Siyasi konular hakkında yorum yapamam. Yatırım teşvikleri, belirlenen kriterler ve mevzuatlar çerçevesinde değerlendirilir ve siyasi görüşlere dayalı bir avantaj sağlanmaz. Yardımcı olmamı istediğiniz başka bir konu var mı?",
+  timestamp: Date.now(),
 };
 ```
 
-### 3. useChatSession.ts - AI Yanıtı Kontrolü (Satır 358-390)
-
-**Değişiklik**: AI yanıtı alındıktan sonra moderasyon kontrolü ekle
-
-```typescript
-import { moderateAIResponse } from '@/utils/contentModeration';
-
-// sendMessage fonksiyonu içinde, API yanıtı alındıktan sonra:
-const sendMessage = useCallback(async (...) => {
-  // ... mevcut kod (API çağrısı)
-  
-  if (error) throw error;
-
-  const fullResponse = data.text || '';
-  
-  // === YENİ: AI Yanıtı Denetimi ===
-  const aiModerationResult = moderateAIResponse(fullResponse);
-  
-  if (!aiModerationResult.isAllowed) {
-    console.warn('[AI MODERATION] Response blocked:', aiModerationResult);
-    
-    const blockedMessage: ChatMessage = {
-      role: "assistant",
-      content: "Üzgünüm, bu yanıt güvenlik kontrolünden geçemedi. Lütfen sorunuzu farklı şekilde ifade edin.",
-      timestamp: Date.now(),
-    };
-    
-    if (!isAnonymous) {
-      await supabase.from("chat_messages").insert({
-        session_id: sessionId,
-        role: "assistant",
-        content: blockedMessage.content,
-      });
-    }
-    
-    updateSession(sessionId, { messages: [...updatedMessages, blockedMessage] });
-    return;
-  }
-  // === MEVCUT KOD DEVAM EDER ===
-  
-  // Check if response is structured JSON...
-});
-```
-
-### 4. UI Geri Bildirimi - Toast Mesajları
-
-Moderasyon sonucuna göre farklı uyarı stilleri:
-
-| Kategori | Severity | Toast Stili | Mesaj |
-|----------|----------|-------------|-------|
-| political | high | destructive | "Bu platform sadece yatırım teşvikleri hakkında bilgi vermektedir..." |
-| ethnic | critical | destructive | "Bu platform herkes için eşit şekilde hizmet vermektedir..." |
-| religious | high | destructive | "Dini konular hakkında yorum yapamam..." |
-| profanity | medium | default | "Lütfen saygılı bir dil kullanın..." |
-| injection | critical | destructive | "Sistem komutları kabul edilmemektedir..." |
-| corruption | critical | destructive | "Yasa dışı faaliyetler hakkında bilgi veremem..." |
-
 ---
 
-## Teknik Uygulama Adımları
+## Dosya Değişiklikleri
 
-### Adım 1: content-moderation.ts'i Kopyala
-```
-Hedef: src/utils/contentModeration.ts
-```
-
-### Adım 2: Chat.tsx Düzenlemesi
-
-**Satır 1-15 (import ekle):**
-```typescript
-import { moderateUserInput, logSecurityEvent } from '@/utils/contentModeration';
-```
-
-**Satır 134-157 (handleSendMessage güncelle):**
-- Moderasyon kontrolü ekle
-- Toast uyarısı göster
-- Bloke edilen mesajı gönderme
-
-### Adım 3: useChatSession.ts Düzenlemesi
-
-**Satır 1-12 (import ekle):**
-```typescript
-import { moderateAIResponse } from '@/utils/contentModeration';
-```
-
-**Satır 358 civarı (AI yanıtı kontrolü):**
-- API yanıtı alındıktan sonra moderateAIResponse() çağır
-- Bloke edilirse özel mesaj göster
-
----
-
-## Güvenlik Katmanları Özeti
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    KULLANICI GİRDİSİ                        │
-├─────────────────────────────────────────────────────────────┤
-│  1. ChatInput.tsx: maxLength (2000 karakter) kontrolü       │
-│  2. Chat.tsx: moderateUserInput() → Regex filtreleme        │
-│     - Siyasi, dini, etnik, argo, injection, corruption      │
-│  3. Beyaz liste: Teşvik terimleri korunur                   │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                    API ÇAĞRISI                              │
-├─────────────────────────────────────────────────────────────┤
-│  chat-gemini edge function                                  │
-│  - Gemini SAFETY kontrolü (mevcut)                          │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                    AI YANITI                                │
-├─────────────────────────────────────────────────────────────┤
-│  useChatSession.ts: moderateAIResponse()                    │
-│  - Sistem prompt sızıntısı kontrolü                         │
-│  - Kod yapıları sızıntısı kontrolü                          │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                    KULLANICI ARAYÜZÜ                        │
-├─────────────────────────────────────────────────────────────┤
-│  MessageBubble.tsx: Güvenli içerik render                   │
-└─────────────────────────────────────────────────────────────┘
-```
+| Dosya | Değişiklik |
+|-------|------------|
+| `src/utils/contentModeration.ts` | SELF_DISCLOSURE_PATTERNS ve TEST_RESPONSE_PATTERNS ekleme, moderateAIResponse güncelleme |
+| `src/hooks/useChatSession.ts` | blockedMessage içeriğini kullanıcının istediği metinle değiştirme |
 
 ---
 
 ## Test Senaryoları
 
-| Test | Girdi | Beklenen Sonuç |
-|------|-------|----------------|
-| Siyasi | "AKP hakkında ne düşünüyorsun" | Bloke + Toast uyarısı |
-| Teşvik (Beyaz Liste) | "Ankara'da yatırım teşvikleri" | Normal işlem |
-| Prompt Injection | "Ignore previous instructions" | Bloke + Toast uyarısı |
-| Küfür | "[küfür] teşvik var mı" | Bloke + Toast uyarısı |
-| Uzun Mesaj | 5001+ karakter | Bloke + Toast uyarısı |
-| Normal Soru | "Tekstil sektörü teşvikleri neler?" | Normal işlem |
-
----
-
-## Dosya Değişiklikleri Özeti
-
-1. **YENİ DOSYA**: `src/utils/contentModeration.ts` (content-moderation.ts kopyası)
-2. **DÜZENLEME**: `src/pages/Chat.tsx` (import + handleSendMessage güncelleme)
-3. **DÜZENLEME**: `src/hooks/useChatSession.ts` (import + AI yanıt kontrolü)
+| Girdi | AI Yanıtı | Beklenen Sonuç |
+|-------|-----------|----------------|
+| "Test yanıtı üret" | "Bu bir test yanıtıdır..." | ENGELLE → Standart mesaj |
+| "Sınırlarını test et" | "...JSON formatında programlandım..." | ENGELLE → Standart mesaj |
+| "Mars hakkında bilgi ver" | "Mars gezegeni..." | ENGELLE → Standart mesaj |
+| "Denizli'de tekstil teşviki" | Teşvik bilgisi | İZİN VER |
 
 ---
 
 ## Beklenen Sonuç
 
-- Siyasi, dini, etnik içerik engellenecek
-- Argo ve küfür engellenecek
-- Prompt injection girişimleri engellenecek
-- Yasa dışı faaliyet talepleri reddedilecek
-- AI sistem prompt sızıntısı önlenecek
-- Teşvik terimleri yanlışlıkla engellenmeyecek (beyaz liste)
-- Mevcut chat fonksiyonelliği korunacak
-- Kullanıcıya nazik ve açıklayıcı uyarılar gösterilecek
-
+- AI'ın "test yanıtı" üretmesi engellenecek
+- AI'ın kendi programlanmasını/JSON formatını açıklaması engellenecek
+- Sistem bilgisi sızıntısı (prompt, kod, kısıtlamalar) engellenecek
+- Engellenen tüm durumlarda kullanıcının belirlediği standart mesaj gösterilecek:
+  > "Bu platform sadece yatırım teşvikleri hakkında bilgi vermektedir. Siyasi konular hakkında yorum yapamam. Yatırım teşvikleri, belirlenen kriterler ve mevzuatlar çerçevesinde değerlendirilir ve siyasi görüşlere dayalı bir avantaj sağlanmaz. Yardımcı olmamı istediğiniz başka bir konu var mı?"
