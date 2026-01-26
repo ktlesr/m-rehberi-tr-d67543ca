@@ -1024,6 +1024,23 @@ function isSupportProgramQuery(message: string): boolean {
     "yararlanabilecegim",
     "destek programlarını",
     "destek programlarini",
+    // Kurum adları - site içi destek sorguları için
+    "işkur",
+    "iskur",
+    "iş kurumu",
+    "is kurumu",
+    "türkiye iş kurumu",
+    "turkiye is kurumu",
+    "sgk",
+    "sosyal güvenlik",
+    "sosyal guvenlik",
+    "eximbank",
+    "exim bank",
+    "kgf",
+    "kredi garanti",
+    "ilbank",
+    "iller bankası",
+    "iller bankasi",
   ];
 
   return hasDestekRoot || keywords.some((kw) => q.includes(kw));
@@ -3228,6 +3245,44 @@ serve(async (req) => {
           });
         };
 
+        // ============= NEW: SUPPORT PROGRAMS OVERRIDE FOR "NO RAG RESULTS" =============
+        // Eğer Vertex RAG "bulunamadı" yanıtı döndürdüyse AMA support_programs'dan kartlar bulunduysa,
+        // Vertex yanıtını GÖSTERMEYİP sadece site içi destekleri göster
+        if (noResultsInVertex && rerankedResult.supportCards.length > 0) {
+          console.log("🔄 [Enhanced Hybrid] RAG has no results but support cards found - overriding response");
+          
+          // Kurum adını tespit et (varsa)
+          const institutionName = rerankedResult.supportCards[0]?.kurum || null;
+          
+          const overrideText = institutionName
+            ? `📋 **yatirimadestek.gov.tr'de yayımda olan ${institutionName} destekleri aşağıdaki gibidir:**`
+            : `📋 **yatirimadestek.gov.tr'de yayımda olan ilgili destek programları aşağıdaki gibidir:**`;
+          
+          // Cache ve analytics kaydet
+          finishWithCacheAndAnalytics(
+            overrideText,
+            "support_override_no_rag",
+            rerankedResult.supportCards,
+            [],
+          );
+          
+          return new Response(
+            JSON.stringify({
+              text: overrideText,
+              supportCards: rerankedResult.supportCards,
+              supportOnly: true,
+              sources: [],
+              groundingChunks: [],
+              hybridSearch: {
+                ragNoResults: true,
+                supportOverride: true,
+                supportPrograms: rerankedResult.supportCards.length,
+              },
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
         // Case 1: Vertex has good content
         if (!noResultsInVertex && vertexText.length > 100) {
           let finalText = vertexText;
@@ -3297,9 +3352,16 @@ serve(async (req) => {
         // Case 3: Both Vertex and QV have no content, but support cards exist
         if (rerankedResult.supportCards.length > 0) {
           console.log("📋 [Enhanced Hybrid] No RAG content, showing support programs");
+          
+          // Kurum adını tespit et
+          const institutionName = rerankedResult.supportCards[0]?.kurum || null;
+          const displayText = institutionName
+            ? `📋 **yatirimadestek.gov.tr'de yayımda olan ${institutionName} destekleri aşağıdaki gibidir:**`
+            : `📋 **yatirimadestek.gov.tr'de yayımda olan ilgili destek programları aşağıdaki gibidir:**`;
+          
           return new Response(
             JSON.stringify({
-              text: "📋 **Bu konuyla ilgili sitemizdeki güncel destek programlarına göz atabilirsiniz:**",
+              text: displayText,
               supportCards: rerankedResult.supportCards,
               supportOnly: true,
               sources: [],
