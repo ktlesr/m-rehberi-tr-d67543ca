@@ -9,6 +9,7 @@ import type {
   FollowUpConfig 
 } from "@/utils/structuredResponseRenderer";
 import { buildLLMMessages } from "@/utils/llmMessageNormalizer";
+import { moderateAIResponse } from "@/utils/contentModeration";
 
 const LOCAL_STORAGE_KEY = "tesviksor_chat_sessions";
 
@@ -357,6 +358,31 @@ export function useChatSession(user: User | null) {
         if (error) throw error;
 
         const fullResponse = data.text || '';
+        
+        // === AI Yanıtı İçerik Denetimi ===
+        const aiModerationResult = moderateAIResponse(fullResponse);
+        
+        if (!aiModerationResult.isAllowed) {
+          console.warn('[AI MODERATION] Response blocked:', aiModerationResult);
+          
+          const blockedMessage: ChatMessage = {
+            role: "assistant",
+            content: "Üzgünüm, bu yanıt güvenlik kontrolünden geçemedi. Lütfen sorunuzu farklı şekilde ifade edin.",
+            timestamp: Date.now(),
+          };
+          
+          if (!isAnonymous) {
+            await supabase.from("chat_messages").insert({
+              session_id: sessionId,
+              role: "assistant",
+              content: blockedMessage.content,
+            });
+          }
+          
+          updateSession(sessionId, { messages: [...updatedMessages, blockedMessage] });
+          return { success: false, blocked: true };
+        }
+        // === AI Yanıtı İçerik Denetimi Sonu ===
         
         // Check if response is structured JSON - skip streaming for structured responses
         // Also check if text contains ```json block with structured content

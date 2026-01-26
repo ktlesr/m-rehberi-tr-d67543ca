@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useChatbotStats } from '@/hooks/useChatbotStats';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import { moderateUserInput, logSecurityEvent } from '@/utils/contentModeration';
 
 // Örnek sorgular - gerçek API ile çalışacak
 const EXAMPLE_QUERIES = [
@@ -132,6 +133,24 @@ export default function Chat() {
   }, [activeSession?.messages]);
 
   const handleSendMessage = async (message: string) => {
+    // === İçerik Denetimi ===
+    const moderationResult = moderateUserInput(message);
+    
+    if (!moderationResult.isAllowed) {
+      // Güvenlik olayını logla
+      logSecurityEvent(user?.id || null, message, moderationResult);
+      
+      // Kullanıcıya nazik bir uyarı göster
+      toast({
+        title: 'İçerik Uyarısı',
+        description: moderationResult.reason || 'Bu mesaj gönderilemez.',
+        variant: moderationResult.severity === 'medium' ? 'default' : 'destructive',
+        duration: 5000,
+      });
+      return; // Mesajı gönderme
+    }
+    // === İçerik Denetimi Sonu ===
+
     if (!activeStore) {
       toast({
         title: 'Uyarı',
