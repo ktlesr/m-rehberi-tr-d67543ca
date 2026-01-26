@@ -1,158 +1,118 @@
 
-# İŞKUR Destekleri - Site İçi Program Kartlarıyla Entegre Yanıt Planı
+# Canlı Aktivite Akışı Gösterme Planı
 
 ## Problem Analizi
 
-Ekran görüntüsünden görülen sorun:
-1. Kullanıcı "İşkur destekleri" soruyor
-2. AI yanıtı: "Sağlanan kaynaklarda İŞKUR destekleri hakkında bilgi bulunmamaktadır..." (uzun bir açıklama)
-3. **Ama hemen altında İŞKUR destek kartı gösteriliyor!**
+Ekran görüntüsünde görüldüğü gibi:
+- İstatistikler düzgün gösteriliyor (11 bugün, 10 oturum, 0 hesaplama, 11 arama)
+- **Ancak "Son Aktiviteler" bölümü boş**: "Henüz aktivite yok"
 
-Bu tutarsız bir kullanıcı deneyimi. AI "bilgi yok" diyor ama aslında site içinde (support_programs tablosunda) İŞKUR destek programı mevcut.
+**Neden?** `useTodayActivity.ts` satır 64:
+```typescript
+recentActivities: [] // RPC doesn't return details for security
+```
+
+Mevcut `get_today_activity_counts` RPC fonksiyonu sadece aggregate sayılar döndürüyor, aktivite detaylarını döndürmüyor. Admin kullanıcılar için bu verilerin gösterilmesi gerekiyor.
 
 ---
 
-## Teknik Sorunun Kökeni
+## Çözüm: Admin için Aktivite Detayları Ekleme
 
-`chat-gemini/index.ts` satır 3232'de:
+### Değişiklik 1: useTodayActivity.ts Güncelleme
+
+Admin kullanıcı olup olmadığını kontrol et ve admin ise son aktiviteleri doğrudan `user_sessions` tablosundan çek:
 
 ```typescript
-if (!noResultsInVertex && vertexText.length > 100) {
-  // Case 1: Vertex has good content
-  ...
-}
+// Satır 43'ten sonra, fetchTodayStats içinde:
+
+const fetchTodayStats = useCallback(async () => {
+  try {
+    // Mevcut RPC çağrısı (sayılar için)
+    const { data, error } = await supabase.rpc('get_today_activity_counts');
+    // ...
+
+    // YENİ: Admin için son aktiviteleri çek
+    let recentActivities: ActivityData[] = [];
+    
+    // Son 50 aktiviteyi çek (sadece calculation ve search)
+    const { data: activitiesData, error: activitiesError } = await supabase
+      .from('user_sessions')
+      .select('*')
+      .in('activity_type', ['calculation', 'search'])
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (!activitiesError && activitiesData) {
+      recentActivities = activitiesData;
+    }
+
+    setStats({
+      todayCalculations,
+      todaySearches,
+      activeSessions,
+      totalToday: todayCalculations + todaySearches,
+      recentActivities, // Artık dolu
+    });
+  } catch (error) {
+    console.error('Error fetching today activity stats:', error);
+  }
+}, []);
 ```
 
-**Problem**: Vertex RAG'dan gelen "kaynaklarda bulunmamaktadır" açıklaması 100 karakterden uzun olduğu için `isNoResultsFoundResponse` TRUE döndürse bile, metin zaten "no results" pattern'ine uyuyor ama uzunluk koşulu nedeniyle Case 1'e girmiyor olabilir - veya pattern tam uymuyor.
+### Değişiklik 2: RLS Kontrolü
 
-Ayrıca, mevcut `isNoResultsFoundResponse` pattern'lerinden biri:
-```typescript
-/destekleri hakkında bilgi bulunmamaktadır/i
+Mevcut RLS politikası zaten admin'lerin `user_sessions` tablosunu okumasına izin veriyor:
+```sql
+"Admins can view all user sessions" - is_admin(auth.uid())
 ```
-Bu "İŞKUR destekleri hakkında bilgi bulunmamaktadır" metnini yakalamalı.
 
-**Asıl çözüm**: Support cards bulunduğunda VE Vertex RAG "bulunamadı" mesajı döndürdüğünde, AI yanıtını tamamen değiştirmeli:
-> "yatirimadestek.gov.tr'de yayımda olan İŞKUR destekleri aşağıdaki gibidir"
+Yani ek bir veritabanı değişikliği gerekmez.
 
 ---
 
-## Çözüm Planı
+## Teknik Değişiklikler
 
-### Adım 1: chat-gemini/index.ts - Yeni Kontrol Mantığı
-
-Satır 3178-3232 arasına, Case 1'den ÖNCE yeni bir kontrol ekleyeceğiz:
-
-```typescript
-// ============= NEW: SUPPORT PROGRAMS OVERRIDE FOR "NO RAG RESULTS" =============
-// Eğer Vertex RAG "bulunamadı" yanıtı döndürdüyse AMA support_programs'dan kartlar bulunduysa,
-// Vertex yanıtını GÖSTERMEYİP sadece site içi destekleri göster
-if (noResultsInVertex && rerankedResult.supportCards.length > 0) {
-  console.log("🔄 [Enhanced Hybrid] RAG has no results but support cards found - overriding response");
-  
-  // Kurum adını tespit et (varsa)
-  const institutionName = rerankedResult.supportCards[0]?.kurum || null;
-  const institutionText = institutionName 
-    ? `**${institutionName}** tarafından sağlanan` 
-    : '';
-  
-  const overrideText = institutionName
-    ? `📋 **yatirimadestek.gov.tr'de yayımda olan ${institutionText} destekler aşağıdaki gibidir:**`
-    : `📋 **yatirimadestek.gov.tr'de yayımda olan ilgili destekler aşağıdaki gibidir:**`;
-  
-  // Cache ve analytics kaydet
-  finishWithCacheAndAnalytics(
-    overrideText,
-    "support_override_no_rag",
-    rerankedResult.supportCards,
-    []
-  );
-  
-  return new Response(
-    JSON.stringify({
-      text: overrideText,
-      supportCards: rerankedResult.supportCards,
-      supportOnly: true,
-      sources: [],
-      groundingChunks: [],
-      hybridSearch: {
-        ragNoResults: true,
-        supportOverride: true,
-        supportPrograms: rerankedResult.supportCards.length,
-      },
-    }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
-}
-```
-
-### Adım 2: Mevcut Case 3 Güncelleme (Satır 3297-3315)
-
-Case 3'teki mesajı da güncelle:
-
-```typescript
-// Case 3: Both Vertex and QV have no content, but support cards exist
-if (rerankedResult.supportCards.length > 0) {
-  console.log("📋 [Enhanced Hybrid] No RAG content, showing support programs");
-  
-  // Kurum adını tespit et
-  const institutionName = rerankedResult.supportCards[0]?.kurum || null;
-  const displayText = institutionName
-    ? `📋 **yatirimadestek.gov.tr'de yayımda olan ${institutionName} destekleri aşağıdaki gibidir:**`
-    : `📋 **yatirimadestek.gov.tr'de yayımda olan ilgili destek programları aşağıdaki gibidir:**`;
-  
-  return new Response(
-    JSON.stringify({
-      text: displayText,
-      supportCards: rerankedResult.supportCards,
-      supportOnly: true,
-      sources: [],
-      groundingChunks: [],
-      ...
-    }),
-    ...
-  );
-}
-```
-
-### Adım 3: isSupportProgramQuery'ye İŞKUR Ekle (Zaten Var Olabilir)
-
-Kontrol edelim - eğer yoksa ekleyelim:
-
-```typescript
-const keywords = [
-  // ... mevcut keywords
-  "işkur",
-  "iskur",
-  "iş kurumu",
-  "is kurumu",
-  // ... diğer kurumlar
-];
-```
+| Dosya | Değişiklik |
+|-------|------------|
+| `src/hooks/useTodayActivity.ts` | `fetchTodayStats` içinde admin için son aktiviteleri çekme sorgusu ekle |
 
 ---
 
-## Özet Değişiklikler
+## Akış Diyagramı
 
-| Dosya | Satır | Değişiklik |
-|-------|-------|------------|
-| `supabase/functions/chat-gemini/index.ts` | ~3178 | Yeni "Support Override" kontrolü ekle (Case 1'den önce) |
-| `supabase/functions/chat-gemini/index.ts` | ~3302 | Case 3 mesajını güncelle |
-| `supabase/functions/chat-gemini/index.ts` | ~977-1027 | `isSupportProgramQuery` keywords'e kurum adları ekle (gerekirse) |
+```text
+┌─────────────────────────────────────────────────┐
+│  useTodayActivity.ts                            │
+├─────────────────────────────────────────────────┤
+│  1. RPC: get_today_activity_counts              │
+│     → todayCalculations, todaySearches, etc.    │
+│                                                 │
+│  2. YENİ: Direct Query (Admin Only via RLS)     │
+│     → user_sessions WHERE activity_type IN      │
+│       ('calculation', 'search')                 │
+│     → recentActivities[] (son 50)               │
+├─────────────────────────────────────────────────┤
+│  → NotificationDropdown                         │
+│     stats.recentActivities.map(...)             │
+│     → Aktivite kartları render                  │
+└─────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Beklenen Sonuç
 
-### Önce (Şu An)
-- AI: "Sağlanan kaynaklarda İŞKUR destekleri hakkında bilgi bulunmamaktadır..."
-- [İŞKUR destek kartı gösteriliyor]
+**Önce (Şu An)**:
+- "Son Aktiviteler: Henüz aktivite yok"
 
-### Sonra (Düzeltme İle)
-- AI: "📋 **yatirimadestek.gov.tr'de yayımda olan İŞKUR (TÜRKİYE İŞ KURUMU) destekleri aşağıdaki gibidir:**"
-- [İŞKUR destek kartı gösteriliyor]
+**Sonra**:
+- Son hesaplama ve arama aktiviteleri listesi
+- Her aktivite için: konum, IP, zaman, arama terimi/teşvik türü
 
-Bu değişiklik:
-- Kullanıcıya tutarlı bir deneyim sunar
-- Site içindeki desteklerin varlığını vurgular
-- "Bulunamadı" mesajı göstermez (aslında bulunduğunda)
-- yatirimadestek.gov.tr markasını öne çıkarır
+---
+
+## Güvenlik Notu
+
+- RLS politikası admin kullanıcıları korur
+- Normal kullanıcılar bu sorgudan boş sonuç alır (RLS engelleyecek)
+- Hassas bilgiler (IP adresi vb.) sadece admin'lere gösterilir
