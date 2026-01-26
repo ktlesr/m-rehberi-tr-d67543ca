@@ -279,15 +279,16 @@ export default function Chat() {
       <main id="main-content" className="flex-1 flex flex-col" role="main" aria-label="Sohbet alanı">
         {/* Mobile Sidebar */}
         <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-          <div className="lg:hidden border-b p-2">
+          <div className="lg:hidden border-b px-2 h-14 flex items-center">
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="h-10 w-10">
                 <Menu className="h-5 w-5" />
+                <span className="sr-only">Menüyü aç</span>
               </Button>
             </SheetTrigger>
           </div>
           
-          <SheetContent side="left" className="w-72 p-0">
+          <SheetContent side="left" className="w-[85vw] max-w-72 p-0">
             <ChatSidebar
               sessions={sessions}
               activeSessionId={activeSessionId}
@@ -300,28 +301,32 @@ export default function Chat() {
 
         {/* Anonymous User Banner with Example Query Button */}
         {isAnonymous && (
-          <div className="bg-muted/50 border-b px-4 py-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Cloud className="h-4 w-4" />
-              <span>Sohbet geçmişiniz bu cihazda geçici olarak saklanıyor.</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={handleStartExampleQuery} 
-                className="gap-2"
-                disabled={isLoading || !activeStore}
-              >
-                <Sparkles className="h-4 w-4" />
-                Örnek Sorgu Başlat
-              </Button>
-              <Link to="/admin/login">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Giriş Yap
+          <div className="bg-muted/50 border-b px-3 py-2 sm:px-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                <Cloud className="h-4 w-4 flex-shrink-0" />
+                <span className="line-clamp-2 sm:line-clamp-1">
+                  Sohbet geçmişiniz bu cihazda geçici olarak saklanıyor.
+                </span>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleStartExampleQuery} 
+                  className="gap-1 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                  disabled={isLoading || !activeStore}
+                >
+                  <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="truncate">Örnek Sorgu</span>
                 </Button>
-              </Link>
+                <Link to="/admin/login" className="flex-1 sm:flex-none">
+                  <Button variant="outline" size="sm" className="gap-1 sm:gap-2 w-full text-xs sm:text-sm">
+                    <LogIn className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span>Giriş</span>
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         )}

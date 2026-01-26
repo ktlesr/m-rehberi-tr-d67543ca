@@ -38,7 +38,7 @@ export function ChatHeader({
 
   return (
     <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex items-center justify-between px-2 md:px-4 h-[72px] md:h-[80px]">
+      <div className="flex items-center justify-between px-2 sm:px-3 md:px-4 h-14 sm:h-16 md:h-[72px]">
         {/* Left: Toggle sidebar button */}
         {onToggleCollapse ? (
           <Button

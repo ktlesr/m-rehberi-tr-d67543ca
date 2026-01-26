@@ -174,15 +174,15 @@ export function ChatInput({
   const isOverLimit = charCount > maxLength;
 
   return (
-    <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-3 md:p-4">
+    <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <div className="max-w-3xl mx-auto">
-        <div className="flex gap-3 items-center" role="group" aria-label="Mesaj giriş alanı">
+        <div className="flex gap-2 sm:gap-3 items-center" role="group" aria-label="Mesaj giriş alanı">
           {/* Voice input button */}
           <Button
             variant="ghost"
             size="icon"
             onClick={handleVoiceInput}
-            className={`h-11 w-11 rounded-full flex-shrink-0 transition-all ${
+            className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex-shrink-0 transition-all ${
               isRecording 
                 ? 'text-red-500 bg-red-500/10 animate-pulse' 
                 : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
@@ -191,7 +191,7 @@ export function ChatInput({
             aria-label={isRecording ? "Dinleniyor, durdurmak için tıklayın" : "Sesli giriş başlat"}
             aria-pressed={isRecording}
           >
-            <Mic className="h-5 w-5" aria-hidden="true" />
+            <Mic className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
           </Button>
 
           {/* Input container */}
@@ -234,7 +234,7 @@ export function ChatInput({
               onClick={handleStop}
               size="icon"
               variant="destructive"
-              className="h-11 w-11 rounded-full flex-shrink-0 shadow-md hover:shadow-lg transition-all"
+              className="h-10 w-10 sm:h-11 sm:w-11 rounded-full flex-shrink-0 shadow-md hover:shadow-lg transition-all"
               aria-label="Yanıt oluşturmayı durdur"
             >
               <Square className="h-4 w-4 fill-current" aria-hidden="true" />
@@ -244,7 +244,7 @@ export function ChatInput({
               onClick={handleSend} 
               disabled={disabled || !currentValue.trim() || isOverLimit} 
               size="icon"
-              className="h-11 w-11 rounded-full flex-shrink-0 shadow-md hover:shadow-lg transition-all bg-primary hover:bg-primary/90"
+              className="h-10 w-10 sm:h-11 sm:w-11 rounded-full flex-shrink-0 shadow-md hover:shadow-lg transition-all bg-primary hover:bg-primary/90"
               aria-label="Mesajı gönder"
             >
               {disabled && !isGenerating ? (
