@@ -193,6 +193,59 @@ export function moderateUserInput(input: string): ModerationResult {
 }
 
 /**
+ * Konu dışı içerik desenleri - AI'ın teşvik dışında bilgi ürettiğini tespit eder
+ */
+const OFF_TOPIC_PATTERNS = [
+    // Test yanıtları
+    /\btest\s+(yanıt|response|cevap)/i,
+    /\bbir\s+test\s+yanıtıdır/i,
+    /\btest\s+amacıyla/i,
+    /\btest\s+olduğunu\s+belirt/i,
+    
+    // Genel bilgi içerikleri (gezegen, hayvan, tarih vb.)
+    /\b(merkür|venüs|mars|jüpiter|satürn|uranüs|neptün|plüton)\b.*\b(gezegen|yüzey|atmosfer|güneş)\b/i,
+    /\b(gezegen|yıldız|galaksi|uzay|astronot|nasa|esa)\s+(hakkında|bilgi|nedir)/i,
+    /\b(aslan|kaplan|fil|balina|köpekbalığı|dinozor)\s+(hakkında|habitat|yaşam|beslen)/i,
+    
+    // Tarih ve coğrafya (teşvik dışı)
+    /\b(dünya savaşı|osmanlı|roma imparatorluğu|antik|ortaçağ)\b/i,
+    /\b(amazon|nil|everest|sahara)\s+(nehir|dağ|orman|çöl)/i,
+    
+    // Yemek tarifleri ve günlük konular
+    /\b(tarif|pişir|malzeme|karıştır|kızart|fırın)\b.*\b(dakika|derece|kaşık|bardak)\b/i,
+    /\b(film|dizi|müzik|şarkı|albüm|konser)\s+(öneri|tavsiye|izle)/i,
+    
+    // Matematik ve bilim (teşvik dışı)
+    /\b(einstein|newton|darwin|freud)\b/i,
+    /\b(formül|teorem|denklem|integral|türev)\s+(nedir|çöz|hesapla)/i,
+    
+    // Sağlık tavsiyeleri
+    /\b(hastalık|tedavi|ilaç|ameliyat|doktor)\s+(öner|tavsiye|yapmalı)/i,
+    
+    // Spor ve eğlence
+    /\b(futbol|basketbol|voleybol|maç|şampiyon|gol)\s+(sonuç|tahmin|analiz)/i,
+    
+    // AI'ın kendi yeteneklerini gösterme girişimi
+    /\b(yapay zeka|ai|chatgpt|gpt|gemini)\s+(yetenek|özellik|başar|yapabil)/i,
+    /\bmodel\s+(sınır|yetenek|başar|yapabil)/i,
+    /\bteşvik\s+(dışında|haricinde|konularından\s+bağımsız)\b.*\bbilgi\b/i,
+    /\bbilgi\s+üret(ebil|me\s+yeteneğ)/i,
+];
+
+/**
+ * Teşvik ile ilgili anahtar kelimeler - yanıtta bunlar varsa muhtemelen konu içidir
+ */
+const TESVIK_CONTEXT_PATTERNS = [
+    /\b(teşvik|destek|hibe|kredi|yatırım)\b/i,
+    /\b(kdv|vergi|gümrük|sgk|sigorta)\s*(muafiyet|indirim|istisnası)/i,
+    /\b(bölge|il|ilçe|osb|organize sanayi)\b/i,
+    /\b(nace|gtip|sektör|kapasite)\b/i,
+    /\b(başvuru|belge|koşul|şart|kriter)\b/i,
+    /\b(bakanlık|ajans|kosgeb|tübitak|tkdk)\b/i,
+    /\b(proje|fizibilite|iş planı|yatırım belgesi)\b/i,
+];
+
+/**
  * AI yanıtını kontrol eder (çıktı filtreleme)
  */
 export function moderateAIResponse(response: string): ModerationResult {
@@ -214,6 +267,23 @@ export function moderateAIResponse(response: string): ModerationResult {
                 reason: 'Sistem bilgisi sızıntısı tespit edildi',
                 category: 'system_leak',
                 severity: 'critical'
+            };
+        }
+    }
+
+    // Konu dışı içerik kontrolü
+    const hasOffTopicContent = OFF_TOPIC_PATTERNS.some(pattern => pattern.test(response));
+    
+    if (hasOffTopicContent) {
+        // Teşvik bağlamı var mı kontrol et - varsa izin ver
+        const hasTesvikContext = TESVIK_CONTEXT_PATTERNS.some(pattern => pattern.test(response));
+        
+        if (!hasTesvikContext) {
+            return {
+                isAllowed: false,
+                reason: 'Bu platform sadece yatırım teşvikleri hakkında bilgi vermektedir. Konu dışı içerik tespit edildi.',
+                category: 'off_topic',
+                severity: 'high'
             };
         }
     }
