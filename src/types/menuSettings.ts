@@ -113,7 +113,7 @@ export const MENU_ITEMS: MenuItem[] = [
     description: "Başvuru adımları ve süreçleri",
   },
   {
-    title: "AI Sohbet",
+    title: "AI Destek",
     url: "/chat",
     settingKey: "menu_item_chat",
     description: "Yapay zeka destekli tam sayfa sohbet",

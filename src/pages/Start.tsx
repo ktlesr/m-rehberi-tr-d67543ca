@@ -24,7 +24,7 @@ const Start = () => {
     },
     {
       icon: Bot,
-      title: "AI Sohbet",
+      title: "AI Destek",
       description: "Yapay zeka destekli asistanımızla sohbet edin",
       path: "/chat",
       gradient: "from-indigo-500 to-purple-600",
