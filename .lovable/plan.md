@@ -1,59 +1,111 @@
 
-# Chat Sidebar Logo ve Genişlik Hizalama Planı
+# "Duyurulara Dön" Butonu Yönlendirme Planı
 
-## Hedefler
+## Mevcut Durum
 
-1. Logo'nun üstten ve alttan border'a değmemesi (padding ekleme)
-2. Logo, "Yeni Sohbet" butonu ve arama kutusu genişliklerinin aynı olması
+| Sayfa | Route | Açıklama |
+|-------|-------|----------|
+| Duyuru Detayı | `/duyuru/:id` | Tek duyuru detayı |
+| Ana Sayfa | `/` | Duyurular carousel olarak gösteriliyor |
+| Duyuru Listesi | **Yok** | Ayrı bir sayfa mevcut değil |
 
-## Mevcut Durum Analizi
+"Duyurulara Dön" butonu şu anda `/` (ana sayfa) adresine yönlendiriyor çünkü tüm duyuruları listeleyen ayrı bir sayfa bulunmuyor.
 
-| Bölüm | Yatay Padding | İçerik Genişliği |
-|-------|---------------|------------------|
-| Logo container | `px-4` (16px × 2) | `w-full` |
-| Buton/Search container | `p-4` (16px × 2) | `w-full` |
+## Önerilen Çözüm
 
-Yatay padding'ler zaten eşit (`px-4` = 32px toplam), ancak logo container'da dikey padding yok.
+Tüm duyuruları listeleyen yeni bir sayfa oluşturup, "Duyurulara Dön" butonunu bu sayfaya yönlendirmek.
 
-## Değişiklik: `src/components/chat/ChatSidebar.tsx`
+---
 
-### Satır 51
+## Teknik Uygulama Adımları
 
+### 1. Yeni Sayfa: `src/pages/Announcements.tsx`
+
+Tüm duyuruları listeleyen yeni bir sayfa oluşturulacak:
+- Supabase'den tüm aktif duyuruları çekecek
+- Tarih sırasına göre listeleyecek
+- Her duyuru kartına tıklandığında `/duyuru/:id` sayfasına yönlendirecek
+- Sayfalama (pagination) veya infinite scroll eklenebilir
+
+### 2. Route Tanımı: `src/App.tsx`
+
+Yeni sayfa için route eklenecek:
+```tsx
+<Route path="/duyurular" element={<Announcements />} />
+```
+
+### 3. Buton Güncelleme: `src/pages/AnnouncementDetail.tsx`
+
+**Satır 87:**
 ```tsx
 // Mevcut:
-isCollapsed ? "p-2 justify-center" : "px-4 justify-center"
+onClick={() => navigate('/')}
 
 // Yeni:
-isCollapsed ? "p-2 justify-center" : "p-4 justify-center"
+onClick={() => navigate('/duyurular')}
 ```
 
-`px-4` yerine `p-4` kullanarak:
-- Yatay padding korunur (16px sol + 16px sağ)
-- Dikey padding eklenir (16px üst + 16px alt)
-- Alttaki buton/search container ile tam aynı padding değerleri
+**Satır 69 (hata durumu):**
+```tsx
+// Mevcut:
+<Button onClick={() => navigate('/')} ...>
+  Ana Sayfaya Dön
 
-### Görsel Sonuç
+// Yeni:
+<Button onClick={() => navigate('/duyurular')} ...>
+  Duyurulara Dön
+```
+
+### 4. AnnouncementCarousel Güncelleme: `src/components/AnnouncementCarousel.tsx`
+
+"Tüm Duyuruları Görüntüle" butonunu yeni sayfaya yönlendirecek şekilde güncellenecek.
+
+---
+
+## Yeni Sayfa Tasarımı (Announcements.tsx)
 
 ```
-┌──────────────────────────────────┐
-│  ┌──────────────────────────┐    │  ← p-4 (16px padding)
-│  │         LOGO             │    │
-│  │    (genişlik: X px)      │    │
-│  └──────────────────────────┘    │
-├──────────────────────────────────┤  ← Border (ChatHeader ile hizalı)
-│  ┌──────────────────────────┐    │  ← p-4 (16px padding)
-│  │    + Yeni Sohbet         │    │  ← Buton (genişlik: X px) ✓ Hizalı
-│  └──────────────────────────┘    │
-│  ┌──────────────────────────┐    │
-│  │    🔍 Sohbet ara...      │    │  ← Input (genişlik: X px) ✓ Hizalı
-│  └──────────────────────────┘    │
-└──────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│ MainNavbar                                          │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│   📢 Duyurular                                     │
+│   Tüm güncel duyuruları buradan takip edin         │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────┐   │
+│  │ 🏛️ [Logo] Kurum Adı         15 Ocak 2025  │   │
+│  │ Duyuru Başlığı                              │   │
+│  │ Kısa özet metni...              [Detay →]  │   │
+│  └─────────────────────────────────────────────┘   │
+│                                                     │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ 🏛️ [Logo] Kurum Adı         10 Ocak 2025  │   │
+│  │ Duyuru Başlığı                              │   │
+│  │ Kısa özet metni...              [Detay →]  │   │
+│  └─────────────────────────────────────────────┘   │
+│                                                     │
+│               [ Daha Fazla Yükle ]                  │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│ Footer                                              │
+└─────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Değiştirilecek Dosyalar
+
+| Dosya | İşlem |
+|-------|-------|
+| `src/pages/Announcements.tsx` | Yeni oluştur |
+| `src/App.tsx` | Route ekle |
+| `src/pages/AnnouncementDetail.tsx` | navigate('/') → navigate('/duyurular') |
+| `src/components/AnnouncementCarousel.tsx` | "Tüm Duyuruları Görüntüle" butonuna link ekle |
 
 ## Avantajları
 
-- Logo, Yeni Sohbet butonu ve Search box aynı genişlikte olacak
-- Logo üstten ve alttan eşit boşluk bırakacak
-- Border'a değmeyecek
-- Tutarlı ve profesyonel görünüm
-- Mobil ve desktop'ta aynı şekilde çalışacak
+- Kullanıcılar tüm duyuruları tek sayfada görebilir
+- Duyuru detayından listeye dönüş mantıklı olur
+- Ana sayfa carousel'i yeni sayfaya yönlendirir
+- SEO açısından `/duyurular` sayfası ayrı index'lenebilir
