@@ -45,22 +45,29 @@ export function ChatSidebar({
         )}
       >
         {/* Logo Section - Clickable to home */}
-        <div
-          className={cn(
-            "flex items-center border-b transition-all duration-300 h-14 sm:h-16 md:h-[72px]",
-            isCollapsed ? "p-2 justify-center" : "p-4 justify-center"
-          )}
-        >
-          <Link to="/" className={cn(
-            "hover:opacity-80 transition-opacity",
-            isCollapsed ? "flex items-center justify-center" : "block w-full"
-          )}>
-            {isCollapsed ? (
-              <Home className="h-5 w-5 text-primary" />
-            ) : (
-              <Logo className="h-16 w-full transition-all duration-300 text-primary" />
+        {/* IMPORTANT: border is on wrapper (not the fixed-height row) to avoid border-box clipping */}
+        <div className="border-b">
+          <div
+            className={cn(
+              "flex items-center overflow-hidden transition-all duration-300 h-14 sm:h-16 md:h-[72px]",
+              // Keep header + logo section heights identical (72px on md+) while preventing overflow.
+              isCollapsed ? "p-2 justify-center" : "px-4 py-1 justify-center",
             )}
-          </Link>
+          >
+            <Link
+              to="/"
+              className={cn(
+                "hover:opacity-80 transition-opacity",
+                isCollapsed ? "flex items-center justify-center" : "flex items-center justify-center w-full h-full",
+              )}
+            >
+              {isCollapsed ? (
+                <Home className="h-5 w-5 text-primary" />
+              ) : (
+                <Logo className="h-12 sm:h-14 md:h-16 w-auto max-w-full max-h-full transition-all duration-300 text-primary" />
+              )}
+            </Link>
+          </div>
         </div>
 
         {/* Toggle Button */}
