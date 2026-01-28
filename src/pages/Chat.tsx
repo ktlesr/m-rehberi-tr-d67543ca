@@ -7,11 +7,10 @@ import { useChatSession, ChatMessage } from '@/hooks/useChatSession';
 import { geminiRagService } from '@/services/geminiRagService';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Menu, LogIn, Cloud, Sparkles } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useChatbotStats } from '@/hooks/useChatbotStats';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link } from 'react-router-dom';
 import { moderateUserInput, logSecurityEvent } from '@/utils/contentModeration';
 
 // Örnek sorgular - gerçek API ile çalışacak
@@ -318,37 +317,6 @@ export default function Chat() {
           </SheetContent>
         </Sheet>
 
-        {/* Anonymous User Banner with Example Query Button */}
-        {isAnonymous && (
-          <div className="bg-muted/50 border-b px-3 py-2 sm:px-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                <Cloud className="h-4 w-4 flex-shrink-0" />
-                <span className="line-clamp-2 sm:line-clamp-1">
-                  Sohbet geçmişiniz bu cihazda geçici olarak saklanıyor.
-                </span>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={handleStartExampleQuery} 
-                  className="gap-1 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
-                  disabled={isLoading || !activeStore}
-                >
-                  <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span className="truncate">Örnek Sorgu</span>
-                </Button>
-                <Link to="/admin/login" className="flex-1 sm:flex-none">
-                  <Button variant="outline" size="sm" className="gap-1 sm:gap-2 w-full text-xs sm:text-sm">
-                    <LogIn className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span>Giriş</span>
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
 
         <ChatHeader 
           sessionTitle={activeSession?.title || 'Yeni Sohbet'}
