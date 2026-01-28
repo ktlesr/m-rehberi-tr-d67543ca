@@ -66,9 +66,9 @@ const AnnouncementDetail = () => {
           <div className="max-w-4xl mx-auto text-center space-y-4">
             <h1 className="text-4xl font-bold">Duyuru Bulunamadı</h1>
             <p className="text-muted-foreground">Aradığınız duyuru bulunamadı veya artık aktif değil.</p>
-            <Button onClick={() => navigate('/')} className="gap-2">
+            <Button onClick={() => navigate('/duyurular')} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Ana Sayfaya Dön
+              Duyurulara Dön
             </Button>
           </div>
         </div>
@@ -84,7 +84,7 @@ const AnnouncementDetail = () => {
         <div className="max-w-4xl mx-auto space-y-6">
           <Button
             variant="ghost"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/duyurular')}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />

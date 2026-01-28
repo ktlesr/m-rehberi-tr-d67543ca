@@ -55,6 +55,7 @@ import {
 // Eagerly loaded pages (critical path)
 import Index from "./pages/Index";
 import Start from "./pages/Start";
+import Announcements from "./pages/Announcements";
 import AnnouncementDetail from "./pages/AnnouncementDetail";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
@@ -112,6 +113,7 @@ const App = () => {
                     {/* Critical path - eagerly loaded */}
                     <Route path="/" element={<Index />} />
                     <Route path="/start" element={<Start />} />
+                    <Route path="/duyurular" element={<Announcements />} />
                     <Route path="/duyuru/:id" element={<AnnouncementDetail />} />
                     <Route path="/mevzuat" element={<Legislation />} />
                     <Route path="/program/:id" element={<ProgramDetails />} />
