@@ -48,7 +48,7 @@ export function ChatSidebar({
         <div
           className={cn(
             "flex items-center border-b transition-all duration-300 h-14 sm:h-16 md:h-[72px]",
-            isCollapsed ? "p-2 justify-center" : "px-4 justify-center"
+            isCollapsed ? "p-2 justify-center" : "p-4 justify-center"
           )}
         >
           <Link to="/" className={cn(
