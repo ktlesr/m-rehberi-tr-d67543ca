@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Target, Star, Zap, Cpu, Rocket } from 'lucide-react';
+import { Search, Target, Star, Zap, Cpu, Rocket, Loader2 } from 'lucide-react';
 import { SectorSearchData } from '@/types/database';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +11,7 @@ import { isRegion6Province } from '@/utils/regionUtils';
 import { useSearchAnalytics } from '@/hooks/useSearchAnalytics';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { determineInvestmentStatus, getStatusBadges } from '@/utils/investmentStatusHelper';
+import { useSectorSuggestions } from '@/hooks/useSectorSuggestions';
 
 interface SectorSearchStepProps {
   selectedSector: SectorSearchData | null;
@@ -26,12 +27,39 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SectorSearchData[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   const { trackSearch } = useSearchAnalytics();
   const { trackSearch: trackActivitySearch } = useActivityTracking();
+  const { suggestions, loading: suggestionsLoading, fetchSuggestions, clearSuggestions } = useSectorSuggestions();
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
+    setSelectedSuggestionIndex(-1);
+    
+    // Fetch suggestions
+    fetchSuggestions(value);
+    setShowSuggestions(value.length >= 2);
+    
     // Clear previous search results and selected sector when user starts typing
     if (searchResults.length > 0) {
       setSearchResults([]);
@@ -39,6 +67,53 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
     if (selectedSector) {
       onSectorSelect(null as any);
     }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'Enter') {
+        handleSearch();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => 
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.length) {
+          handleSuggestionSelect(suggestions[selectedSuggestionIndex]);
+        } else {
+          handleSearch();
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        break;
+    }
+  };
+
+  const handleSuggestionSelect = (sector: SectorSearchData) => {
+    onSectorSelect(sector);
+    setSearchTerm('');
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+    clearSuggestions();
+    setSearchResults([]);
+    toast({
+      title: "Sektör Seçildi",
+      description: `${sector.sektor} sektörü seçildi.`,
+    });
   };
 
   // Function to normalize NACE code by removing dots
@@ -73,6 +148,8 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
       return;
     }
 
+    setShowSuggestions(false);
+    clearSuggestions();
     setIsSearching(true);
     const startTime = performance.now();
     try {
@@ -261,14 +338,65 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
 
   return (
     <div className="space-y-4 w-full">
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 w-full">
-        <Input
-          placeholder="NACE kodu veya sektör adı girin... (örn: 13.10.01, 131001, 13.1, 131, Tekstil)"
-          value={searchTerm}
-          onChange={handleInputChange}
-          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-          className="flex-1 h-11 text-sm sm:text-base"
-        />
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 w-full" ref={containerRef}>
+        <div className="relative flex-1">
+          <Input
+            ref={inputRef}
+            placeholder="NACE kodu veya sektör adı girin... (örn: 13.10.01, 131001, 13.1, 131, Tekstil)"
+            value={searchTerm}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => {
+              if (searchTerm.length >= 2 && suggestions.length > 0) {
+                setShowSuggestions(true);
+              }
+            }}
+            className="flex-1 h-11 text-sm sm:text-base w-full"
+          />
+          
+          {/* Suggestions Dropdown */}
+          {showSuggestions && (searchTerm.length >= 2) && (
+            <div 
+              ref={suggestionsRef}
+              className="absolute top-full left-0 right-0 mt-1 z-50 bg-background border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto"
+            >
+              {suggestionsLoading ? (
+                <div className="p-3 flex items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Aranıyor...</span>
+                </div>
+              ) : suggestions.length > 0 ? (
+                <>
+                  <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border bg-muted/50">
+                    Sektörler ({suggestions.length} sonuç)
+                  </div>
+                  {suggestions.map((suggestion, index) => (
+                    <div
+                      key={suggestion.id}
+                      className={`px-3 py-2.5 cursor-pointer flex items-center justify-between gap-2 transition-colors ${
+                        index === selectedSuggestionIndex 
+                          ? 'bg-accent' 
+                          : 'hover:bg-accent/50'
+                      }`}
+                      onClick={() => handleSuggestionSelect(suggestion)}
+                      onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                    >
+                      <span className="text-sm truncate flex-1">{suggestion.sektor}</span>
+                      <Badge variant="outline" className="text-xs flex-shrink-0">
+                        {suggestion.nace_kodu}
+                      </Badge>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="p-3 text-sm text-muted-foreground text-center">
+                  Sonuç bulunamadı
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        
         <Button 
           onClick={handleSearch} 
           disabled={isSearching}
