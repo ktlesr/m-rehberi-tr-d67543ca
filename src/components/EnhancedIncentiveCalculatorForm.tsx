@@ -344,11 +344,22 @@ export const EnhancedIncentiveCalculatorForm: React.FC<IncentiveCalculatorFormPr
                 } 
               />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-w-[600px]">
               {investments.map((investment) => (
-                <SelectItem key={investment.id} value={investment.investment_name}>
-                  {investment.investment_name}
-                </SelectItem>
+                <TooltipProvider key={investment.id} delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SelectItem value={investment.investment_name}>
+                        <span className="block truncate max-w-[500px]">
+                          {investment.investment_name}
+                        </span>
+                      </SelectItem>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-md z-[100]">
+                      <p className="text-sm">{investment.investment_name}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </SelectContent>
           </Select>
