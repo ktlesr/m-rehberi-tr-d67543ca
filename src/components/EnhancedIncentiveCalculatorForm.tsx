@@ -16,6 +16,7 @@ interface InvestmentByProvince {
   id: number;
   province: string;
   investment_name: string;
+  year: number;
 }
 
 interface IncentiveCalculatorFormProps {
@@ -110,10 +111,12 @@ export const EnhancedIncentiveCalculatorForm: React.FC<IncentiveCalculatorFormPr
 
       setIsLoadingInvestments(true);
       try {
+        const currentYear = new Date().getFullYear();
         const { data, error } = await supabase
           .from('investments_by_province')
           .select('*')
           .eq('province', formData.province)
+          .eq('year', currentYear)
           .order('investment_name');
 
         if (error) {
