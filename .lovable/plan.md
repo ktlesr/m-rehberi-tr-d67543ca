@@ -1,67 +1,119 @@
 
 
-# Yerel Kalkınma Hamlesi Yıl Bazlı Güncelleme Planı (Revize)
+# Yatırım Konusu Dropdown Görünüm İyileştirmesi
 
-## Yapılacaklar
+## Sorun
 
-| Adım | Açıklama | Kim Yapacak |
-|------|----------|-------------|
-| 1. Migration | `year` sütunu ekleme | Lovable |
-| 2. Frontend Güncelleme | Yıl filtresi ekleme | Lovable |
-| 3. 2026 Verileri | Manuel veri girişi | Kullanıcı (Supabase) |
+Yatırım konuları dropdown listesinde çok uzun metinler var ve bunlar:
+- Ekrandan taşıyor
+- Okunması zor
+- Görsel olarak şık değil
+
+## Çözüm Yaklaşımı
+
+Dropdown içindeki uzun metinleri belirli bir karakter sayısında kesip `...` ile gösterecek, ancak **hover ile tooltip** olarak tam metni göstereceğiz. Bu sayede:
+- Liste temiz ve okunabilir olacak
+- Kullanıcı imleci üzerine getirdiğinde tam metni görebilecek
 
 ---
 
 ## Teknik Uygulama
 
-### 1. Veritabanı Migration
+### Görsel Tasarım
 
-```sql
--- year sütunu ekle (varsayılan 2025)
-ALTER TABLE public.investments_by_province 
-ADD COLUMN year INTEGER NOT NULL DEFAULT 2025;
-
--- Performans için index ekle
-CREATE INDEX idx_investments_province_year 
-ON public.investments_by_province (province, year);
 ```
-
-Mevcut 324 kayıt otomatik olarak `year = 2025` değerini alacak.
-
-### 2. Frontend Değişiklikleri
-
-#### `src/components/IncentiveCalculatorForm.tsx`
-
-- Interface'e `year: number` ekleme
-- Supabase sorgusuna `.eq('year', new Date().getFullYear())` filtresi ekleme
-
-#### `src/components/EnhancedIncentiveCalculatorForm.tsx`
-
-- Aynı değişiklikler bu dosyaya da uygulanacak
-
----
-
-## Sonrasında Sizin Yapacağınız
-
-Migration tamamlandıktan sonra Supabase'den:
-
-```sql
-INSERT INTO investments_by_province (province, investment_name, year) 
-VALUES 
-  ('İstanbul', 'Atık Elektrikli ve Elektronik Eşya...', 2026),
-  ('İstanbul', 'Havuçtan Beta Karoten...', 2026),
-  -- diğer kayıtlar
+┌─────────────────────────────────────────────────────────────────┐
+│ Yatırım Konusu                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ [Yatırım konusu seçin                                     ▼]   │
+├─────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ ✓ Örtüaltı ve Dikey Tarımda Kullanılan Yüksek Tekno...     │←Kısa
+│ │   Simgesel Mimari ve Nitelikli Kültür Endüstrileri...       │ 
+│ │   Spor/Sağlık Turizmi Yatırımları (salt hastane, diş...     │
+│ │   Tıbbi ve Aromatik Bitkilerden Katma Değerli Ürünl...      │
+│ └─────────────────────────────────────────────────────────────┘ │
+│                              │                                  │
+│                              ▼ Hover                            │
+│            ┌─────────────────────────────────────────────┐      │
+│            │ Tam metin tooltip olarak görünür            │      │
+│            │ "Örtüaltı ve Dikey Tarımda Kullanılan       │      │
+│            │  Yüksek Teknolojili Ürünlerin ve            │      │
+│            │  Aksamların Üretimi (ölçüm ve dozajlama...)"│      │
+│            └─────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-şeklinde 2026 verilerini ekleyebilirsiniz.
 
 ---
 
 ## Dosya Değişiklikleri
 
-| Dosya | İşlem |
-|-------|-------|
-| SQL Migration | `year` sütunu ve index ekleme |
-| `src/components/IncentiveCalculatorForm.tsx` | Yıl filtresi ekleme |
-| `src/components/EnhancedIncentiveCalculatorForm.tsx` | Yıl filtresi ekleme |
+### 1. `src/components/IncentiveCalculatorForm.tsx`
+
+**Satır 353-359** - SelectItem içinde truncate + tooltip eklenecek:
+
+```tsx
+{investments.map((investment) => (
+  <TooltipProvider key={investment.id}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <SelectItem value={investment.investment_name}>
+          <span className="block truncate max-w-[500px]">
+            {investment.investment_name}
+          </span>
+        </SelectItem>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-md">
+        <p>{investment.investment_name}</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+))}
+```
+
+### 2. `src/components/EnhancedIncentiveCalculatorForm.tsx`
+
+**Satır 347-353** - Aynı değişiklik:
+
+```tsx
+{investments.map((investment) => (
+  <TooltipProvider key={investment.id}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <SelectItem value={investment.investment_name}>
+          <span className="block truncate max-w-[500px]">
+            {investment.investment_name}
+          </span>
+        </SelectItem>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-md">
+        <p>{investment.investment_name}</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+))}
+```
+
+### 3. `src/components/ui/select.tsx` (Opsiyonel İyileştirme)
+
+SelectContent genişliğini kontrol için:
+- `w-full min-w-[var(--radix-select-trigger-width)] max-w-[600px]` ekleme
+
+---
+
+## Korunacak Özellikler
+
+- Mevcut seçim mantığı değişmeyecek
+- Seçilen değer tam metin olarak saklanacak (value)
+- Trigger'da seçili metin zaten `line-clamp-1` ile kesiliyor (mevcut)
+
+---
+
+## Özet
+
+| Değişiklik | Açıklama |
+|------------|----------|
+| Truncate | 500px max genişlik, taşan metin `...` ile kesilir |
+| Tooltip | Hover'da tam metin görünür |
+| MaxWidth | Dropdown genişliği kontrol altında |
 
