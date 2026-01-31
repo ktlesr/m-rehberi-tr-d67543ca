@@ -352,20 +352,15 @@ export const IncentiveCalculatorForm: React.FC<IncentiveCalculatorFormProps> = (
               </SelectTrigger>
               <SelectContent className="max-w-[600px]">
                 {investments.map((investment) => (
-                  <TooltipProvider key={investment.id} delayDuration={300}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <SelectItem value={investment.investment_name}>
-                          <span className="block truncate max-w-[500px]">
-                            {investment.investment_name}
-                          </span>
-                        </SelectItem>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-md z-[100]">
-                        <p className="text-sm">{investment.investment_name}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <SelectItem 
+                    key={investment.id} 
+                    value={investment.investment_name}
+                    title={investment.investment_name}
+                  >
+                    <span className="block truncate max-w-[500px]">
+                      {investment.investment_name}
+                    </span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
