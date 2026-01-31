@@ -1445,18 +1445,21 @@ export type Database = {
           id: number
           investment_name: string
           province: string
+          year: number
         }
         Insert: {
           created_at?: string | null
           id?: number
           investment_name: string
           province: string
+          year?: number
         }
         Update: {
           created_at?: string | null
           id?: number
           investment_name?: string
           province?: string
+          year?: number
         }
         Relationships: []
       }
