@@ -1,79 +1,59 @@
 
 
-# Sektör Seçimi Dinamik Suggestion Dropdown Planı
+# Yerel Kalkınma Hamlesi Yıl Bazlı Güncelleme Planı (Revize)
 
-## Mevcut Durum
+## Yapılacaklar
 
-| Özellik | Mevcut | Hedef |
-|---------|--------|-------|
-| Arama Şekli | Butona basarak arama | Yazarken otomatik öneri |
-| Suggestion | Yok | 2+ karakter sonrası dropdown |
-| Debounce | Yok | 300ms debounce |
-| Klavye Navigasyonu | Sadece Enter ile arama | ↑↓ ok tuşları + Enter |
-
-## Çözüm Yaklaşımı
-
-Mevcut `SectorSearchStep.tsx` bileşenine, `SearchBar.tsx`'de olduğu gibi dinamik suggestion dropdown eklenecek. **Mevcut "Ara" butonu ve tüm işlevler korunacak.**
+| Adım | Açıklama | Kim Yapacak |
+|------|----------|-------------|
+| 1. Migration | `year` sütunu ekleme | Lovable |
+| 2. Frontend Güncelleme | Yıl filtresi ekleme | Lovable |
+| 3. 2026 Verileri | Manuel veri girişi | Kullanıcı (Supabase) |
 
 ---
 
 ## Teknik Uygulama
 
-### Yeni Hook: `src/hooks/useSectorSuggestions.ts`
+### 1. Veritabanı Migration
 
-Sektör önerileri için özel bir hook oluşturulacak:
+```sql
+-- year sütunu ekle (varsayılan 2025)
+ALTER TABLE public.investments_by_province 
+ADD COLUMN year INTEGER NOT NULL DEFAULT 2025;
 
-```typescript
-// Temel yapı
-- 2+ karakter sonrası aktif
-- 300ms debounce
-- sector_search tablosundan NACE kodu ve sektör adı araması
-- Maksimum 8 öneri
+-- Performans için index ekle
+CREATE INDEX idx_investments_province_year 
+ON public.investments_by_province (province, year);
 ```
 
-### Değişiklik: `src/components/steps/SectorSearchStep.tsx`
+Mevcut 324 kayıt otomatik olarak `year = 2025` değerini alacak.
 
-**Eklenecek State ve Ref'ler:**
-```tsx
-const [showSuggestions, setShowSuggestions] = useState(false);
-const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
-const suggestionsRef = useRef<HTMLDivElement>(null);
-const inputRef = useRef<HTMLInputElement>(null);
-```
+### 2. Frontend Değişiklikleri
 
-**Yeni Özellikler:**
-1. `handleInputChange` fonksiyonunda suggestion fetch tetiklenecek
-2. Input altına dropdown listesi eklenecek
-3. Klavye navigasyonu (↑↓ + Enter + Escape)
-4. Dış tıklamada dropdown kapanması
+#### `src/components/IncentiveCalculatorForm.tsx`
 
-**UI Yapısı:**
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🔍 [NACE kodu veya sektör adı girin...]          [  Ara  ]     │
-├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ Sektörler (5 sonuç)                                        │ │
-│ ├─────────────────────────────────────────────────────────────┤ │
-│ │ 📂 Tekstil elyafının hazırlanması ve bükülmesi   [13.10]   │ │← hover/selected
-│ │ 📂 Tekstil dokuma                                 [13.20]   │ │
-│ │ 📂 Tekstil ürünleri imalatı                       [13.30]   │ │
-│ │ 📂 ...                                                      │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-```
+- Interface'e `year: number` ekleme
+- Supabase sorgusuna `.eq('year', new Date().getFullYear())` filtresi ekleme
+
+#### `src/components/EnhancedIncentiveCalculatorForm.tsx`
+
+- Aynı değişiklikler bu dosyaya da uygulanacak
 
 ---
 
-## Korunacak Mevcut Özellikler
+## Sonrasında Sizin Yapacağınız
 
-- ✅ "Ara" butonu tam çalışır durumda kalacak
-- ✅ NACE kodu / sektör adı arama mantığı değişmeyecek
-- ✅ Seçilen sektör kartı gösterimi korunacak
-- ✅ Arama sonuç listesi (büyük liste) korunacak
-- ✅ 6. Bölge özel kuralları korunacak
-- ✅ Badge'ler (Hedef, Öncelikli, Teknoloji Hamlesi vb.) korunacak
-- ✅ Analytics tracking korunacak
+Migration tamamlandıktan sonra Supabase'den:
+
+```sql
+INSERT INTO investments_by_province (province, investment_name, year) 
+VALUES 
+  ('İstanbul', 'Atık Elektrikli ve Elektronik Eşya...', 2026),
+  ('İstanbul', 'Havuçtan Beta Karoten...', 2026),
+  -- diğer kayıtlar
+```
+
+şeklinde 2026 verilerini ekleyebilirsiniz.
 
 ---
 
@@ -81,58 +61,7 @@ const inputRef = useRef<HTMLInputElement>(null);
 
 | Dosya | İşlem |
 |-------|-------|
-| `src/hooks/useSectorSuggestions.ts` | Yeni oluştur |
-| `src/components/steps/SectorSearchStep.tsx` | Güncelle |
-
----
-
-## Kullanıcı Akışı
-
-```
-1. Kullanıcı input'a yazmaya başlar
-   ↓
-2. 2+ karakter sonrası 300ms bekle
-   ↓
-3. sector_search tablosunda arama yap
-   ↓
-4. Dropdown'da önerileri göster (maks 8)
-   ↓
-5a. Kullanıcı öneriyi tıklar → Sektör seçilir, dropdown kapanır
-5b. Kullanıcı ↓↑ ile navigasyon + Enter → Sektör seçilir
-5c. Kullanıcı Escape basar → Dropdown kapanır
-5d. Kullanıcı "Ara" butonuna tıklar → Tam arama yapılır (mevcut davranış)
-```
-
----
-
-## Teknik Detaylar
-
-### useSectorSuggestions Hook
-
-```typescript
-interface SectorSuggestion {
-  id: number;
-  nace_kodu: string;
-  sektor: string;
-  hedef_yatirim: boolean;
-  oncelikli_yatirim: boolean;
-  yuksek_teknoloji: boolean;
-  orta_yuksek_teknoloji: boolean;
-  teknoloji_hamlesi: string | null;
-}
-
-// Debounce: 300ms
-// Min karakter: 2
-// Limit: 8 öneri
-// Arama: NACE kodu VEYA sektör adı
-```
-
-### Dropdown Stilleri
-
-- `z-50` yüksek z-index
-- `bg-background` solid arka plan (şeffaf olmayacak)
-- `border border-border` kenarlık
-- `shadow-lg` gölge
-- `max-h-64 overflow-y-auto` scroll
-- Hover ve selected state'leri için `bg-accent`
+| SQL Migration | `year` sütunu ve index ekleme |
+| `src/components/IncentiveCalculatorForm.tsx` | Yıl filtresi ekleme |
+| `src/components/EnhancedIncentiveCalculatorForm.tsx` | Yıl filtresi ekleme |
 
