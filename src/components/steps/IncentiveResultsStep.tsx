@@ -308,7 +308,9 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
 
       // Use determineInvestmentStatus helper for proper hierarchy (DURUM 1-4)
       const sectorDataForStatus: SectorDataForStatus = {
-        teknoloji_hamlesi: queryData.selectedSector.teknoloji_hamlesi || null,
+        is_hamle: queryData.selectedSector.is_hamle || false,
+        gtip: queryData.selectedSector.gtip || null,
+        gtip_aciklamasi: queryData.selectedSector.gtip_aciklamasi || null,
         yuksek_teknoloji: queryData.selectedSector.yuksek_teknoloji || false,
         orta_yuksek_teknoloji: queryData.selectedSector.orta_yuksek_teknoloji || false,
         hedef_yatirim: queryData.selectedSector.hedef_yatirim || false,

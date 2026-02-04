@@ -283,7 +283,6 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
     // Determine investment status using hierarchical logic
     const investmentStatus = determineInvestmentStatus({
       is_hamle: result.is_hamle,
-      teknoloji_hamlesi: result.teknoloji_hamlesi,
       gtip: result.gtip,
       gtip_aciklamasi: result.gtip_aciklamasi,
       yuksek_teknoloji: result.yuksek_teknoloji,

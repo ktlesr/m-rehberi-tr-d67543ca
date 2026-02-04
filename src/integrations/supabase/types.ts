@@ -2249,7 +2249,6 @@ export type Database = {
           orta_yuksek_teknoloji: boolean | null
           sartlar: string | null
           sektor: string
-          teknoloji_hamlesi: string | null
           updated_at: string | null
           yuksek_teknoloji: boolean | null
         }
@@ -2271,7 +2270,6 @@ export type Database = {
           orta_yuksek_teknoloji?: boolean | null
           sartlar?: string | null
           sektor: string
-          teknoloji_hamlesi?: string | null
           updated_at?: string | null
           yuksek_teknoloji?: boolean | null
         }
@@ -2293,7 +2291,6 @@ export type Database = {
           orta_yuksek_teknoloji?: boolean | null
           sartlar?: string | null
           sektor?: string
-          teknoloji_hamlesi?: string | null
           updated_at?: string | null
           yuksek_teknoloji?: boolean | null
         }
