@@ -257,6 +257,37 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
     }
   };
 
+  // Teknoloji Hamlesi için özel SGK hesaplama fonksiyonu
+  const calculateTechInitiativeSgk = (
+    region: number,
+    altBolge: number | null,
+    osbStatus: "İÇİ" | "DIŞI",
+    specialProgram: SpecialProgramEligibility | null
+  ): { duration: string; employerShareRate: number } => {
+    const isOsbInside = osbStatus === "İÇİ";
+
+    // 6. Bölge veya special program (deprem/cazibe)
+    if (region === 6 || specialProgram?.isEligible) {
+      return {
+        duration: isOsbInside ? "14 yıl" : "12 yıl",
+        employerShareRate: 100,
+      };
+    }
+
+    // 5. Bölge OSB İÇİ
+    if (region === 5 && isOsbInside) {
+      return { duration: "12 yıl", employerShareRate: 100 };
+    }
+
+    // 4. Bölge İlçe Alt Bölge OSB İÇİ (alt_bolge >= 6)
+    if (region === 4 && altBolge && altBolge >= 6 && isOsbInside) {
+      return { duration: "12 yıl", employerShareRate: 100 };
+    }
+
+    // 1-5. Bölge (varsayılan)
+    return { duration: "8 yıl", employerShareRate: 50 };
+  };
+
   const calculateIncentives = async () => {
     if (
       !queryData.selectedSector ||
@@ -332,6 +363,37 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
         ? false // Teknoloji Hamlesi = NEVER hedef
         : (applyRegion6Benefits ? false : investmentStatus.isTarget);
 
+      // Teknoloji Hamlesi özel destekleri hesaplama
+      let techInitiativeSupports = undefined;
+      if (investmentStatus.isTechInitiative) {
+        const altBolgeNum = altBolge ? parseInt(altBolge.replace(/\D/g, "")) : null;
+        const techSgk = calculateTechInitiativeSgk(
+          effectiveRegion,
+          altBolgeNum,
+          queryData.osbStatus,
+          specialProgram.isEligible ? specialProgram : null
+        );
+
+        // Override SGK duration for Teknoloji Hamlesi
+        sgkDuration = techSgk.duration;
+
+        techInitiativeSupports = {
+          sgk: techSgk,
+          taxSupport: {
+            investmentContributionRate: 50, // SABİT YKO
+            taxReductionRate: 60, // SABİT Vergi İndirim
+          },
+          interestSupport: {
+            investmentCapPercentage: 20, // Faiz: %20
+            upperLimit: 301000000, // 301.000.000 TL
+          },
+          machinerySupport: {
+            investmentCapPercentage: 15, // Makine: %15
+            upperLimit: 301000000, // 301.000.000 TL
+          },
+        };
+      }
+
       const result: IncentiveResult = {
         sector: {
           nace_code: queryData.selectedSector.nace_kodu,
@@ -347,6 +409,7 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
           isHighTech: investmentStatus.isHighTech,
           isMidHighTech: investmentStatus.isMidHighTech,
           isTechInitiative: investmentStatus.isTechInitiative,
+          techInitiativeSupports: techInitiativeSupports,
           investmentStatusExplanation: investmentStatus.explanation,
           conditions: queryData.selectedSector.sartlar || "",
           minInvestment: minInvestment,
@@ -759,6 +822,91 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
               </CardContent>
             </Card>
           </div>
+
+          {/* Teknoloji Hamlesi Destekleri Kartı */}
+          {incentiveResult.sector.isTechInitiative && incentiveResult.sector.techInitiativeSupports && (
+            <Card className="border-purple-200 bg-purple-50/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2 text-purple-700">
+                  <Rocket className="h-4 w-4" />
+                  Teknoloji Hamlesi Destekleri
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* SGK ve Vergi Bilgileri */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">SGK Destek Süresi</span>
+                    <span className="font-medium text-sm">
+                      {incentiveResult.sector.techInitiativeSupports.sgk.duration}
+                      <span className="text-muted-foreground ml-1">
+                        (İşveren Payı %{incentiveResult.sector.techInitiativeSupports.sgk.employerShareRate})
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Yatırıma Katkı Oranı (YKO)</span>
+                    <span className="font-medium text-sm">
+                      %{incentiveResult.sector.techInitiativeSupports.taxSupport.investmentContributionRate}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Vergi İndirim Oranı</span>
+                    <span className="font-medium text-sm">
+                      %{incentiveResult.sector.techInitiativeSupports.taxSupport.taxReductionRate}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Uyarı */}
+                <Alert className="border-amber-200 bg-amber-50">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800 text-sm">
+                    Aşağıdaki desteklerden <strong>yalnızca biri</strong> tercih edilebilir.
+                  </AlertDescription>
+                </Alert>
+
+                {/* İki destek kartı yan yana */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Faiz/Kar Payı Desteği */}
+                  <div className="p-4 bg-white rounded-lg border border-purple-100">
+                    <h6 className="font-medium text-sm mb-3 flex items-center gap-2">
+                      <span className="text-purple-600">💰</span>
+                      Faiz/Kar Payı Desteği
+                    </h6>
+                    <div className="text-xs space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">TSY Limiti:</span>
+                        <strong>%{incentiveResult.sector.techInitiativeSupports.interestSupport.investmentCapPercentage}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Üst Limit:</span>
+                        <strong>{incentiveResult.sector.techInitiativeSupports.interestSupport.upperLimit.toLocaleString("tr-TR")} TL</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Makine Desteği */}
+                  <div className="p-4 bg-white rounded-lg border border-purple-100">
+                    <h6 className="font-medium text-sm mb-3 flex items-center gap-2">
+                      <span className="text-purple-600">⚙️</span>
+                      Makine Desteği
+                    </h6>
+                    <div className="text-xs space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">TSY Limiti:</span>
+                        <strong>%{incentiveResult.sector.techInitiativeSupports.machinerySupport.investmentCapPercentage}</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Üst Limit:</span>
+                        <strong>{incentiveResult.sector.techInitiativeSupports.machinerySupport.upperLimit.toLocaleString("tr-TR")} TL</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Warning about Faiz/Kar Payı limit with yellow background - only for target sectors in regions 4,5,6 and not Istanbul mining */}
           {incentiveResult.sector.isTarget &&
