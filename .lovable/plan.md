@@ -1,67 +1,25 @@
 
 
-# Teknoloji Hamlesi - GTİP Bazlı Yeniden Yapılandırma Planı
+# `teknoloji_hamlesi` Sütununu Silme Planı
 
-## Mevcut Durum Analizi
+## Mevcut Durum
 
-Mevcut `sector_search` tablosunda `teknoloji_hamlesi` sütunu TEXT formatında ve içinde tüm bilgiler birleşik tutuluyor:
+Şu an veritabanında HEM `teknoloji_hamlesi` (TEXT) HEM de `is_hamle` (BOOLEAN) sütunları bulunuyor. Planda "geriye uyumluluk" için tutmuştuk ama artık silmemiz gerekiyor.
 
-```
-"EVET. GTİP No. 850440551000 ile Elektrikli Teçhizat Sektörü Öncelikli Ürün Listesi Çağrısı kapsamındadır"
-```
+## Etkilenen Dosyalar
 
-Bu yapının sorunları:
-- Bir NACE koduna birden fazla GTİP bağlanamıyor
-- GTİP kodu ve açıklaması ayrıştırılamıyor
-- Filtreleme ve arama zorlaşıyor
+Arama sonuçlarına göre `teknoloji_hamlesi` referansı olan 8 dosya var:
 
----
-
-## Yeni Veri Modeli
-
-### Seçenek 1: Mevcut Tabloya Sütun Ekleme (Basit)
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                        sector_search                            │
-├─────────────────────────────────────────────────────────────────┤
-│ id                    │ INTEGER (PK)                            │
-│ nace_kodu             │ TEXT                                    │
-│ sektor                │ TEXT                                    │
-│ hedef_yatirim         │ BOOLEAN                                 │
-│ oncelikli_yatirim     │ BOOLEAN                                 │
-│ yuksek_teknoloji      │ BOOLEAN                                 │
-│ orta_yuksek_teknoloji │ BOOLEAN                                 │
-│ is_hamle              │ BOOLEAN (YENİ - eski teknoloji_hamlesi) │
-│ gtip                  │ TEXT (YENİ)                             │
-│ gtip_aciklamasi       │ TEXT (YENİ)                             │
-│ sartlar               │ TEXT                                    │
-│ bolge_1-6             │ BIGINT                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-Bu yaklaşımda bir NACE-GTİP kombinasyonu için birden fazla satır olabilir.
-
-### Seçenek 2: Ayrı İlişkisel Tablo (Normalize)
-
-```text
-┌──────────────────────┐         ┌──────────────────────────────┐
-│    sector_search     │         │    teknoloji_hamlesi_gtip    │
-├──────────────────────┤         ├──────────────────────────────┤
-│ id (PK)              │◄───────┐│ id (PK)                      │
-│ nace_kodu            │        ││ sector_search_id (FK)        │
-│ sektor               │        │└─► nace_kodu (denormalize)    │
-│ ...                  │         │ gtip                         │
-│ is_hamle  (BOOLEAN)  │         │ gtip_aciklamasi              │
-│ (teknoloji_hamlesi   │         │ created_at                   │
-│  kaldırılacak)       │         └──────────────────────────────┘
-└──────────────────────┘
-```
-
-**Öneri**: Sizin açıklamanıza göre **Seçenek 1** (mevcut tabloya sütun ekleme) daha uygun. Çünkü:
-- Mevcut fonksiyonellik minimal değişiklikle korunur
-- Manuel veri yükleme daha kolay
-- Bir NACE altında birden fazla GTİP varsa, her biri ayrı satır olarak kaydedilir
+| Dosya | Kullanım |
+|-------|----------|
+| `src/types/database.ts` | Interface tanımı |
+| `src/integrations/supabase/types.ts` | Otomatik generate (migration sonrası otomatik güncellenir) |
+| `src/utils/investmentStatusHelper.ts` | Fallback kontrolü |
+| `src/hooks/useSectorSuggestions.ts` | Interface tanımı |
+| `src/components/steps/SectorSearchStep.tsx` | determineInvestmentStatus çağrısı |
+| `src/components/steps/IncentiveResultsStep.tsx` | sectorDataForStatus objesi |
+| `supabase/functions/lookup-nace/index.ts` | Interface + fallback |
+| `supabase/functions/chat-gemini/index.ts` | SELECT sorgusu + format |
 
 ---
 
@@ -70,29 +28,14 @@ Bu yaklaşımda bir NACE-GTİP kombinasyonu için birden fazla satır olabilir.
 ### Adım 1: Veritabanı Migrasyonu
 
 ```sql
--- 1. Yeni sütunları ekle
+-- teknoloji_hamlesi sütununu sil
 ALTER TABLE public.sector_search 
-ADD COLUMN is_hamle BOOLEAN DEFAULT FALSE,
-ADD COLUMN gtip TEXT,
-ADD COLUMN gtip_aciklamasi TEXT;
-
--- 2. Mevcut verilerden is_hamle değerini çıkar
-UPDATE public.sector_search 
-SET is_hamle = TRUE 
-WHERE teknoloji_hamlesi IS NOT NULL 
-  AND UPPER(teknoloji_hamlesi) LIKE 'EVET%';
-
--- 3. Mevcut verilerden GTİP kodunu parse et (regex ile)
--- Not: Bu opsiyonel, manuel yükleme yapılacaksa gerek yok
-
--- 4. Index ekle
-CREATE INDEX idx_sector_search_is_hamle ON public.sector_search (is_hamle);
-CREATE INDEX idx_sector_search_gtip ON public.sector_search (gtip);
+DROP COLUMN IF EXISTS teknoloji_hamlesi;
 ```
 
-### Adım 2: Type Tanımları Güncelleme
+### Adım 2: Type Tanımlarını Güncelleme
 
-**Dosya: `src/types/database.ts`**
+**`src/types/database.ts`** - `teknoloji_hamlesi` satırını kaldır:
 
 ```typescript
 export interface SectorSearchData {
@@ -103,140 +46,74 @@ export interface SectorSearchData {
   oncelikli_yatirim: boolean;
   yuksek_teknoloji: boolean;
   orta_yuksek_teknoloji: boolean;
-  is_hamle: boolean;              // YENİ
-  gtip: string | null;            // YENİ
-  gtip_aciklamasi: string | null; // YENİ
-  teknoloji_hamlesi: string | null; // Geriye uyumluluk için tutulacak
+  is_hamle: boolean;              // Teknoloji Hamlesi için tek alan
+  gtip: string | null;
+  gtip_aciklamasi: string | null;
   sartlar: string | null;
-  bolge_1: number;
   // ... diğer alanlar
 }
 ```
 
-### Adım 3: investmentStatusHelper.ts Güncelleme
+**`src/hooks/useSectorSuggestions.ts`** - Interface'den kaldır
 
-**Dosya: `src/utils/investmentStatusHelper.ts`**
+### Adım 3: Business Logic Güncelleme
 
-`SectorDataForStatus` interface'i ve `determineInvestmentStatus` fonksiyonu güncellenir:
+**`src/utils/investmentStatusHelper.ts`**:
 
+Mevcut:
 ```typescript
-export interface SectorDataForStatus {
-  is_hamle?: boolean;  // YENİ - öncelikli kontrol
-  teknoloji_hamlesi?: string | null; // Geriye uyumluluk
-  gtip?: string | null;
-  gtip_aciklamasi?: string | null;
-  yuksek_teknoloji: boolean;
-  orta_yuksek_teknoloji: boolean;
-  hedef_yatirim: boolean;
-  oncelikli_yatirim: boolean;
-}
-
-// DURUM 1 kontrolü güncellenir:
 const isTeknolojHamlesi = 
-  sectorData.is_hamle === true ||  // Yeni alan
-  sectorData.teknoloji_hamlesi?.toUpperCase().startsWith("EVET"); // Fallback
+  sectorData.is_hamle === true || 
+  sectorData.teknoloji_hamlesi?.toUpperCase().startsWith("EVET");
 ```
 
-### Adım 4: SectorSearchStep.tsx - GTİP Badge Gösterimi
-
-Seçili sektörde `is_hamle = TRUE` ve GTİP bilgisi varsa, bu bilgiyi badge olarak göster:
-
+Yeni:
 ```typescript
-// renderBadges fonksiyonuna ek:
-{badges.showTechInitiative && result.gtip && (
-  <Badge className="bg-indigo-100 text-indigo-800 text-xs">
-    GTİP: {result.gtip}
-  </Badge>
-)}
+const isTeknolojHamlesi = sectorData.is_hamle === true;
 ```
 
-### Adım 5: GTİP Alt Listesi Gösterimi
+Interface'den `teknoloji_hamlesi` kaldırılacak.
 
-Bir NACE kodu seçildiğinde, bu NACE'ye bağlı tüm GTİP kodlarını sorgula ve göster:
+### Adım 4: Component Güncellemeleri
 
-```typescript
-// Yeni fonksiyon: fetchGtipsByNace
-const fetchGtipsByNace = async (naceKodu: string) => {
-  const { data } = await supabase
-    .from('sector_search')
-    .select('gtip, gtip_aciklamasi')
-    .eq('nace_kodu', naceKodu)
-    .eq('is_hamle', true)
-    .not('gtip', 'is', null);
-  return data;
-};
-```
+**`src/components/steps/SectorSearchStep.tsx`**:
+- `determineInvestmentStatus` çağrısından `teknoloji_hamlesi` parametresini kaldır
 
-### Adım 6: lookup-nace Edge Function Güncelleme
+**`src/components/steps/IncentiveResultsStep.tsx`**:
+- `sectorDataForStatus` objesinden `teknoloji_hamlesi` satırını kaldır
+- `is_hamle` ekle
 
-**Dosya: `supabase/functions/lookup-nace/index.ts`**
+### Adım 5: Edge Function Güncellemeleri
 
-Interface ve format fonksiyonu güncellenir:
+**`supabase/functions/lookup-nace/index.ts`**:
+- Interface'den `teknoloji_hamlesi` kaldır
+- Fallback logic'i kaldır: sadece `row.is_hamle` kontrol et
 
-```typescript
-interface SectorRow {
-  // ... mevcut alanlar
-  is_hamle: boolean;
-  gtip: string | null;
-  gtip_aciklamasi: string | null;
-}
-
-// formatTurkishOutput güncellenir
-if (row.is_hamle) {
-  lines.push("🚀 Teknoloji Hamlesi Programı kapsamındadır");
-  if (row.gtip) {
-    lines.push(`📦 GTİP: ${row.gtip}`);
-    if (row.gtip_aciklamasi) {
-      lines.push(`📝 ${row.gtip_aciklamasi}`);
-    }
-  }
-}
-```
+**`supabase/functions/chat-gemini/index.ts`**:
+- SELECT sorgusundan `teknoloji_hamlesi` kaldır, yerine `is_hamle` ekle
+- Format fonksiyonunda `is_hamle` kullan
 
 ---
 
-## Dosya Değişiklikleri Özeti
+## Değişiklik Özeti
 
 | Dosya | İşlem |
 |-------|-------|
-| SQL Migration | `is_hamle`, `gtip`, `gtip_aciklamasi` sütunları + index |
-| `src/types/database.ts` | Interface güncelleme |
+| SQL Migration | `DROP COLUMN teknoloji_hamlesi` |
+| `src/types/database.ts` | `teknoloji_hamlesi` satırını sil |
 | `src/integrations/supabase/types.ts` | Otomatik regenerate |
-| `src/utils/investmentStatusHelper.ts` | `is_hamle` kontrolü ekleme |
-| `src/components/steps/SectorSearchStep.tsx` | GTİP badge gösterimi |
-| `src/hooks/useSectorSuggestions.ts` | Yeni alanları dahil etme |
-| `supabase/functions/lookup-nace/index.ts` | GTİP bilgisi gösterimi |
+| `src/utils/investmentStatusHelper.ts` | Fallback kaldır, interface güncelle |
+| `src/hooks/useSectorSuggestions.ts` | Interface'den kaldır |
+| `src/components/steps/SectorSearchStep.tsx` | Parametre kaldır |
+| `src/components/steps/IncentiveResultsStep.tsx` | `is_hamle` ekle, `teknoloji_hamlesi` kaldır |
+| `supabase/functions/lookup-nace/index.ts` | Interface + logic güncelle |
+| `supabase/functions/chat-gemini/index.ts` | SELECT + format güncelle |
 
 ---
 
-## Migrasyon Sonrası Sizin Yapacaklarınız
+## Dikkat Edilecekler
 
-Tablo güncellendiğinde Supabase üzerinden:
-
-```sql
--- Örnek GTİP verisi yükleme
-INSERT INTO sector_search (nace_kodu, sektor, is_hamle, gtip, gtip_aciklamasi, ...)
-VALUES 
-  ('10.89.05', 'Bitki özsu ve ekstreleri...', TRUE, '130220101000', 'Diğer Sektörler Öncelikli Ürün Listesi', ...);
-```
-
-veya mevcut kayıtları güncelleyerek:
-
-```sql
-UPDATE sector_search 
-SET 
-  is_hamle = TRUE,
-  gtip = '130220101000',
-  gtip_aciklamasi = 'Diğer Sektörler Öncelikli Ürün Listesi'
-WHERE id = ?;
-```
-
----
-
-## Korunan Özellikler
-
-- Mevcut tüm teşvik sorgulama fonksiyonelliği korunur
-- `hedef_yatirim`, `oncelikli_yatirim`, `yuksek_teknoloji`, `orta_yuksek_teknoloji` kontrolleri değişmez
-- Sadece Teknoloji Hamlesi kontrolü `is_hamle` boolean alanına taşınır
-- Geriye uyumluluk için eski `teknoloji_hamlesi` sütunu silinmez
+- Migration sonrası `is_hamle` değerleri mevcut verilerden zaten migrate edildi
+- Kod değişiklikleri migration ile senkron yapılmalı
+- Edge function'lar yeniden deploy edilecek
 
