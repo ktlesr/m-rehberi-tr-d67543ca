@@ -416,7 +416,7 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <Badge className="bg-orange-100 text-orange-700 border border-orange-300 hover:bg-orange-200 text-xs flex items-center gap-1">
                               <Package className="h-3 w-3" />
-                              {suggestion.gtip}
+                              GTİP: {suggestion.gtip}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
                               {suggestion.nace_kodu}
