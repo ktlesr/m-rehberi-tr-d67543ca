@@ -82,10 +82,10 @@ const styles = StyleSheet.create({
   // Section title styles
   sectionTitle: {
     backgroundColor: colors.sectionTitleBg,
-    paddingVertical: 6,
+    paddingVertical: 4,
     paddingHorizontal: 10,
-    marginTop: 16,
-    marginBottom: 10,
+    marginTop: 10,
+    marginBottom: 6,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
   },
@@ -99,10 +99,10 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   sectorName: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "bold",
     color: colors.textPrimary,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   kunyeGrid: {
     flexDirection: "row",
@@ -115,8 +115,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
-    paddingBottom: 6,
+    marginBottom: 5,
+    paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
   },
@@ -164,14 +164,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardBorder,
     borderRadius: 6,
-    padding: 12,
+    padding: 8,
   },
   destekCardTitle: {
     fontSize: 10,
     fontWeight: "bold",
     color: colors.textPrimary,
-    marginBottom: 10,
-    paddingBottom: 6,
+    marginBottom: 6,
+    paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
   },
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   destekLabel: {
     fontSize: 9,
@@ -196,12 +196,12 @@ const styles = StyleSheet.create({
   },
   // Özel Şartlar info box
   infoBox: {
-    marginTop: 16,
+    marginTop: 10,
     backgroundColor: colors.infoBg,
     borderWidth: 1,
     borderColor: colors.infoBorder,
     borderRadius: 6,
-    padding: 12,
+    padding: 8,
   },
   infoBoxHeader: {
     flexDirection: "row",
@@ -307,25 +307,25 @@ const styles = StyleSheet.create({
   // Footer
   // Teknoloji Hamlesi özel stiller
   techHamleContainer: {
-    marginTop: 16,
+    marginTop: 10,
     borderWidth: 1,
     borderColor: "#9c27b0",
     borderRadius: 6,
-    padding: 12,
+    padding: 8,
     backgroundColor: "#f3e5f5",
   },
   techHamleTitle: {
     fontSize: 11,
     fontWeight: "bold",
     color: "#7b1fa2",
-    marginBottom: 10,
+    marginBottom: 6,
     flexDirection: "row",
     alignItems: "center",
   },
   techHamleGrid: {
     flexDirection: "row",
     gap: 15,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   techHamleItem: {
     flex: 1,
@@ -345,9 +345,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ffc107",
     borderRadius: 4,
-    padding: 8,
-    marginTop: 10,
-    marginBottom: 10,
+    padding: 5,
+    marginTop: 6,
+    marginBottom: 6,
   },
   techHamleWarningText: {
     fontSize: 9,
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   techHamleSupportGrid: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 10,
+    marginTop: 6,
   },
   techHamleSupportCard: {
     flex: 1,
@@ -365,18 +365,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e1bee7",
     borderRadius: 4,
-    padding: 10,
+    padding: 6,
   },
   techHamleSupportTitle: {
     fontSize: 9,
     fontWeight: "bold",
     color: "#7b1fa2",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   techHamleSupportRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 3,
   },
   techHamleSupportLabel: {
     fontSize: 8,
@@ -655,7 +655,7 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
         {/* Teknoloji Hamlesi Destekleri Section */}
         {isTechInitiative && incentiveResult.sector.techInitiativeSupports && (
           <View style={styles.techHamleContainer}>
-            <Text style={styles.techHamleTitle}>🚀 TEKNOLOJİ HAMLESİ DESTEKLERİ</Text>
+            <Text style={styles.techHamleTitle}>TEKNOLOJİ HAMLESİ DESTEKLERİ</Text>
             
             {/* SGK ve Vergi Bilgileri */}
             <View style={styles.techHamleGrid}>
@@ -682,7 +682,7 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             {/* Uyarı */}
             <View style={styles.techHamleWarning}>
               <Text style={styles.techHamleWarningText}>
-                ⚠️ Aşağıdaki desteklerden yalnızca biri tercih edilebilir.
+                Aşağıdaki desteklerden yalnızca biri tercih edilebilir.
               </Text>
             </View>
 
@@ -690,7 +690,7 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             <View style={styles.techHamleSupportGrid}>
               {/* Faiz/Kar Payı Desteği */}
               <View style={styles.techHamleSupportCard}>
-                <Text style={styles.techHamleSupportTitle}>💰 Faiz/Kar Payı Desteği</Text>
+                <Text style={styles.techHamleSupportTitle}>Faiz/Kar Payı Desteği</Text>
                 <View style={styles.techHamleSupportRow}>
                   <Text style={styles.techHamleSupportLabel}>TSY Limiti:</Text>
                   <Text style={styles.techHamleSupportValue}>
@@ -707,7 +707,7 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
 
               {/* Makine Desteği */}
               <View style={styles.techHamleSupportCard}>
-                <Text style={styles.techHamleSupportTitle}>⚙️ Makine Desteği</Text>
+                <Text style={styles.techHamleSupportTitle}>Makine Desteği</Text>
                 <View style={styles.techHamleSupportRow}>
                   <Text style={styles.techHamleSupportLabel}>TSY Limiti:</Text>
                   <Text style={styles.techHamleSupportValue}>
