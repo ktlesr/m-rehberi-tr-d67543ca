@@ -1,146 +1,203 @@
 
-# GTİP Bilgisini PDF Raporuna Ekleme Planı
+# Teknoloji Hamlesi - Tam Destek Paketi Güncellemesi
 
-## Mevcut Durum
+## Özet
 
-Kullanıcı dropdown'dan GTİP satırını seçtiğinde:
-- UI'da GTİP açıklaması ve "Teknoloji Hamlesi" badge'i doğru gösteriliyor
-- Ancak PDF raporu hâlâ NACE sektör adını kullanıyor
-- GTİP kodu PDF'te hiç gösterilmiyor
+Sektör Sorgulama (Wizard) modülünde Teknoloji Hamlesi seçildiğinde özel kurallar uygulanacak:
+1. SGK destek süreleri ve işveren payı oranları
+2. Vergi desteği (sabit YKO %50, Vergi İndirim %60)
+3. Faiz/Kar Payı veya Makine Desteği seçenekleri
 
-## Yapılacak Değişiklikler
+---
 
-### 1. `src/types/incentive.ts` - IncentiveResult Interface'i Güncelleme
+## Teknoloji Hamlesi İş Kuralları
 
-`sector` objesine yeni alanlar eklenmeli:
+### 1. SGK Destek Süreleri
+
+| Bölge | OSB Durumu | SGK Süresi | İşveren Payı |
+|-------|------------|------------|--------------|
+| 1-5. Bölge | İÇİ/DIŞI | 8 yıl | %50 |
+| 4. Bölge İlçe Alt Bölge | OSB Dışı | 8 Yıl | %50 |
+| 4. Bölge İlçe Alt Bölge | OSB İÇİ | 12 Yıl | %100 |
+| 5. Bölge | OSB İÇİ | 12 Yıl | %100 |
+| 6. Bölge | DIŞI | 12 yıl | %100 |
+| 6. Bölge | İÇİ | 14 yıl | %100 |
+
+### 2. Vergi Desteği (SABİT)
+
+| Destek | Oran |
+|--------|------|
+| Yatırıma Katkı Oranı (YKO) | %50 |
+| Vergi İndirim Oranı | %60 |
+
+### 3. Faiz/Kar Payı VEYA Makine Desteği (biri tercih edilmeli)
+
+| Destek Türü | Sabit Yatırım Limiti | Üst Limit |
+|-------------|----------------------|-----------|
+| Faiz/Kar Payı Desteği | TSY'nin **%20**'si | 301.000.000 TL |
+| Makine Desteği | TSY'nin **%15**'i | 301.000.000 TL |
+
+---
+
+## Teknik Değişiklikler
+
+### 1. `src/types/incentive.ts` - Interface Güncellemesi
 
 ```typescript
-sector: {
-  nace_code: string;
-  name: string;           // Sektör veya GTİP açıklaması
-  gtip?: string;          // YENİ: GTİP kodu (varsa)
-  gtip_aciklamasi?: string; // YENİ: GTİP açıklaması (varsa)
-  selectedAsHamle?: boolean; // YENİ: GTİP satırı mı seçildi?
-  // ... mevcut alanlar
+export interface IncentiveResult {
+  sector: {
+    // ... mevcut alanlar
+    techInitiativeSupports?: {
+      sgk: {
+        duration: string;           // "8 yıl", "12 yıl", "14 yıl"
+        employerShareRate: number;  // 50 veya 100 (%)
+      };
+      taxSupport: {
+        investmentContributionRate: number;  // 50 (YKO)
+        taxReductionRate: number;            // 60 (Vergi İndirim)
+      };
+      interestSupport: {
+        investmentCapPercentage: number;  // 20
+        upperLimit: number;               // 301.000.000
+      };
+      machinerySupport: {
+        investmentCapPercentage: number;  // 15 (DÜZELTİLDİ)
+        upperLimit: number;               // 301.000.000
+      };
+    };
+  };
+  // ...
 }
 ```
 
-### 2. `src/components/steps/IncentiveResultsStep.tsx` - Veri Aktarımı
+### 2. `src/components/steps/IncentiveResultsStep.tsx` - Hesaplama Mantığı
 
-`calculateIncentives` fonksiyonunda `IncentiveResult` oluşturulurken:
+#### SGK Hesaplama Fonksiyonu
 
 ```typescript
-const result: IncentiveResult = {
-  sector: {
-    nace_code: queryData.selectedSector.nace_kodu,
-    // GTİP seçildiyse GTİP açıklaması, değilse sektör adı
-    name: queryData.selectedSector._selectedAsHamle && queryData.selectedSector.gtip_aciklamasi
-      ? queryData.selectedSector.gtip_aciklamasi
-      : queryData.selectedSector.sektor,
-    gtip: queryData.selectedSector.gtip || undefined,
-    gtip_aciklamasi: queryData.selectedSector.gtip_aciklamasi || undefined,
-    selectedAsHamle: queryData.selectedSector._selectedAsHamle,
-    // ... mevcut alanlar
-  },
-  // ...
+const calculateTechInitiativeSgk = (
+  region: number, 
+  altBolge: number | null, 
+  osbStatus: "İÇİ" | "DIŞI",
+  specialProgram: SpecialProgramEligibility | null
+): { duration: string; employerShareRate: number } => {
+  const isOsbInside = osbStatus === "İÇİ";
+  
+  // 6. Bölge veya special program (deprem/cazibe)
+  if (region === 6 || specialProgram?.isEligible) {
+    return {
+      duration: isOsbInside ? "14 yıl" : "12 yıl",
+      employerShareRate: 100
+    };
+  }
+  
+  // 5. Bölge OSB İÇİ
+  if (region === 5 && isOsbInside) {
+    return { duration: "12 yıl", employerShareRate: 100 };
+  }
+  
+  // 4. Bölge İlçe Alt Bölge OSB İÇİ
+  if (region === 4 && altBolge && altBolge >= 6 && isOsbInside) {
+    return { duration: "12 yıl", employerShareRate: 100 };
+  }
+  
+  // 1-5. Bölge (varsayılan)
+  return { duration: "8 yıl", employerShareRate: 50 };
 };
 ```
 
-### 3. `src/components/IncentiveReportPDF.tsx` - PDF Render Güncelleme
+#### calculateIncentives fonksiyonunda güncelleme
 
-#### Yatırım Künyesi bölümünde (satır 418 civarı):
-
-Sektör adı gösterimi:
-```tsx
-<Text style={styles.sectorName}>
-  {incentiveResult.sector.name}
-</Text>
+```typescript
+if (investmentStatus.isTechInitiative) {
+  const altBolgeNum = altBolge ? parseInt(altBolge.replace(/\D/g, '')) : null;
+  const techSgk = calculateTechInitiativeSgk(effectiveRegion, altBolgeNum, queryData.osbStatus, specialProgram);
+  
+  // SGK süresini override et
+  sgkDuration = techSgk.duration;
+  
+  // Tüm Teknoloji Hamlesi desteklerini ekle
+  result.sector.techInitiativeSupports = {
+    sgk: techSgk,
+    taxSupport: {
+      investmentContributionRate: 50,  // SABİT YKO
+      taxReductionRate: 60,            // SABİT Vergi İndirim
+    },
+    interestSupport: {
+      investmentCapPercentage: 20,     // Faiz: %20
+      upperLimit: 301000000,
+    },
+    machinerySupport: {
+      investmentCapPercentage: 15,     // Makine: %15 (DÜZELTİLDİ)
+      upperLimit: 301000000,
+    },
+  };
+}
 ```
 
-GTİP kodu badge'i eklenmeli (NACE kodu yanına):
-```tsx
-<View style={styles.kunyeRow}>
-  <Text style={styles.kunyeLabel}>NACE Kodu</Text>
-  <View style={{ flexDirection: 'row', gap: 4 }}>
-    <Text style={[styles.badge, { backgroundColor: colors.badgeBlue }]}>
-      {incentiveResult.sector.nace_code}
-    </Text>
-    {incentiveResult.sector.gtip && incentiveResult.sector.selectedAsHamle && (
-      <Text style={[styles.badge, { backgroundColor: colors.badgeOrange }]}>
-        GTİP: {incentiveResult.sector.gtip}
-      </Text>
-    )}
-  </View>
-</View>
+### 3. UI Gösterimi - Yeni Teknoloji Hamlesi Kartı
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ 🚀 Teknoloji Hamlesi Destekleri                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ SGK Destek Süresi        8 yıl (İşveren Payı %50)               │
+│ Yatırıma Katkı Oranı     %50                                    │
+│ Vergi İndirim Oranı      %60                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ ⚠️ Aşağıdaki desteklerden SADECE BİRİ tercih edilebilir:        │
+├─────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────┐ ┌─────────────────────────────┐ │
+│ │ 💰 Faiz/Kar Payı Desteği    │ │ ⚙️ Makine Desteği           │ │
+│ │ TSY Limiti: %20             │ │ TSY Limiti: %15             │ │
+│ │ Üst Limit: 301.000.000 TL   │ │ Üst Limit: 301.000.000 TL   │ │
+│ └─────────────────────────────┘ └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-#### Teknoloji Hamlesi bilgi kutusunda (satır 578-589 civarı):
+### 4. `src/components/IncentiveReportPDF.tsx` - PDF Rapor
 
-GTİP bilgisi badge olarak eklenmeli:
-```tsx
-{isTechInitiative && (
-  <View style={styles.infoBoxBadgeRow}>
-    <View style={[styles.infoBoxBadge, { backgroundColor: "#ffebee", borderColor: "#f44336" }]}>
-      <Text style={[styles.infoBoxBadgeText, { color: "#f44336" }]}>Teknoloji Hamlesi</Text>
-      <Text style={[styles.infoBoxBadgeValue, { color: "#f44336" }]}>EVET</Text>
-    </View>
-    {incentiveResult.sector.gtip && (
-      <View style={[styles.infoBoxBadge, { backgroundColor: "#fff3e0", borderColor: "#ff9800" }]}>
-        <Text style={[styles.infoBoxBadgeText, { color: "#f57c00" }]}>GTİP Kodu</Text>
-        <Text style={[styles.infoBoxBadgeValue, { color: "#f57c00" }]}>
-          {incentiveResult.sector.gtip}
-        </Text>
-      </View>
-    )}
-    {/* ... mevcut Yatırım Statüsü badge'i */}
-  </View>
-)}
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ TEKNOLOJİ HAMLESİ DESTEKLERİ                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ SGK Destek Süresi             8 yıl (İşveren Payı %50)          │
+│ Yatırıma Katkı Oranı          %50                               │
+│ Vergi İndirim Oranı           %60                               │
+│                                                                 │
+│ ▸ Faiz/Kar Payı Desteği                                         │
+│   Sabit Yatırım Limiti        TSY'nin %20'si                    │
+│   Üst Limit                   301.000.000 TL                    │
+│                                                                 │
+│ ▸ Makine Desteği                                                │
+│   Sabit Yatırım Limiti        TSY'nin %15'i                     │
+│   Üst Limit                   301.000.000 TL                    │
+│                                                                 │
+│ ⚠️ Not: Bu desteklerden yalnızca biri tercih edilebilir.        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## PDF Görsel Önizleme
-
-### GTİP Seçilmeden (Hedef Yatırım):
-
-```text
-┌────────────────────────────────────────────────────────────┐
-│ YATIRIM KÜNYESİ                                            │
-├────────────────────────────────────────────────────────────┤
-│ İğne, çengelli iğne, çuvaldız, tığ, nakış iğnesi, şiş...   │
-│                                                            │
-│ NACE Kodu    [25.73]                                       │
-│ Lokasyon     Denizli / Merkezefendi                        │
-└────────────────────────────────────────────────────────────┘
-```
-
-### GTİP Seçildiğinde (Teknoloji Hamlesi):
-
-```text
-┌────────────────────────────────────────────────────────────┐
-│ YATIRIM KÜNYESİ                                            │
-├────────────────────────────────────────────────────────────┤
-│ Baskı, kopyalama veya faks fonksiyonlarının iki veya...    │
-│                                                            │
-│ NACE Kodu    [26.20] [GTİP: 844331000000] (turuncu)        │
-│ Lokasyon     Denizli / Merkezefendi                        │
-├────────────────────────────────────────────────────────────┤
-│ [Teknoloji Hamlesi: EVET] [GTİP: 844331000000] [ÖNCELİKLİ] │
-└────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Teknik Özet
+## Dosya Değişiklikleri Özeti
 
 | Dosya | Değişiklik |
 |-------|------------|
-| `src/types/incentive.ts` | `sector` objesine `gtip`, `gtip_aciklamasi`, `selectedAsHamle` ekleme |
-| `src/components/steps/IncentiveResultsStep.tsx` | `calculateIncentives`'da GTİP verilerini `IncentiveResult`'a aktarma |
-| `src/components/IncentiveReportPDF.tsx` | GTİP badge'i ve koşullu sektör adı gösterimi |
+| `src/types/incentive.ts` | `techInitiativeSupports` interface (SGK + Vergi + Faiz/Makine) |
+| `src/components/steps/IncentiveResultsStep.tsx` | `calculateTechInitiativeSgk` + sabit vergi değerleri + yeni UI kartı |
+| `src/components/IncentiveReportPDF.tsx` | Teknoloji Hamlesi destekleri bölümü |
 
-## Önemli Not
+---
 
-Bu değişiklik mevcut PDF tasarımını bozmaz:
-- GTİP seçilmediyse → Mevcut davranış (sektör adı + NACE kodu)
-- GTİP seçildiyse → GTİP açıklaması + hem NACE hem GTİP kodu badge'leri
+## Önemli Notlar
+
+1. **Mevcut işlevsellik korunacak**: Teknoloji Hamlesi olmayan yatırımlar için mevcut mantık değişmeyecek
+
+2. **Sabit değerler**: 
+   - YKO %50, Vergi İndirim %60 (tüm bölgeler için aynı)
+   - Faiz Desteği: TSY'nin %20'si, max 301M TL
+   - Makine Desteği: TSY'nin %15'i, max 301M TL
+
+3. **Koşullu gösterim**: Teknoloji Hamlesi kartı sadece `isTechInitiative === true` olduğunda gösterilecek
+
+4. **Üst limit değerleri**: `investment_thresholds` tablosundan dinamik olarak çekilecek
