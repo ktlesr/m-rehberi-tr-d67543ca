@@ -7,8 +7,7 @@ export interface SectorSearchData {
   oncelikli_yatirim: boolean;
   yuksek_teknoloji: boolean;
   orta_yuksek_teknoloji: boolean;
-  teknoloji_hamlesi: string | null;  // Legacy field - for backward compatibility
-  is_hamle: boolean;                  // New boolean field for Teknoloji Hamlesi
+  is_hamle: boolean;                  // Teknoloji Hamlesi boolean field
   gtip: string | null;                // GTİP code
   gtip_aciklamasi: string | null;     // GTİP description
   sartlar: string | null;

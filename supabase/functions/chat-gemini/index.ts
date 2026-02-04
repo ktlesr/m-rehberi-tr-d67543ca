@@ -395,7 +395,7 @@ async function searchNaceCodes(supabase: any, query: string): Promise<any[]> {
     
     const { data, error } = await supabase
       .from('sector_search')
-      .select('nace_kodu, sektor, hedef_yatirim, oncelikli_yatirim, yuksek_teknoloji, orta_yuksek_teknoloji, teknoloji_hamlesi, sartlar, bolge_1, bolge_2, bolge_3, bolge_4, bolge_5, bolge_6')
+      .select('nace_kodu, sektor, hedef_yatirim, oncelikli_yatirim, yuksek_teknoloji, orta_yuksek_teknoloji, is_hamle, gtip, gtip_aciklamasi, sartlar, bolge_1, bolge_2, bolge_3, bolge_4, bolge_5, bolge_6')
       .or(searchConditions)
       .limit(10);
     
@@ -422,7 +422,7 @@ function formatNaceCodesSection(naceCodes: any[]): string {
     if (nc.oncelikli_yatirim) statuses.push('Öncelikli Yatırım');
     if (nc.yuksek_teknoloji) statuses.push('Yüksek Teknoloji');
     if (nc.orta_yuksek_teknoloji) statuses.push('Orta-Yüksek Teknoloji');
-    if (nc.teknoloji_hamlesi) statuses.push(`Teknoloji Hamlesi: ${nc.teknoloji_hamlesi}`);
+    if (nc.is_hamle) statuses.push('Teknoloji Hamlesi');
     
     const statusText = statuses.length > 0 ? ` (${statuses.join(', ')})` : '';
     const minInvestments: string[] = [];
@@ -432,7 +432,10 @@ function formatNaceCodesSection(naceCodes: any[]): string {
     
     const investmentInfo = minInvestments.length > 0 ? ` | Asgari: ${minInvestments.join(', ')}` : '';
     
-    return `• **${nc.nace_kodu}** - ${nc.sektor.substring(0, 80)}${nc.sektor.length > 80 ? '...' : ''}${statusText}${investmentInfo}`;
+    // Add GTİP info if available
+    const gtipInfo = nc.gtip ? ` | GTİP: ${nc.gtip}` : '';
+    
+    return `• **${nc.nace_kodu}** - ${nc.sektor.substring(0, 80)}${nc.sektor.length > 80 ? '...' : ''}${statusText}${investmentInfo}${gtipInfo}`;
   });
   
   return `\n\n---\n\n📋 **İlgili NACE Kodları:**\n${lines.join('\n')}`;

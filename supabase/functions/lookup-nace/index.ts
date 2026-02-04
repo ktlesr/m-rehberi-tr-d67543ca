@@ -13,8 +13,7 @@ interface SectorRow {
   oncelikli_yatirim: boolean;
   yuksek_teknoloji: boolean;
   orta_yuksek_teknoloji: boolean;
-  teknoloji_hamlesi: string | null;  // Legacy field
-  is_hamle: boolean;                  // New boolean field
+  is_hamle: boolean;                  // Teknoloji Hamlesi boolean field
   gtip: string | null;                // GTİP code
   gtip_aciklamasi: string | null;     // GTİP description
   sartlar: string | null;
@@ -65,8 +64,8 @@ function formatTurkishOutput(row: SectorRow): string {
   // Line 1: NACE code and sector name
   lines.push(`${row.nace_kodu} – ${row.sektor}`);
 
-  // Check teknoloji_hamlesi status (is_hamle boolean OR legacy text field)
-  const isTechHamlesi = row.is_hamle === true || row.teknoloji_hamlesi?.toUpperCase().startsWith("EVET");
+  // Check teknoloji_hamlesi status (is_hamle boolean)
+  const isTechHamlesi = row.is_hamle === true;
 
   // Apply hierarchical investment status logic
   if (isTechHamlesi) {
@@ -80,9 +79,6 @@ function formatTurkishOutput(row: SectorRow): string {
       if (row.gtip_aciklamasi) {
         lines.push(`📝 ${row.gtip_aciklamasi}`);
       }
-    } else if (row.teknoloji_hamlesi && row.teknoloji_hamlesi !== "EVET") {
-      // Fallback to legacy text field for GTİP details
-      lines.push(`Detay: ${row.teknoloji_hamlesi}`);
     }
     
     lines.push("ℹ️ Asgari yatırım tutarı: 1. ve 2. Bölgeler için 15.100.000 TL, 3.-6. Bölgeler için 7.500.000 TL");

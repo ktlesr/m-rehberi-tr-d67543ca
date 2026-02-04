@@ -36,8 +36,7 @@ export interface InvestmentStatusResult {
 }
 
 export interface SectorDataForStatus {
-  is_hamle?: boolean;                   // New boolean field - primary check
-  teknoloji_hamlesi?: string | null;    // Legacy field - fallback
+  is_hamle?: boolean;                   // Teknoloji Hamlesi boolean field
   gtip?: string | null;                 // GTİP code
   gtip_aciklamasi?: string | null;      // GTİP description
   yuksek_teknoloji: boolean;
@@ -121,11 +120,8 @@ export function determineInvestmentStatus(
   // Get current thresholds (use cached values)
   const thresholds = getCurrentThresholds();
   
-  // Check if is_hamle is true (new field) OR teknoloji_hamlesi starts with "EVET" (legacy fallback)
-  const isTeknolojHamlesi = 
-    sectorData.is_hamle === true || 
-    sectorData.teknoloji_hamlesi?.toUpperCase().startsWith("EVET") || 
-    false;
+  // Check if is_hamle is true (Teknoloji Hamlesi)
+  const isTeknolojHamlesi = sectorData.is_hamle === true;
   const isHighTech = sectorData.yuksek_teknoloji || false;
   const isMidHighTech = sectorData.orta_yuksek_teknoloji || false;
   const isHedef = sectorData.hedef_yatirim || false;

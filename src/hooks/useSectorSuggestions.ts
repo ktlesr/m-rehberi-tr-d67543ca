@@ -10,7 +10,6 @@ export interface SectorSuggestion {
   oncelikli_yatirim: boolean;
   yuksek_teknoloji: boolean;
   orta_yuksek_teknoloji: boolean;
-  teknoloji_hamlesi: string | null;
   is_hamle: boolean;
   gtip: string | null;
   gtip_aciklamasi: string | null;
