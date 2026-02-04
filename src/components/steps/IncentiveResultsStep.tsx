@@ -456,7 +456,7 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
               <div className="flex gap-2 flex-wrap">
                 {/* Teknoloji Hamlesi Badge - Always show first if applicable */}
                 {incentiveResult.sector.isTechInitiative && (
-                  <Badge className="bg-red-600 hover:bg-red-700 text-white flex items-center gap-1">
+                  <Badge className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white flex items-center gap-1">
                     <Rocket className="h-3 w-3" />
                     Teknoloji Hamlesi
                   </Badge>
