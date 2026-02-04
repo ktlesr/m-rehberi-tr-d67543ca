@@ -335,7 +335,13 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
       const result: IncentiveResult = {
         sector: {
           nace_code: queryData.selectedSector.nace_kodu,
-          name: queryData.selectedSector.sektor,
+          // If GTIP row was selected, use GTIP description as name
+          name: queryData.selectedSector._selectedAsHamle && queryData.selectedSector.gtip_aciklamasi
+            ? queryData.selectedSector.gtip_aciklamasi
+            : queryData.selectedSector.sektor,
+          gtip: queryData.selectedSector.gtip || undefined,
+          gtip_aciklamasi: queryData.selectedSector.gtip_aciklamasi || undefined,
+          selectedAsHamle: queryData.selectedSector._selectedAsHamle,
           isTarget: finalIsTarget,
           isPriority: finalIsPriority,
           isHighTech: investmentStatus.isHighTech,

@@ -44,6 +44,9 @@ export interface IncentiveResult {
   sector: {
     nace_code: string;
     name: string;
+    gtip?: string;  // GTİP code (if selected from GTIP row)
+    gtip_aciklamasi?: string;  // GTİP description
+    selectedAsHamle?: boolean;  // Was GTİP row selected in dropdown?
     isTarget: boolean;
     isPriority: boolean;
     isHighTech: boolean;
