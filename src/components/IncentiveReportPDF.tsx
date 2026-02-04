@@ -309,15 +309,15 @@ const styles = StyleSheet.create({
   techHamleContainer: {
     marginTop: 10,
     borderWidth: 1,
-    borderColor: "#9c27b0",
+    borderColor: "#1976d2",
     borderRadius: 6,
     padding: 8,
-    backgroundColor: "#f3e5f5",
+    backgroundColor: "#e3f2fd",
   },
   techHamleTitle: {
     fontSize: 11,
     fontWeight: "bold",
-    color: "#7b1fa2",
+    color: "#0011B3",
     marginBottom: 6,
     flexDirection: "row",
     alignItems: "center",
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   techHamleValue: {
     fontSize: 10,
     fontWeight: "bold",
-    color: "#7b1fa2",
+    color: "#0011B3",
   },
   techHamleWarning: {
     backgroundColor: "#fff8e1",
@@ -363,14 +363,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#e1bee7",
+    borderColor: "#90caf9",
     borderRadius: 4,
     padding: 6,
   },
   techHamleSupportTitle: {
     fontSize: 9,
     fontWeight: "bold",
-    color: "#7b1fa2",
+    color: "#1976d2",
     marginBottom: 4,
   },
   techHamleSupportRow: {
