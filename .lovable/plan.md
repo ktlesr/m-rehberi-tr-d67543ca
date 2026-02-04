@@ -1,119 +1,177 @@
 
+# Dropdown'da Çift Satır (NACE + GTİP) Gösterimi Planı
 
-# `teknoloji_hamlesi` Sütununu Silme Planı
+## İstenen Davranış
 
-## Mevcut Durum
+Referans görsele göre, `is_hamle = true` ve `gtip` bulunan sektörler için dropdown'da **iki ayrı satır** gösterilecek:
 
-Şu an veritabanında HEM `teknoloji_hamlesi` (TEXT) HEM de `is_hamle` (BOOLEAN) sütunları bulunuyor. Planda "geriye uyumluluk" için tutmuştuk ama artık silmemiz gerekiyor.
-
-## Etkilenen Dosyalar
-
-Arama sonuçlarına göre `teknoloji_hamlesi` referansı olan 8 dosya var:
-
-| Dosya | Kullanım |
-|-------|----------|
-| `src/types/database.ts` | Interface tanımı |
-| `src/integrations/supabase/types.ts` | Otomatik generate (migration sonrası otomatik güncellenir) |
-| `src/utils/investmentStatusHelper.ts` | Fallback kontrolü |
-| `src/hooks/useSectorSuggestions.ts` | Interface tanımı |
-| `src/components/steps/SectorSearchStep.tsx` | determineInvestmentStatus çağrısı |
-| `src/components/steps/IncentiveResultsStep.tsx` | sectorDataForStatus objesi |
-| `supabase/functions/lookup-nace/index.ts` | Interface + fallback |
-| `supabase/functions/chat-gemini/index.ts` | SELECT sorgusu + format |
+| Satır Tipi | Gösterim | Seçim Sonucu |
+|------------|----------|--------------|
+| **Sektör Satırı** | Sektör adı + NACE kodu | Diğer badge'ler (Hedef, Öncelikli, vs.) |
+| **GTİP Satırı** | GTİP açıklaması + GTİP badge (turuncu) + NACE kodu | Teknoloji Hamlesi badge'i |
 
 ---
 
-## Uygulama Adımları
+## Veri Dönüşümü Mantığı
 
-### Adım 1: Veritabanı Migrasyonu
+Veritabanından gelen her satır için:
 
-```sql
--- teknoloji_hamlesi sütununu sil
-ALTER TABLE public.sector_search 
-DROP COLUMN IF EXISTS teknoloji_hamlesi;
+```text
+is_hamle = true VE gtip != null ise:
+  → 2 satır oluştur:
+     1. { ...orijinal, displayType: 'sector', showAsHamle: false }
+     2. { ...orijinal, displayType: 'gtip', showAsHamle: true }
+     
+Aksi halde:
+  → 1 satır: { ...orijinal, displayType: 'sector', showAsHamle: false }
 ```
 
-### Adım 2: Type Tanımlarını Güncelleme
+---
 
-**`src/types/database.ts`** - `teknoloji_hamlesi` satırını kaldır:
+## Dosya Değişiklikleri
 
+### 1. `src/hooks/useSectorSuggestions.ts`
+
+Yeni interface ekle:
 ```typescript
-export interface SectorSearchData {
-  id: number;
-  nace_kodu: string;
-  sektor: string;
-  hedef_yatirim: boolean;
-  oncelikli_yatirim: boolean;
-  yuksek_teknoloji: boolean;
-  orta_yuksek_teknoloji: boolean;
-  is_hamle: boolean;              // Teknoloji Hamlesi için tek alan
-  gtip: string | null;
-  gtip_aciklamasi: string | null;
-  sartlar: string | null;
-  // ... diğer alanlar
+export interface DisplayableSuggestion extends SectorSearchData {
+  displayType: 'sector' | 'gtip';  // Satır tipi
+  showAsHamle: boolean;             // Seçildiğinde Tek.Hamlesi badge'i göster
+  displayText: string;              // Gösterilecek metin
 }
 ```
 
-**`src/hooks/useSectorSuggestions.ts`** - Interface'den kaldır
-
-### Adım 3: Business Logic Güncelleme
-
-**`src/utils/investmentStatusHelper.ts`**:
-
-Mevcut:
+`fetchSuggestions` fonksiyonunda veriyi dönüştür:
 ```typescript
-const isTeknolojHamlesi = 
-  sectorData.is_hamle === true || 
-  sectorData.teknoloji_hamlesi?.toUpperCase().startsWith("EVET");
+// Veritabanından gelen data'yı genişlet
+const expandedSuggestions: DisplayableSuggestion[] = [];
+
+data.forEach(item => {
+  // Her zaman sektör satırı ekle
+  expandedSuggestions.push({
+    ...item,
+    displayType: 'sector',
+    showAsHamle: false,
+    displayText: item.sektor
+  });
+  
+  // is_hamle ve gtip varsa GTİP satırı da ekle
+  if (item.is_hamle && item.gtip && item.gtip_aciklamasi) {
+    expandedSuggestions.push({
+      ...item,
+      displayType: 'gtip',
+      showAsHamle: true,
+      displayText: item.gtip_aciklamasi
+    });
+  }
+});
 ```
-
-Yeni:
-```typescript
-const isTeknolojHamlesi = sectorData.is_hamle === true;
-```
-
-Interface'den `teknoloji_hamlesi` kaldırılacak.
-
-### Adım 4: Component Güncellemeleri
-
-**`src/components/steps/SectorSearchStep.tsx`**:
-- `determineInvestmentStatus` çağrısından `teknoloji_hamlesi` parametresini kaldır
-
-**`src/components/steps/IncentiveResultsStep.tsx`**:
-- `sectorDataForStatus` objesinden `teknoloji_hamlesi` satırını kaldır
-- `is_hamle` ekle
-
-### Adım 5: Edge Function Güncellemeleri
-
-**`supabase/functions/lookup-nace/index.ts`**:
-- Interface'den `teknoloji_hamlesi` kaldır
-- Fallback logic'i kaldır: sadece `row.is_hamle` kontrol et
-
-**`supabase/functions/chat-gemini/index.ts`**:
-- SELECT sorgusundan `teknoloji_hamlesi` kaldır, yerine `is_hamle` ekle
-- Format fonksiyonunda `is_hamle` kullan
 
 ---
 
-## Değişiklik Özeti
+### 2. `src/components/steps/SectorSearchStep.tsx`
 
-| Dosya | İşlem |
-|-------|-------|
-| SQL Migration | `DROP COLUMN teknoloji_hamlesi` |
-| `src/types/database.ts` | `teknoloji_hamlesi` satırını sil |
-| `src/integrations/supabase/types.ts` | Otomatik regenerate |
-| `src/utils/investmentStatusHelper.ts` | Fallback kaldır, interface güncelle |
-| `src/hooks/useSectorSuggestions.ts` | Interface'den kaldır |
-| `src/components/steps/SectorSearchStep.tsx` | Parametre kaldır |
-| `src/components/steps/IncentiveResultsStep.tsx` | `is_hamle` ekle, `teknoloji_hamlesi` kaldır |
-| `supabase/functions/lookup-nace/index.ts` | Interface + logic güncelle |
-| `supabase/functions/chat-gemini/index.ts` | SELECT + format güncelle |
+#### Dropdown Render Güncelleme
+
+GTİP satırları için farklı UI:
+
+```text
+Sektör Satırı:
+┌─────────────────────────────────────────────────┬─────────┐
+│ Bilgisayar ve bilgisayar çevre birimleri imalatı│  26.20  │
+└─────────────────────────────────────────────────┴─────────┘
+
+GTİP Satırı:
+┌─────────────────────────────────────────────────┬──────────────────┬─────────┐
+│ Baskı, kopyalama veya faks fonksiyonlarının...  │ 844331000000 🟠 │  26.20  │
+└─────────────────────────────────────────────────┴──────────────────┴─────────┘
+```
+
+GTİP badge'i turuncu renkte (`bg-orange-100 text-orange-700 border-orange-300`)
+
+#### Seçim Sonrası State
+
+`handleSuggestionSelect` fonksiyonunda `showAsHamle` bilgisini kaydet:
+
+```typescript
+const handleSuggestionSelect = (suggestion: DisplayableSuggestion) => {
+  // showAsHamle true ise -> Teknoloji Hamlesi olarak işaretle
+  // showAsHamle false ise -> Diğer badge'ler
+  onSectorSelect({
+    ...suggestion,
+    // Seçim tipine göre is_hamle override
+    _selectedAsHamle: suggestion.showAsHamle
+  });
+};
+```
 
 ---
 
-## Dikkat Edilecekler
+### 3. `src/types/database.ts`
 
-- Migration sonrası `is_hamle` değerleri mevcut verilerden zaten migrate edildi
-- Kod değişiklikleri migration ile senkron yapılmalı
-- Edge function'lar yeniden deploy edilecek
+`SectorSearchData` interface'ine opsiyonel alan ekle:
 
+```typescript
+export interface SectorSearchData {
+  // ... mevcut alanlar
+  _selectedAsHamle?: boolean;  // UI seçim flag'i (veritabanında yok)
+}
+```
+
+---
+
+### 4. `src/utils/investmentStatusHelper.ts`
+
+`determineInvestmentStatus` fonksiyonunda `_selectedAsHamle` kontrol et:
+
+```typescript
+export const determineInvestmentStatus = (sectorData: SectorDataForStatus) => {
+  // Öncelik 1: Kullanıcı GTİP satırını seçtiyse Teknoloji Hamlesi
+  if (sectorData._selectedAsHamle === true) {
+    return 'teknoloji_hamlesi';
+  }
+  
+  // Öncelik 2: Kullanıcı normal satırı seçtiyse -> is_hamle'yi ignore et
+  if (sectorData._selectedAsHamle === false && sectorData.is_hamle) {
+    // Teknoloji Hamlesi'ni atla, diğer badge'lere bak
+    // ... mevcut hiyerarşi devam eder (yuksek_tek, orta_yuksek, oncelikli, hedef)
+  }
+  
+  // ... mevcut mantık
+};
+```
+
+---
+
+## Görsel Özet
+
+```text
+Arama: "26.20"
+
+Dropdown:
+┌────────────────────────────────────────────────────────────────────────────┐
+│ Sektörler (4 sonuç)                                                        │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Bilgisayar ve bilgisayar çevre birimleri imalatı              │   26.20   ││
+├────────────────────────────────────────────────────────────────────────────┤
+│ Baskı, kopyalama veya faks fonksiyonlarının iki...  │844331000000│  26.20  ││
+│                                                      (turuncu)             │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Bilgisayar ve bilgisayar çevre birimleri imalatı              │  26.20.01 ││
+├────────────────────────────────────────────────────────────────────────────┤
+│ Baskı, kopyalama veya faks fonksiyonlarının iki...  │844331000000│ 26.20.01││
+│                                                      (turuncu)             │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Değişiklik Listesi
+
+| Dosya | Değişiklik |
+|-------|------------|
+| `src/hooks/useSectorSuggestions.ts` | Yeni interface + veri dönüşümü |
+| `src/components/steps/SectorSearchStep.tsx` | Dropdown UI + seçim mantığı |
+| `src/types/database.ts` | `_selectedAsHamle` opsiyonel alan |
+| `src/utils/investmentStatusHelper.ts` | `_selectedAsHamle` kontrolü |
+| `src/components/steps/IncentiveResultsStep.tsx` | `_selectedAsHamle` prop geçişi |
