@@ -2239,8 +2239,11 @@ export type Database = {
           bolge_5: number | null
           bolge_6: number | null
           created_at: string | null
+          gtip: string | null
+          gtip_aciklamasi: string | null
           hedef_yatirim: boolean | null
           id: number
+          is_hamle: boolean | null
           nace_kodu: string
           oncelikli_yatirim: boolean | null
           orta_yuksek_teknoloji: boolean | null
@@ -2258,8 +2261,11 @@ export type Database = {
           bolge_5?: number | null
           bolge_6?: number | null
           created_at?: string | null
+          gtip?: string | null
+          gtip_aciklamasi?: string | null
           hedef_yatirim?: boolean | null
           id?: number
+          is_hamle?: boolean | null
           nace_kodu: string
           oncelikli_yatirim?: boolean | null
           orta_yuksek_teknoloji?: boolean | null
@@ -2277,8 +2283,11 @@ export type Database = {
           bolge_5?: number | null
           bolge_6?: number | null
           created_at?: string | null
+          gtip?: string | null
+          gtip_aciklamasi?: string | null
           hedef_yatirim?: boolean | null
           id?: number
+          is_hamle?: boolean | null
           nace_kodu?: string
           oncelikli_yatirim?: boolean | null
           orta_yuksek_teknoloji?: boolean | null

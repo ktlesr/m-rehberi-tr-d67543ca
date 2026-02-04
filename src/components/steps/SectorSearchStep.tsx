@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Target, Star, Zap, Cpu, Rocket, Loader2 } from 'lucide-react';
+import { Search, Target, Star, Zap, Cpu, Rocket, Loader2, Package } from 'lucide-react';
 import { SectorSearchData } from '@/types/database';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -282,7 +282,10 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
     
     // Determine investment status using hierarchical logic
     const investmentStatus = determineInvestmentStatus({
+      is_hamle: result.is_hamle,
       teknoloji_hamlesi: result.teknoloji_hamlesi,
+      gtip: result.gtip,
+      gtip_aciklamasi: result.gtip_aciklamasi,
       yuksek_teknoloji: result.yuksek_teknoloji,
       orta_yuksek_teknoloji: result.orta_yuksek_teknoloji,
       hedef_yatirim: result.hedef_yatirim,
@@ -298,6 +301,14 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
           <Badge className={`bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white ${badgeSize} flex items-center gap-1`}>
             <Rocket className={iconSize} />
             {isSmall ? "Tek. Hamlesi" : "Teknoloji Hamlesi"}
+          </Badge>
+        )}
+        
+        {/* GTİP Badge - Show when is_hamle is true and GTİP exists */}
+        {badges.showTechInitiative && result.gtip && (
+          <Badge className={`bg-indigo-100 text-indigo-800 hover:bg-indigo-200 ${badgeSize} flex items-center gap-1`}>
+            <Package className={iconSize} />
+            GTİP: {result.gtip}
           </Badge>
         )}
         
