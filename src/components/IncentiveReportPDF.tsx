@@ -305,6 +305,88 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   // Footer
+  // Teknoloji Hamlesi özel stiller
+  techHamleContainer: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#9c27b0",
+    borderRadius: 6,
+    padding: 12,
+    backgroundColor: "#f3e5f5",
+  },
+  techHamleTitle: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#7b1fa2",
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  techHamleGrid: {
+    flexDirection: "row",
+    gap: 15,
+    marginBottom: 10,
+  },
+  techHamleItem: {
+    flex: 1,
+  },
+  techHamleLabel: {
+    fontSize: 8,
+    color: "#616161",
+    marginBottom: 2,
+  },
+  techHamleValue: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#7b1fa2",
+  },
+  techHamleWarning: {
+    backgroundColor: "#fff8e1",
+    borderWidth: 1,
+    borderColor: "#ffc107",
+    borderRadius: 4,
+    padding: 8,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  techHamleWarningText: {
+    fontSize: 9,
+    color: "#f57c00",
+    fontWeight: "bold",
+  },
+  techHamleSupportGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  techHamleSupportCard: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e1bee7",
+    borderRadius: 4,
+    padding: 10,
+  },
+  techHamleSupportTitle: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#7b1fa2",
+    marginBottom: 8,
+  },
+  techHamleSupportRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  techHamleSupportLabel: {
+    fontSize: 8,
+    color: "#616161",
+  },
+  techHamleSupportValue: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "#212121",
+  },
   footer: {
     position: "absolute",
     bottom: 20,
@@ -538,17 +620,15 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             </View>
           )}
 
-          {/* Öncelikli Yatırım Destekleri Kartı */}
-          {(isPriority || isTechInitiative || isMidHighTech || isHighTech) && (
+          {/* Öncelikli Yatırım Destekleri Kartı - NOT for Teknoloji Hamlesi (has its own section) */}
+          {(isPriority || isMidHighTech || isHighTech) && !isTechInitiative && (
             <View style={styles.destekCard}>
               <Text style={[styles.destekCardTitle, { color: colors.success }]}>
-                {isTechInitiative
-                  ? "Öncelikli Yatırım Destekleri (Teknoloji Hamlesi)"
-                  : isMidHighTech
+                {isMidHighTech
+                  ? "Öncelikli Yatırım Destekleri"
+                  : isHighTech
                     ? "Öncelikli Yatırım Destekleri"
-                    : isHighTech
-                      ? "Öncelikli Yatırım Destekleri"
-                      : "Öncelikli Yatırım Destekleri"}
+                    : "Öncelikli Yatırım Destekleri"}
               </Text>
               <View style={styles.destekRow}>
                 <Text style={styles.destekLabel}>SGK Destek Süresi</Text>
@@ -572,7 +652,79 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
           )}
         </View>
 
-        {/* Yatırım Durumu Değerlendirmesi Section */}
+        {/* Teknoloji Hamlesi Destekleri Section */}
+        {isTechInitiative && incentiveResult.sector.techInitiativeSupports && (
+          <View style={styles.techHamleContainer}>
+            <Text style={styles.techHamleTitle}>🚀 TEKNOLOJİ HAMLESİ DESTEKLERİ</Text>
+            
+            {/* SGK ve Vergi Bilgileri */}
+            <View style={styles.techHamleGrid}>
+              <View style={styles.techHamleItem}>
+                <Text style={styles.techHamleLabel}>SGK Destek Süresi</Text>
+                <Text style={styles.techHamleValue}>
+                  {incentiveResult.sector.techInitiativeSupports.sgk.duration} (İşveren Payı %{incentiveResult.sector.techInitiativeSupports.sgk.employerShareRate})
+                </Text>
+              </View>
+              <View style={styles.techHamleItem}>
+                <Text style={styles.techHamleLabel}>Yatırıma Katkı Oranı (YKO)</Text>
+                <Text style={styles.techHamleValue}>
+                  %{incentiveResult.sector.techInitiativeSupports.taxSupport.investmentContributionRate}
+                </Text>
+              </View>
+              <View style={styles.techHamleItem}>
+                <Text style={styles.techHamleLabel}>Vergi İndirim Oranı</Text>
+                <Text style={styles.techHamleValue}>
+                  %{incentiveResult.sector.techInitiativeSupports.taxSupport.taxReductionRate}
+                </Text>
+              </View>
+            </View>
+
+            {/* Uyarı */}
+            <View style={styles.techHamleWarning}>
+              <Text style={styles.techHamleWarningText}>
+                ⚠️ Aşağıdaki desteklerden yalnızca biri tercih edilebilir.
+              </Text>
+            </View>
+
+            {/* Faiz ve Makine Destekleri */}
+            <View style={styles.techHamleSupportGrid}>
+              {/* Faiz/Kar Payı Desteği */}
+              <View style={styles.techHamleSupportCard}>
+                <Text style={styles.techHamleSupportTitle}>💰 Faiz/Kar Payı Desteği</Text>
+                <View style={styles.techHamleSupportRow}>
+                  <Text style={styles.techHamleSupportLabel}>TSY Limiti:</Text>
+                  <Text style={styles.techHamleSupportValue}>
+                    %{incentiveResult.sector.techInitiativeSupports.interestSupport.investmentCapPercentage}
+                  </Text>
+                </View>
+                <View style={styles.techHamleSupportRow}>
+                  <Text style={styles.techHamleSupportLabel}>Üst Limit:</Text>
+                  <Text style={styles.techHamleSupportValue}>
+                    {incentiveResult.sector.techInitiativeSupports.interestSupport.upperLimit.toLocaleString("tr-TR")} TL
+                  </Text>
+                </View>
+              </View>
+
+              {/* Makine Desteği */}
+              <View style={styles.techHamleSupportCard}>
+                <Text style={styles.techHamleSupportTitle}>⚙️ Makine Desteği</Text>
+                <View style={styles.techHamleSupportRow}>
+                  <Text style={styles.techHamleSupportLabel}>TSY Limiti:</Text>
+                  <Text style={styles.techHamleSupportValue}>
+                    %{incentiveResult.sector.techInitiativeSupports.machinerySupport.investmentCapPercentage}
+                  </Text>
+                </View>
+                <View style={styles.techHamleSupportRow}>
+                  <Text style={styles.techHamleSupportLabel}>Üst Limit:</Text>
+                  <Text style={styles.techHamleSupportValue}>
+                    {incentiveResult.sector.techInitiativeSupports.machinerySupport.upperLimit.toLocaleString("tr-TR")} TL
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
         {investmentStatusExplanation && (
           <View style={styles.infoBox}>
             <View style={styles.infoBoxHeader}>

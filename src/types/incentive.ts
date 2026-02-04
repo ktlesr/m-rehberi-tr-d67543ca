@@ -40,6 +40,26 @@ export interface SpecialProgram {
   appliedRegion?: number;
 }
 
+// Teknoloji Hamlesi özel destekleri
+export interface TechInitiativeSupports {
+  sgk: {
+    duration: string;           // "8 yıl", "12 yıl", "14 yıl"
+    employerShareRate: number;  // 50 veya 100 (%)
+  };
+  taxSupport: {
+    investmentContributionRate: number;  // 50 (YKO) - SABİT
+    taxReductionRate: number;            // 60 (Vergi İndirim) - SABİT
+  };
+  interestSupport: {
+    investmentCapPercentage: number;  // 20
+    upperLimit: number;               // 301.000.000
+  };
+  machinerySupport: {
+    investmentCapPercentage: number;  // 15
+    upperLimit: number;               // 301.000.000
+  };
+}
+
 export interface IncentiveResult {
   sector: {
     nace_code: string;
@@ -52,6 +72,7 @@ export interface IncentiveResult {
     isHighTech: boolean;
     isMidHighTech: boolean;
     isTechInitiative?: boolean;  // Teknoloji Hamlesi
+    techInitiativeSupports?: TechInitiativeSupports;  // Teknoloji Hamlesi özel destekleri
     investmentStatusExplanation?: string;  // Explanation of investment status
     conditions: string;
     minInvestment: number;
