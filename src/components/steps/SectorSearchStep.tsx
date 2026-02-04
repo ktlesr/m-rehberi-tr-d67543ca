@@ -468,7 +468,11 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
           <CardContent className="pt-4 px-4 sm:px-6">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-sm sm:text-base lg:text-lg pr-2">{selectedSector.sektor}</h4>
+                <h4 className="font-semibold text-sm sm:text-base lg:text-lg pr-2">
+                  {selectedSector._selectedAsHamle && selectedSector.gtip_aciklamasi 
+                    ? selectedSector.gtip_aciklamasi 
+                    : selectedSector.sektor}
+                </h4>
                 <Badge variant="outline" className="text-xs sm:text-sm flex-shrink-0">{selectedSector.nace_kodu}</Badge>
               </div>
               {renderBadges(selectedSector)}
