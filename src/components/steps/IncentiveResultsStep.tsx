@@ -315,6 +315,7 @@ const IncentiveResultsStep: React.FC<IncentiveResultsStepProps> = ({
         orta_yuksek_teknoloji: queryData.selectedSector.orta_yuksek_teknoloji || false,
         hedef_yatirim: queryData.selectedSector.hedef_yatirim || false,
         oncelikli_yatirim: queryData.selectedSector.oncelikli_yatirim || false,
+        _selectedAsHamle: queryData.selectedSector._selectedAsHamle, // Pass UI selection flag
       };
       
       // Calculate investment status using the helper (no investment amount in this screen)

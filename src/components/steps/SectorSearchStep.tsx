@@ -11,7 +11,7 @@ import { isRegion6Province } from '@/utils/regionUtils';
 import { useSearchAnalytics } from '@/hooks/useSearchAnalytics';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
 import { determineInvestmentStatus, getStatusBadges } from '@/utils/investmentStatusHelper';
-import { useSectorSuggestions } from '@/hooks/useSectorSuggestions';
+import { useSectorSuggestions, DisplayableSuggestion } from '@/hooks/useSectorSuggestions';
 
 interface SectorSearchStepProps {
   selectedSector: SectorSearchData | null;
@@ -103,16 +103,26 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
     }
   };
 
-  const handleSuggestionSelect = (sector: SectorSearchData) => {
-    onSectorSelect(sector);
+  const handleSuggestionSelect = (suggestion: DisplayableSuggestion) => {
+    // Pass the selection with _selectedAsHamle flag based on which row was clicked
+    const sectorWithFlag: SectorSearchData = {
+      ...suggestion,
+      _selectedAsHamle: suggestion.showAsHamle
+    };
+    onSectorSelect(sectorWithFlag);
     setSearchTerm('');
     setShowSuggestions(false);
     setSelectedSuggestionIndex(-1);
     clearSuggestions();
     setSearchResults([]);
+    
+    const displayName = suggestion.displayType === 'gtip' 
+      ? `${suggestion.gtip_aciklamasi} (GTİP: ${suggestion.gtip})`
+      : suggestion.sektor;
+    
     toast({
       title: "Sektör Seçildi",
-      description: `${sector.sektor} sektörü seçildi.`,
+      description: `${displayName} seçildi.`,
     });
   };
 
@@ -251,7 +261,12 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
   };
 
   const handleSectorSelect = (sector: SectorSearchData) => {
-    onSectorSelect(sector);
+    // From search results, default to non-hamle selection
+    const sectorWithFlag: SectorSearchData = {
+      ...sector,
+      _selectedAsHamle: false // Default to sector row behavior for search results
+    };
+    onSectorSelect(sectorWithFlag);
     setSearchResults([]);
     setSearchTerm('');
     toast({
@@ -280,7 +295,7 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
       );
     }
     
-    // Determine investment status using hierarchical logic
+    // Determine investment status using hierarchical logic with _selectedAsHamle flag
     const investmentStatus = determineInvestmentStatus({
       is_hamle: result.is_hamle,
       gtip: result.gtip,
@@ -288,7 +303,8 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
       yuksek_teknoloji: result.yuksek_teknoloji,
       orta_yuksek_teknoloji: result.orta_yuksek_teknoloji,
       hedef_yatirim: result.hedef_yatirim,
-      oncelikli_yatirim: result.oncelikli_yatirim
+      oncelikli_yatirim: result.oncelikli_yatirim,
+      _selectedAsHamle: result._selectedAsHamle // Pass the UI selection flag
     });
     
     const badges = getStatusBadges(investmentStatus);
@@ -382,7 +398,7 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
                   </div>
                   {suggestions.map((suggestion, index) => (
                     <div
-                      key={suggestion.id}
+                      key={`${suggestion.id}-${suggestion.displayType}`}
                       className={`px-3 py-2.5 cursor-pointer flex items-center justify-between gap-2 transition-colors ${
                         index === selectedSuggestionIndex 
                           ? 'bg-accent' 
@@ -391,10 +407,31 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
                       onClick={() => handleSuggestionSelect(suggestion)}
                       onMouseEnter={() => setSelectedSuggestionIndex(index)}
                     >
-                      <span className="text-sm truncate flex-1">{suggestion.sektor}</span>
-                      <Badge variant="outline" className="text-xs flex-shrink-0">
-                        {suggestion.nace_kodu}
-                      </Badge>
+                      {suggestion.displayType === 'gtip' ? (
+                        // GTİP Row: GTİP description + orange GTİP badge + NACE code
+                        <>
+                          <span className="text-sm truncate flex-1" title={suggestion.gtip_aciklamasi || ''}>
+                            {suggestion.displayText}
+                          </span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <Badge className="bg-orange-100 text-orange-700 border border-orange-300 hover:bg-orange-200 text-xs flex items-center gap-1">
+                              <Package className="h-3 w-3" />
+                              {suggestion.gtip}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {suggestion.nace_kodu}
+                            </Badge>
+                          </div>
+                        </>
+                      ) : (
+                        // Sector Row: Sector name + NACE code
+                        <>
+                          <span className="text-sm truncate flex-1">{suggestion.displayText}</span>
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {suggestion.nace_kodu}
+                          </Badge>
+                        </>
+                      )}
                     </div>
                   ))}
                 </>
