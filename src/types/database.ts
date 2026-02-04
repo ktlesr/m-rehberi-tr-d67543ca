@@ -19,6 +19,8 @@ export interface SectorSearchData {
   bolge_6: number;
   created_at: string;
   updated_at: string;
+  // UI-only field: tracks if user selected the GTİP row (not stored in DB)
+  _selectedAsHamle?: boolean;
 }
 
 export interface ProvinceRegionMap {

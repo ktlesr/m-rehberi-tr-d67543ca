@@ -43,6 +43,7 @@ export interface SectorDataForStatus {
   orta_yuksek_teknoloji: boolean;
   hedef_yatirim: boolean;
   oncelikli_yatirim: boolean;
+  _selectedAsHamle?: boolean;           // UI-only: true if user selected GTİP row
 }
 
 // Default fallback thresholds (will be overridden by DB values)
@@ -120,8 +121,13 @@ export function determineInvestmentStatus(
   // Get current thresholds (use cached values)
   const thresholds = getCurrentThresholds();
   
-  // Check if is_hamle is true (Teknoloji Hamlesi)
-  const isTeknolojHamlesi = sectorData.is_hamle === true;
+  // PRIORITY 1: If user explicitly selected GTİP row → Teknoloji Hamlesi
+  // PRIORITY 2: If user selected sector row but is_hamle is true → Skip Hamle, check other badges
+  const userSelectedHamle = sectorData._selectedAsHamle === true;
+  const userSelectedSectorRow = sectorData._selectedAsHamle === false;
+  
+  // Only treat as Teknoloji Hamlesi if user clicked the GTİP row
+  const isTeknolojHamlesi = userSelectedHamle;
   const isHighTech = sectorData.yuksek_teknoloji || false;
   const isMidHighTech = sectorData.orta_yuksek_teknoloji || false;
   const isHedef = sectorData.hedef_yatirim || false;

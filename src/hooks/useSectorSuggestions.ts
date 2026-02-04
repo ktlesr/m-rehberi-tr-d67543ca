@@ -2,21 +2,14 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { SectorSearchData } from '@/types/database';
 
-export interface SectorSuggestion {
-  id: number;
-  nace_kodu: string;
-  sektor: string;
-  hedef_yatirim: boolean;
-  oncelikli_yatirim: boolean;
-  yuksek_teknoloji: boolean;
-  orta_yuksek_teknoloji: boolean;
-  is_hamle: boolean;
-  gtip: string | null;
-  gtip_aciklamasi: string | null;
+export interface DisplayableSuggestion extends SectorSearchData {
+  displayType: 'sector' | 'gtip';  // Row type
+  showAsHamle: boolean;             // Show Teknoloji Hamlesi badge when selected
+  displayText: string;              // Text to display
 }
 
 export const useSectorSuggestions = () => {
-  const [suggestions, setSuggestions] = useState<SectorSearchData[]>([]);
+  const [suggestions, setSuggestions] = useState<DisplayableSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -79,7 +72,30 @@ export const useSectorSuggestions = () => {
         }
 
         if (!error && data) {
-          setSuggestions(data as SectorSearchData[]);
+          // Expand data: for each row with is_hamle + gtip, create two rows
+          const expandedSuggestions: DisplayableSuggestion[] = [];
+
+          (data as SectorSearchData[]).forEach(item => {
+            // Always add sector row
+            expandedSuggestions.push({
+              ...item,
+              displayType: 'sector',
+              showAsHamle: false,
+              displayText: item.sektor
+            });
+            
+            // If is_hamle and gtip exists, also add GTİP row
+            if (item.is_hamle && item.gtip && item.gtip_aciklamasi) {
+              expandedSuggestions.push({
+                ...item,
+                displayType: 'gtip',
+                showAsHamle: true,
+                displayText: item.gtip_aciklamasi
+              });
+            }
+          });
+
+          setSuggestions(expandedSuggestions);
         } else {
           setSuggestions([]);
         }
