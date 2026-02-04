@@ -1,203 +1,70 @@
 
-# Teknoloji Hamlesi - Tam Destek Paketi Güncellemesi
+# PDF Raporu Kompaktlaştırma ve Karakter Sorunu Düzeltme
 
-## Özet
+## Sorunlar
 
-Sektör Sorgulama (Wizard) modülünde Teknoloji Hamlesi seçildiğinde özel kurallar uygulanacak:
-1. SGK destek süreleri ve işveren payı oranları
-2. Vergi desteği (sabit YKO %50, Vergi İndirim %60)
-3. Faiz/Kar Payı veya Makine Desteği seçenekleri
+### 1. İkinci Sayfaya Taşma
+Teknoloji Hamlesi bölümü eklendikten sonra PDF içeriği bir sayfaya sığmıyor.
 
----
-
-## Teknoloji Hamlesi İş Kuralları
-
-### 1. SGK Destek Süreleri
-
-| Bölge | OSB Durumu | SGK Süresi | İşveren Payı |
-|-------|------------|------------|--------------|
-| 1-5. Bölge | İÇİ/DIŞI | 8 yıl | %50 |
-| 4. Bölge İlçe Alt Bölge | OSB Dışı | 8 Yıl | %50 |
-| 4. Bölge İlçe Alt Bölge | OSB İÇİ | 12 Yıl | %100 |
-| 5. Bölge | OSB İÇİ | 12 Yıl | %100 |
-| 6. Bölge | DIŞI | 12 yıl | %100 |
-| 6. Bölge | İÇİ | 14 yıl | %100 |
-
-### 2. Vergi Desteği (SABİT)
-
-| Destek | Oran |
-|--------|------|
-| Yatırıma Katkı Oranı (YKO) | %50 |
-| Vergi İndirim Oranı | %60 |
-
-### 3. Faiz/Kar Payı VEYA Makine Desteği (biri tercih edilmeli)
-
-| Destek Türü | Sabit Yatırım Limiti | Üst Limit |
-|-------------|----------------------|-----------|
-| Faiz/Kar Payı Desteği | TSY'nin **%20**'si | 301.000.000 TL |
-| Makine Desteği | TSY'nin **%15**'i | 301.000.000 TL |
+### 2. Başlık Karakter Sorunu
+"TEKNOLOJİ HAMLESİ DESTEKLERİ" başlığındaki "T" harfi garip görünüyor - bunun sebebi emoji (🚀) karakterinin Roboto fontu ile uyumsuzluğu.
 
 ---
 
-## Teknik Değişiklikler
+## Çözüm
 
-### 1. `src/types/incentive.ts` - Interface Güncellemesi
+### 1. Emoji Kaldırma
+Roboto fontu emoji karakterlerini düzgün render edemiyor. Emoji yerine metin kullanacağız:
+- `🚀 TEKNOLOJİ HAMLESİ DESTEKLERİ` → `TEKNOLOJİ HAMLESİ DESTEKLERİ`
+- `💰 Faiz/Kar Payı Desteği` → `Faiz/Kar Payı Desteği`  
+- `⚙️ Makine Desteği` → `Makine Desteği`
+- `⚠️ Aşağıdaki desteklerden...` → Emoji'siz metin
 
-```typescript
-export interface IncentiveResult {
-  sector: {
-    // ... mevcut alanlar
-    techInitiativeSupports?: {
-      sgk: {
-        duration: string;           // "8 yıl", "12 yıl", "14 yıl"
-        employerShareRate: number;  // 50 veya 100 (%)
-      };
-      taxSupport: {
-        investmentContributionRate: number;  // 50 (YKO)
-        taxReductionRate: number;            // 60 (Vergi İndirim)
-      };
-      interestSupport: {
-        investmentCapPercentage: number;  // 20
-        upperLimit: number;               // 301.000.000
-      };
-      machinerySupport: {
-        investmentCapPercentage: number;  // 15 (DÜZELTİLDİ)
-        upperLimit: number;               // 301.000.000
-      };
-    };
-  };
-  // ...
-}
-```
+### 2. Satır Yüksekliği ve Padding Azaltma
+Kompaktlaştırma için:
 
-### 2. `src/components/steps/IncentiveResultsStep.tsx` - Hesaplama Mantığı
+| Stil | Mevcut | Yeni |
+|------|--------|------|
+| `kunyeRow.marginBottom` | 8 | 5 |
+| `kunyeRow.paddingBottom` | 6 | 4 |
+| `sectionTitle.paddingVertical` | 6 | 4 |
+| `sectionTitle.marginTop` | 16 | 10 |
+| `sectionTitle.marginBottom` | 10 | 6 |
+| `destekCard.padding` | 12 | 8 |
+| `destekRow.marginBottom` | 6 | 4 |
+| `techHamleContainer.marginTop` | 16 | 10 |
+| `techHamleContainer.padding` | 12 | 8 |
+| `techHamleGrid.marginBottom` | 10 | 6 |
+| `techHamleWarning.padding` | 8 | 5 |
+| `techHamleWarning.marginTop/marginBottom` | 10 | 6 |
+| `techHamleSupportCard.padding` | 10 | 6 |
+| `infoBox.marginTop` | 16 | 10 |
+| `infoBox.padding` | 12 | 8 |
 
-#### SGK Hesaplama Fonksiyonu
-
-```typescript
-const calculateTechInitiativeSgk = (
-  region: number, 
-  altBolge: number | null, 
-  osbStatus: "İÇİ" | "DIŞI",
-  specialProgram: SpecialProgramEligibility | null
-): { duration: string; employerShareRate: number } => {
-  const isOsbInside = osbStatus === "İÇİ";
-  
-  // 6. Bölge veya special program (deprem/cazibe)
-  if (region === 6 || specialProgram?.isEligible) {
-    return {
-      duration: isOsbInside ? "14 yıl" : "12 yıl",
-      employerShareRate: 100
-    };
-  }
-  
-  // 5. Bölge OSB İÇİ
-  if (region === 5 && isOsbInside) {
-    return { duration: "12 yıl", employerShareRate: 100 };
-  }
-  
-  // 4. Bölge İlçe Alt Bölge OSB İÇİ
-  if (region === 4 && altBolge && altBolge >= 6 && isOsbInside) {
-    return { duration: "12 yıl", employerShareRate: 100 };
-  }
-  
-  // 1-5. Bölge (varsayılan)
-  return { duration: "8 yıl", employerShareRate: 50 };
-};
-```
-
-#### calculateIncentives fonksiyonunda güncelleme
-
-```typescript
-if (investmentStatus.isTechInitiative) {
-  const altBolgeNum = altBolge ? parseInt(altBolge.replace(/\D/g, '')) : null;
-  const techSgk = calculateTechInitiativeSgk(effectiveRegion, altBolgeNum, queryData.osbStatus, specialProgram);
-  
-  // SGK süresini override et
-  sgkDuration = techSgk.duration;
-  
-  // Tüm Teknoloji Hamlesi desteklerini ekle
-  result.sector.techInitiativeSupports = {
-    sgk: techSgk,
-    taxSupport: {
-      investmentContributionRate: 50,  // SABİT YKO
-      taxReductionRate: 60,            // SABİT Vergi İndirim
-    },
-    interestSupport: {
-      investmentCapPercentage: 20,     // Faiz: %20
-      upperLimit: 301000000,
-    },
-    machinerySupport: {
-      investmentCapPercentage: 15,     // Makine: %15 (DÜZELTİLDİ)
-      upperLimit: 301000000,
-    },
-  };
-}
-```
-
-### 3. UI Gösterimi - Yeni Teknoloji Hamlesi Kartı
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 🚀 Teknoloji Hamlesi Destekleri                                 │
-├─────────────────────────────────────────────────────────────────┤
-│ SGK Destek Süresi        8 yıl (İşveren Payı %50)               │
-│ Yatırıma Katkı Oranı     %50                                    │
-│ Vergi İndirim Oranı      %60                                    │
-├─────────────────────────────────────────────────────────────────┤
-│ ⚠️ Aşağıdaki desteklerden SADECE BİRİ tercih edilebilir:        │
-├─────────────────────────────────────────────────────────────────┤
-│ ┌─────────────────────────────┐ ┌─────────────────────────────┐ │
-│ │ 💰 Faiz/Kar Payı Desteği    │ │ ⚙️ Makine Desteği           │ │
-│ │ TSY Limiti: %20             │ │ TSY Limiti: %15             │ │
-│ │ Üst Limit: 301.000.000 TL   │ │ Üst Limit: 301.000.000 TL   │ │
-│ └─────────────────────────────┘ └─────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 4. `src/components/IncentiveReportPDF.tsx` - PDF Rapor
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ TEKNOLOJİ HAMLESİ DESTEKLERİ                                    │
-├─────────────────────────────────────────────────────────────────┤
-│ SGK Destek Süresi             8 yıl (İşveren Payı %50)          │
-│ Yatırıma Katkı Oranı          %50                               │
-│ Vergi İndirim Oranı           %60                               │
-│                                                                 │
-│ ▸ Faiz/Kar Payı Desteği                                         │
-│   Sabit Yatırım Limiti        TSY'nin %20'si                    │
-│   Üst Limit                   301.000.000 TL                    │
-│                                                                 │
-│ ▸ Makine Desteği                                                │
-│   Sabit Yatırım Limiti        TSY'nin %15'i                     │
-│   Üst Limit                   301.000.000 TL                    │
-│                                                                 │
-│ ⚠️ Not: Bu desteklerden yalnızca biri tercih edilebilir.        │
-└─────────────────────────────────────────────────────────────────┘
-```
+### 3. Font Boyutları (Hafif Azaltma)
+| Stil | Mevcut | Yeni |
+|------|--------|------|
+| `sectorName.fontSize` | 11 | 10 |
+| `sectorName.marginBottom` | 10 | 6 |
+| `destekCardTitle.marginBottom` | 10 | 6 |
+| `techHamleTitle.marginBottom` | 10 | 6 |
 
 ---
 
-## Dosya Değişiklikleri Özeti
+## Değişiklik Yapılacak Dosya
 
-| Dosya | Değişiklik |
-|-------|------------|
-| `src/types/incentive.ts` | `techInitiativeSupports` interface (SGK + Vergi + Faiz/Makine) |
-| `src/components/steps/IncentiveResultsStep.tsx` | `calculateTechInitiativeSgk` + sabit vergi değerleri + yeni UI kartı |
-| `src/components/IncentiveReportPDF.tsx` | Teknoloji Hamlesi destekleri bölümü |
+**`src/components/IncentiveReportPDF.tsx`**
+
+1. **Satır 658**: Emoji kaldır
+2. **Satır 684-686**: Uyarı emoji kaldır
+3. **Satır 693**: Faiz emoji kaldır
+4. **Satır 710**: Makine emoji kaldır
+5. **Stiller**: Yukarıdaki tabloya göre padding/margin değerlerini azalt
 
 ---
 
-## Önemli Notlar
+## Beklenen Sonuç
 
-1. **Mevcut işlevsellik korunacak**: Teknoloji Hamlesi olmayan yatırımlar için mevcut mantık değişmeyecek
-
-2. **Sabit değerler**: 
-   - YKO %50, Vergi İndirim %60 (tüm bölgeler için aynı)
-   - Faiz Desteği: TSY'nin %20'si, max 301M TL
-   - Makine Desteği: TSY'nin %15'i, max 301M TL
-
-3. **Koşullu gösterim**: Teknoloji Hamlesi kartı sadece `isTechInitiative === true` olduğunda gösterilecek
-
-4. **Üst limit değerleri**: `investment_thresholds` tablosundan dinamik olarak çekilecek
+- PDF tek sayfaya sığacak
+- "Teknoloji Hamlesi" başlığı düzgün görünecek (garip karakter sorunu çözülecek)
+- Mevcut okunabilirlik korunacak
