@@ -422,9 +422,16 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
             <View style={styles.kunyeColumn}>
               <View style={styles.kunyeRow}>
                 <Text style={styles.kunyeLabel}>NACE Kodu</Text>
-                <Text style={[styles.badge, { backgroundColor: colors.badgeBlue }]}>
-                  {incentiveResult.sector.nace_code}
-                </Text>
+                <View style={styles.badgeContainer}>
+                  <Text style={[styles.badge, { backgroundColor: colors.badgeBlue }]}>
+                    {incentiveResult.sector.nace_code}
+                  </Text>
+                  {incentiveResult.sector.gtip && incentiveResult.sector.selectedAsHamle && (
+                    <Text style={[styles.badge, { backgroundColor: colors.badgeOrange }]}>
+                      GTİP: {incentiveResult.sector.gtip}
+                    </Text>
+                  )}
+                </View>
               </View>
               <View style={styles.kunyeRow}>
                 <Text style={styles.kunyeLabel}>Alt Bölge</Text>
@@ -581,6 +588,14 @@ const IncentiveReportPDF: React.FC<IncentiveReportProps> = ({ incentiveResult, i
                   <Text style={[styles.infoBoxBadgeText, { color: "#f44336" }]}>Teknoloji Hamlesi</Text>
                   <Text style={[styles.infoBoxBadgeValue, { color: "#f44336" }]}>EVET</Text>
                 </View>
+                {incentiveResult.sector.gtip && incentiveResult.sector.selectedAsHamle && (
+                  <View style={[styles.infoBoxBadge, { backgroundColor: "#fff3e0", borderColor: "#ff9800" }]}>
+                    <Text style={[styles.infoBoxBadgeText, { color: "#f57c00" }]}>GTİP Kodu</Text>
+                    <Text style={[styles.infoBoxBadgeValue, { color: "#f57c00" }]}>
+                      {incentiveResult.sector.gtip}
+                    </Text>
+                  </View>
+                )}
                 <View style={[styles.infoBoxBadge, { backgroundColor: "#e8f5e9", borderColor: colors.success }]}>
                   <Text style={[styles.infoBoxBadgeText, { color: colors.success }]}>Yatırım Statüsü</Text>
                   <Text style={[styles.infoBoxBadgeValue, { color: colors.success }]}>ÖNCELİKLİ</Text>
