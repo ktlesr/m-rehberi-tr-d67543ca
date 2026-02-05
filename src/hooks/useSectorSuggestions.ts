@@ -63,7 +63,7 @@ export const useSectorSuggestions = () => {
           const result = await supabase
             .from("sector_search")
             .select("*")
-            .ilike("sektor", `%${rawInput.toLowerCase()}%`)
+            .or(`sektor.ilike.%${rawInput.toLowerCase()}%,gtip_aciklamasi.ilike.%${rawInput.toLowerCase()}%`)
             .order("sektor")
             .limit(8);
 
