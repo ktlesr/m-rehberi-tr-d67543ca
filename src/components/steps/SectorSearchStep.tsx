@@ -192,7 +192,7 @@ const SectorSearchStep: React.FC<SectorSearchStepProps> = ({
         const result = await supabase
           .from("sector_search")
           .select("*")
-          .ilike("sektor", `%${rawInput.toLowerCase()}%`)
+          .or(`sektor.ilike.%${rawInput.toLowerCase()}%,gtip_aciklamasi.ilike.%${rawInput.toLowerCase()}%`)
           .order("sektor");
 
         data = result.data;
