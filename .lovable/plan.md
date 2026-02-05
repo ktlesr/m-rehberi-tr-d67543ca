@@ -1,47 +1,70 @@
 
-# Teknoloji Hamlesi Renk Değişikliği
+# GTİP Açıklaması Üzerinden Arama Desteği
 
 ## Mevcut Durum
-Teknoloji Hamlesi bölümü pembe/mor renk şemasıyla görüntüleniyor:
-- Arka plan: `#f3e5f5` (lavanta)
-- Kenarlık: `#9c27b0` (mor)
-- Metin rengi: `#7b1fa2` (koyu mor)
+
+Şu an sektör arama mantığı:
+1. **Sayı içeriyorsa** → `nace_kodu` alanında arama
+2. **Sayı içermiyorsa** → `sektor` alanında arama
+
+GTİP açıklaması (örn: "Pektik maddeler", "Eldivenler, tek parmaklı eldivenler") şu an arama kapsamında değil.
 
 ## Hedef
-Raporun genel bütünlüğüyle uyumlu açık mavi renk şemasına geçiş.
 
-## Yeni Renk Şeması
+"Pektin" veya "eldiven" gibi arama yapıldığında hem `sektor` hem de `gtip_aciklamasi` alanlarında eşleşen sonuçları getirmek.
 
-| Öğe | Mevcut (Mor) | Yeni (Mavi) |
-|-----|--------------|-------------|
-| Container arka plan | `#f3e5f5` | `#e3f2fd` |
-| Container kenarlık | `#9c27b0` | `#1976d2` |
-| Başlık/değer rengi | `#7b1fa2` | `#0011B3` (primary) |
-| Alt kart kenarlığı | `#e1bee7` | `#90caf9` |
+---
 
-## Değişiklik Yapılacak Stiller
+## Teknik Değişiklikler
 
+### 1. `src/hooks/useSectorSuggestions.ts` - Suggestions Hook
+
+**Mevcut sorgu (metin araması):**
 ```typescript
-// src/components/IncentiveReportPDF.tsx
-
-techHamleContainer: {
-  backgroundColor: "#e3f2fd",    // Açık mavi (önceden #f3e5f5)
-  borderColor: "#1976d2",         // Mavi kenarlık (önceden #9c27b0)
-},
-techHamleTitle: {
-  color: "#0011B3",               // Primary mavi (önceden #7b1fa2)
-},
-techHamleValue: {
-  color: "#0011B3",               // Primary mavi (önceden #7b1fa2)
-},
-techHamleSupportCard: {
-  borderColor: "#90caf9",         // Açık mavi kenarlık (önceden #e1bee7)
-},
-techHamleSupportTitle: {
-  color: "#1976d2",               // Mavi başlık (önceden #7b1fa2)
-},
+.ilike("sektor", `%${rawInput.toLowerCase()}%`)
 ```
 
-## Beklenen Sonuç
+**Yeni sorgu (metin araması):**
+```typescript
+.or(`sektor.ilike.%${rawInput.toLowerCase()}%,gtip_aciklamasi.ilike.%${rawInput.toLowerCase()}%`)
+```
 
-Teknoloji Hamlesi kartı rapordaki diğer bölümlerle (Destekler, Yatırım Künyesi) aynı mavi tonlarında görünecek, görsel bütünlük sağlanacak.
+### 2. `src/components/steps/SectorSearchStep.tsx` - Manual Search
+
+**Mevcut sorgu (metin araması):**
+```typescript
+.ilike("sektor", `%${rawInput.toLowerCase()}%`)
+```
+
+**Yeni sorgu (metin araması):**
+```typescript
+.or(`sektor.ilike.%${rawInput.toLowerCase()}%,gtip_aciklamasi.ilike.%${rawInput.toLowerCase()}%`)
+```
+
+---
+
+## Değişiklik Özeti
+
+| Dosya | Değişiklik |
+|-------|------------|
+| `src/hooks/useSectorSuggestions.ts` | Metin aramasında `gtip_aciklamasi` alanını `.or()` ile dahil et |
+| `src/components/steps/SectorSearchStep.tsx` | Manuel aramada `gtip_aciklamasi` alanını `.or()` ile dahil et |
+
+---
+
+## Beklenen Davranış
+
+| Arama Terimi | Mevcut Sonuç | Yeni Sonuç |
+|--------------|--------------|------------|
+| "pektin" | Sonuç yok | Maya ve kabartma tozu imalatı, Bitki özsu ve ekstreleri... |
+| "eldiven" | Sonuç yok | Giyim eşyası imalatı, Bebek giyim eşyası imalatı... |
+| "10.89" | NACE ile eşleşenler | Aynı (değişiklik yok) |
+| "tekstil" | Sektor ile eşleşenler | Aynı + GTİP açıklamasında "tekstil" geçenler |
+
+---
+
+## Önemli Notlar
+
+1. **NACE kodu araması değişmeyecek**: Sayı içeren aramalar yalnızca `nace_kodu` alanında aranmaya devam edecek
+2. **Mevcut işlevsellik korunacak**: Sektör adı araması hâlâ çalışacak, ek olarak GTİP açıklaması da taranacak
+3. **Performans**: `.or()` ile tek sorgu kullanıldığı için ek veritabanı çağrısı yok
