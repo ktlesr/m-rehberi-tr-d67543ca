@@ -306,8 +306,13 @@ export function parseAPIResponse(data: any): StructuredAPIResponse {
     }
   }
 
-  // Eğer data.type === 'structured' ve content.sections varsa
-  if (normalized?.type === 'structured' && normalized?.content?.sections) {
+  // Eğer data.type === 'structured' ve content varsa (sections, summary veya comparison_table)
+  if (normalized?.type === 'structured' && normalized?.content && 
+      (normalized.content.sections || normalized.content.summary || normalized.content.comparison_table)) {
+    // sections yoksa boş dizi olarak ata
+    if (!normalized.content.sections) {
+      normalized.content.sections = [];
+    }
     // supportCards → supportPrograms alias desteği
     if (!normalized.supportPrograms && normalized.supportCards) {
       normalized.supportPrograms = normalized.supportCards;
