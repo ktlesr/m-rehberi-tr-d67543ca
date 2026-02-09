@@ -1,70 +1,154 @@
 
-# GTİP Açıklaması Üzerinden Arama Desteği
+# Chat Yanit Formati Hatasi - Kapsamli Duzeltme
 
-## Mevcut Durum
+## Sorunun Kok Nedeni (2 Ayri Problem)
 
-Şu an sektör arama mantığı:
-1. **Sayı içeriyorsa** → `nace_kodu` alanında arama
-2. **Sayı içermiyorsa** → `sektor` alanında arama
+### Problem 1: comparison_table Format Uyumsuzlugu
 
-GTİP açıklaması (örn: "Pektik maddeler", "Eldivenler, tek parmaklı eldivenler") şu an arama kapsamında değil.
+API sunucusu `comparison_table`'i bir **dizi** olarak donduruyor:
+```text
+"comparison_table": [
+  {"name": "YKH", "key_benefits": [...], "conditions": "..."},
+  {"name": "Genel Tesvikler", ...}
+]
+```
 
-## Hedef
+Ancak `StructuredResponseRenderer` bunu `{columns: [...], items: [...]}` formatinda bir **obje** olarak bekliyor. Sonuc: karsilastirma tablosu sessizce gosterilmiyor.
 
-"Pektin" veya "eldiven" gibi arama yapıldığında hem `sektor` hem de `gtip_aciklamasi` alanlarında eşleşen sonuçları getirmek.
+### Problem 2: "Yanit formati islenemedi" Hatasi
+
+Veritabaninda saklanmis mesajlar bozuk:
+```text
+{...gecerli JSON...}
+
+> Onemli Bilgi: Hedef sektorler icin Faiz destegi uygulanmamaktadir...
+```
+
+JSON'dan sonra markdown metin eklenmis. Bu, edge function'daki 9903 kuralinin `vertexResponse.text`'e uyari metni eklemesinden kaynaklaniyor. Sayfa yeniden yuklendiginde `tryParseStructuredContent` basarisiz oluyor cunku string `}` ile bitmiyor.
 
 ---
 
-## Teknik Değişiklikler
+## Cozum Plani (3 Dosya)
 
-### 1. `src/hooks/useSectorSuggestions.ts` - Suggestions Hook
+### 1. `src/utils/structuredResponseRenderer.tsx`
 
-**Mevcut sorgu (metin araması):**
+**a) `tryParseStructuredContent` - JSON + ek metin destegi (satir 366):**
+
+Mevcut kontrol `jsonString.endsWith('}')` gerekmektedir. Ancak JSON'dan sonra ek metin varsa basarisiz oluyor. Cozum: Ilk gecerli JSON blogunun sonunu bulup sadece onu parse etmek:
+
 ```typescript
-.ilike("sektor", `%${rawInput.toLowerCase()}%`)
+// Mevcut:
+if (jsonString.startsWith('{') && jsonString.endsWith('}')) {
+
+// Yeni: JSON'dan sonra ek metin olabilir - ilk gecerli JSON'u bul
+if (jsonString.startsWith('{')) {
+  // Eger sonda } yoksa, son }'yi bul ve orada kes
+  if (!jsonString.endsWith('}')) {
+    const lastBrace = jsonString.lastIndexOf('}');
+    if (lastBrace > 0) {
+      jsonString = jsonString.substring(0, lastBrace + 1);
+    }
+  }
 ```
 
-**Yeni sorgu (metin araması):**
+**b) `parseAPIResponse` - sections olmadan da structured kabul et (satir 310):**
+
 ```typescript
-.or(`sektor.ilike.%${rawInput.toLowerCase()}%,gtip_aciklamasi.ilike.%${rawInput.toLowerCase()}%`)
+// Mevcut:
+if (normalized?.type === 'structured' && normalized?.content?.sections)
+
+// Yeni:
+if (normalized?.type === 'structured' && normalized?.content && 
+    (normalized.content.sections || normalized.content.summary || normalized.content.comparison_table))
 ```
 
-### 2. `src/components/steps/SectorSearchStep.tsx` - Manual Search
-
-**Mevcut sorgu (metin araması):**
+`sections` yoksa bos dizi olarak atanacak:
 ```typescript
-.ilike("sektor", `%${rawInput.toLowerCase()}%`)
+if (!normalized.content.sections) {
+  normalized.content.sections = [];
+}
 ```
 
-**Yeni sorgu (metin araması):**
+**c) `StructuredResponseRenderer` - comparison_table dizi formatini destekle (satir 667-706):**
+
+API'den gelen dizi formatini tabloya donusturmek icin:
 ```typescript
-.or(`sektor.ilike.%${rawInput.toLowerCase()}%,gtip_aciklamasi.ilike.%${rawInput.toLowerCase()}%`)
+// comparison_table bir dizi mi kontrol et
+const comparisonItems = Array.isArray(content.comparison_table) 
+  ? content.comparison_table 
+  : null;
+
+// Dizi formatinda ise: her objeyi kart olarak goster
+{isComparative && comparisonItems && comparisonItems.map((item, idx) => (
+  <div key={idx} className="border rounded-lg p-4">
+    <h4 className="font-semibold">{item.name}</h4>
+    {item.key_benefits && (
+      <ul>
+        {item.key_benefits.map((b, i) => <li key={i}>{b}</li>)}
+      </ul>
+    )}
+    {item.conditions && <p className="text-sm">{item.conditions}</p>}
+  </div>
+))}
+
+// Obje formatinda ise: mevcut tablo render (columns/items)
+{isComparative && !comparisonItems && content.comparison_table?.columns && ...}
 ```
+
+**d) `tryParseStructuredContent` - summary kontrolu ekle (satir 373):**
+
+```typescript
+// Mevcut:
+if (normalized.type === 'structured' || normalized.content?.sections)
+
+// Yeni:
+if (normalized.type === 'structured' || normalized.content?.sections || normalized.content?.summary)
+```
+
+### 2. `supabase/functions/chat-gemini/index.ts`
+
+**9903 kurali structured response icin text'e uyari eklemeyi onle (satir 2996-3078):**
+
+Mevcut kod zaten structured response icin sections'a warning ekliyor (satir 3069). Ancak eger `vertexResponse.text` de varsa, markdown path'ine de dusebiliyor. Koruma ekle:
+
+```typescript
+// Satir 3080 oncesine guard ekle:
+// STRUCTURED response icin 9903 zaten yukarida handle edildi, 
+// text'e markdown ekleme
+else if (vertexResponse?.text && typeof vertexResponse.text === "string" && 
+         !vertexResponse._parsedFromText &&
+         vertexResponse?.type !== "structured") {  // <-- YENİ GUARD
+```
+
+### 3. `src/hooks/useChatSession.ts`
+
+**Reload sirasinda bozuk JSON'u kurtarma (satir 125-141):**
+
+DB'den yuklenen mesajlarda `tryParseStructuredContent` basarisiz olursa, JSON + ek metin durumunu handle et:
+
+```typescript
+const parsedStructured = msg.role === 'assistant' 
+  ? tryParseStructuredContent(msg.content) 
+  : null;
+```
+
+Bu zaten `tryParseStructuredContent`'teki duzeltmeyle otomatik olarak cozulecek (Problem 2a).
 
 ---
 
-## Değişiklik Özeti
+## Degisiklik Ozeti
 
-| Dosya | Değişiklik |
-|-------|------------|
-| `src/hooks/useSectorSuggestions.ts` | Metin aramasında `gtip_aciklamasi` alanını `.or()` ile dahil et |
-| `src/components/steps/SectorSearchStep.tsx` | Manuel aramada `gtip_aciklamasi` alanını `.or()` ile dahil et |
+| Dosya | Degisiklik | Hedef |
+|-------|------------|-------|
+| `structuredResponseRenderer.tsx` | JSON + ek metin parse | Bozuk DB kayitlarini kurtarma |
+| `structuredResponseRenderer.tsx` | sections olmadan structured kabul | Comparative mode destegi |
+| `structuredResponseRenderer.tsx` | comparison_table dizi format destegi | Karsilastirma tablosu goruntuleme |
+| `structuredResponseRenderer.tsx` | summary kontrolu ekleme | Esnek structured algilama |
+| `chat-gemini/index.ts` | 9903 kurali guard ekleme | Gelecekte bozuk veri olusumunu onleme |
 
----
+## Beklenen Sonuc
 
-## Beklenen Davranış
-
-| Arama Terimi | Mevcut Sonuç | Yeni Sonuç |
-|--------------|--------------|------------|
-| "pektin" | Sonuç yok | Maya ve kabartma tozu imalatı, Bitki özsu ve ekstreleri... |
-| "eldiven" | Sonuç yok | Giyim eşyası imalatı, Bebek giyim eşyası imalatı... |
-| "10.89" | NACE ile eşleşenler | Aynı (değişiklik yok) |
-| "tekstil" | Sektor ile eşleşenler | Aynı + GTİP açıklamasında "tekstil" geçenler |
-
----
-
-## Önemli Notlar
-
-1. **NACE kodu araması değişmeyecek**: Sayı içeren aramalar yalnızca `nace_kodu` alanında aranmaya devam edecek
-2. **Mevcut işlevsellik korunacak**: Sektör adı araması hâlâ çalışacak, ek olarak GTİP açıklaması da taranacak
-3. **Performans**: `.or()` ile tek sorgu kullanıldığı için ek veritabanı çağrısı yok
+- Mevcut bozuk DB kayitlari dogru render edilecek (JSON + ek metin parse edilecek)
+- Yeni comparative yanitlar comparison_table dizi formatinda dogru gosterilecek
+- 9903 kurali structured response'larin text'ine markdown eklemeyecek
+- "Yanit formati islenemedi" hatasi ortadan kalkacak
