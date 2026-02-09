@@ -166,6 +166,22 @@ export function convertStructuredToMarkdown(response: StructuredAPIResponse): st
     parts.push(content.summary);
   }
   
+  // Winner (comparative mod)
+  if (content.winner) {
+    parts.push(`\n**🏆 Önerilen:** ${content.winner}\n`);
+  }
+  
+  // Comparison table (dizi formatı)
+  if (content.comparison_table && Array.isArray(content.comparison_table)) {
+    (content.comparison_table as any[]).forEach((item: any) => {
+      parts.push(`\n**${item.name || item.title || 'Seçenek'}**`);
+      if (item.key_benefits) {
+        item.key_benefits.forEach((b: string) => parts.push(`• ${b}`));
+      }
+      if (item.conditions) parts.push(`_${item.conditions}_`);
+    });
+  }
+  
   // Sections
   content.sections?.forEach(section => {
     // Section başlığı

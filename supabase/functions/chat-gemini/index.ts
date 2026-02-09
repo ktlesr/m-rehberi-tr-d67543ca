@@ -3077,8 +3077,10 @@ serve(async (req) => {
           }
         }
         // MARKDOWN RESPONSE İÇİN 9903 KURALI (mevcut regex mantığı)
+        // NOT: structured response ise text'e markdown ekleme (JSON bozulur)
         else if (vertexResponse?.text && typeof vertexResponse.text === "string" && 
-                 !vertexResponse._parsedFromText) {
+                 !vertexResponse._parsedFromText &&
+                 vertexResponse?.type !== "structured") {
           console.log("📋 [Interest Support Rules] Checking markdown for 9903 rule...");
           
           const responseTextLower = vertexResponse.text.toLowerCase();
