@@ -166,6 +166,22 @@ export function convertStructuredToMarkdown(response: StructuredAPIResponse): st
     parts.push(content.summary);
   }
   
+  // Winner (comparative mod)
+  if (content.winner) {
+    parts.push(`\n**🏆 Önerilen:** ${content.winner}\n`);
+  }
+  
+  // Comparison table (dizi formatı)
+  if (content.comparison_table && Array.isArray(content.comparison_table)) {
+    (content.comparison_table as any[]).forEach((item: any) => {
+      parts.push(`\n**${item.name || item.title || 'Seçenek'}**`);
+      if (item.key_benefits) {
+        item.key_benefits.forEach((b: string) => parts.push(`• ${b}`));
+      }
+      if (item.conditions) parts.push(`_${item.conditions}_`);
+    });
+  }
+  
   // Sections
   content.sections?.forEach(section => {
     // Section başlığı
@@ -306,8 +322,13 @@ export function parseAPIResponse(data: any): StructuredAPIResponse {
     }
   }
 
-  // Eğer data.type === 'structured' ve content.sections varsa
-  if (normalized?.type === 'structured' && normalized?.content?.sections) {
+  // Eğer data.type === 'structured' ve content varsa (sections, summary veya comparison_table)
+  if (normalized?.type === 'structured' && normalized?.content && 
+      (normalized.content.sections || normalized.content.summary || normalized.content.comparison_table)) {
+    // sections yoksa boş dizi olarak ata
+    if (!normalized.content.sections) {
+      normalized.content.sections = [];
+    }
     // supportCards → supportPrograms alias desteği
     if (!normalized.supportPrograms && normalized.supportCards) {
       normalized.supportPrograms = normalized.supportCards;
@@ -363,14 +384,22 @@ export function tryParseStructuredContent(content: string): StructuredAPIRespons
     }
     
     // JSON gibi görünüyor mu?
-    if (jsonString.startsWith('{') && jsonString.endsWith('}')) {
+    if (jsonString.startsWith('{')) {
+      // JSON'dan sonra ek metin olabilir (9903 kuralı uyarısı gibi) - son }'yi bul
+      if (!jsonString.endsWith('}')) {
+        const lastBrace = jsonString.lastIndexOf('}');
+        if (lastBrace > 0) {
+          jsonString = jsonString.substring(0, lastBrace + 1);
+        }
+      }
+      
       const parsed = JSON.parse(jsonString);
       
       // Nested JSON string'leri çöz
       const normalized = deepParseJsonStrings(parsed);
       
       // Structured format mı kontrol et
-      if (normalized.type === 'structured' || normalized.content?.sections) {
+      if (normalized.type === 'structured' || normalized.content?.sections || normalized.content?.summary) {
         return parseAPIResponse(normalized);
       }
     }
@@ -664,47 +693,76 @@ export function StructuredResponseRenderer({ response, className }: StructuredRe
         </motion.div>
       )}
 
-      {/* Comparison Table - comparative mod */}
-      {isComparative && content.comparison_table && 
-       content.comparison_table.columns && 
-       content.comparison_table.items && (
-        <motion.div 
-          variants={sectionVariants}
-          className="overflow-x-auto"
-        >
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b border-border">
-                {content.comparison_table.columns.map((col, ci) => (
-                  <th 
-                    key={ci} 
-                    className="py-2 px-3 text-left font-semibold text-foreground bg-muted/50"
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {content.comparison_table.items.map((row, ri) => (
-                <tr key={ri} className="border-b border-border/30 last:border-0">
-                  {content.comparison_table!.columns!.map((col, ci) => (
-                    <td 
-                      key={ci} 
-                      className={cn(
-                        "py-2 px-3",
-                        ci === 0 ? "font-medium text-foreground" : "text-muted-foreground"
-                      )}
-                    >
-                      {row[col] || '-'}
-                    </td>
+      {/* Comparison Table - comparative mod (dizi veya obje format) */}
+      {isComparative && content.comparison_table && (() => {
+        const ct = content.comparison_table;
+        const isArray = Array.isArray(ct);
+        
+        // Dizi formatı: [{name, key_benefits, conditions, ...}, ...]
+        if (isArray) {
+          return (
+            <motion.div variants={sectionVariants} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(ct as any[]).map((item: any, idx: number) => (
+                <div key={idx} className="border border-border rounded-lg p-4 space-y-2 bg-card">
+                  <h4 className="font-semibold text-sm text-foreground">{item.name || item.title || `Seçenek ${idx + 1}`}</h4>
+                  {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
+                  {item.key_benefits && Array.isArray(item.key_benefits) && (
+                    <ul className="space-y-1">
+                      {item.key_benefits.map((b: string, i: number) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                          <span className="w-1 h-1 rounded-full bg-primary/60 mt-1.5 flex-shrink-0" />
+                          {b}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {item.conditions && <p className="text-xs text-muted-foreground italic">{item.conditions}</p>}
+                  {/* Render any other key-value pairs */}
+                  {Object.entries(item).filter(([k]) => !['name','title','description','key_benefits','conditions'].includes(k)).map(([k, v]) => (
+                    typeof v === 'string' && v ? (
+                      <div key={k} className="flex gap-2 text-xs">
+                        <span className="font-medium text-foreground capitalize">{k.replace(/_/g, ' ')}:</span>
+                        <span className="text-muted-foreground">{v}</span>
+                      </div>
+                    ) : null
                   ))}
-                </tr>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </motion.div>
-      )}
+            </motion.div>
+          );
+        }
+        
+        // Obje formatı: {columns: [...], items: [...]}
+        if (ct && (ct as ComparisonTable).columns && (ct as ComparisonTable).items) {
+          const tableData = ct as ComparisonTable;
+          return (
+            <motion.div variants={sectionVariants} className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-border">
+                    {tableData.columns.map((col, ci) => (
+                      <th key={ci} className="py-2 px-3 text-left font-semibold text-foreground bg-muted/50">{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableData.items.map((row, ri) => (
+                    <tr key={ri} className="border-b border-border/30 last:border-0">
+                      {tableData.columns.map((col, ci) => (
+                        <td key={ci} className={cn("py-2 px-3", ci === 0 ? "font-medium text-foreground" : "text-muted-foreground")}>
+                          {row[col] || '-'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </motion.div>
+          );
+        }
+        
+        return null;
+      })()}
 
       {/* Sections - staggered reveal */}
       {content.sections?.map((section, idx) => (
