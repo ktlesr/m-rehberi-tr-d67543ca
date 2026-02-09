@@ -368,14 +368,22 @@ export function tryParseStructuredContent(content: string): StructuredAPIRespons
     }
     
     // JSON gibi görünüyor mu?
-    if (jsonString.startsWith('{') && jsonString.endsWith('}')) {
+    if (jsonString.startsWith('{')) {
+      // JSON'dan sonra ek metin olabilir (9903 kuralı uyarısı gibi) - son }'yi bul
+      if (!jsonString.endsWith('}')) {
+        const lastBrace = jsonString.lastIndexOf('}');
+        if (lastBrace > 0) {
+          jsonString = jsonString.substring(0, lastBrace + 1);
+        }
+      }
+      
       const parsed = JSON.parse(jsonString);
       
       // Nested JSON string'leri çöz
       const normalized = deepParseJsonStrings(parsed);
       
       // Structured format mı kontrol et
-      if (normalized.type === 'structured' || normalized.content?.sections) {
+      if (normalized.type === 'structured' || normalized.content?.sections || normalized.content?.summary) {
         return parseAPIResponse(normalized);
       }
     }
