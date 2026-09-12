@@ -1,15 +1,23 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 
-// Log build info on application start
-console.log(
-  `%c[TeşvikSOR] Build: ${__BUILD_DATE__} ${__BUILD_TIME__} (${__BUILD_ID__})`,
-  'color: #10b981; font-weight: bold; font-size: 12px;'
+import App from './App';
+import './index.css';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 60_000, retry: 1 },
+  },
+});
+
+createRoot(document.getElementById('root') as HTMLElement).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </QueryClientProvider>
+  </StrictMode>,
 );
-console.log(`%c[TeşvikSOR] Timestamp: ${__BUILD_TIMESTAMP__}`, 'color: #6b7280; font-size: 10px;');
-
-createRoot(document.getElementById("root")!).render(<StrictMode>
-    <App />
-  </StrictMode>);
